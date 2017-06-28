@@ -1,0 +1,59 @@
+package:
+  name: larray-editor
+  version: 0.1
+
+source:
+  git_tag: 0.1
+  git_url: https://github.com/larray-project/larray-editor.git
+#  git_tag: devel
+#  git_url: file://c:/Users/ald/Projects/larray-editor/.git
+
+# build:
+  # If this is a new build for the same version, increment the build
+  # number. If you do not include this key, it defaults to 0.
+  # number: 1
+
+requirements:
+  build:
+    - python
+    - setuptools
+    - larray
+    - pytest-runner
+
+  run:
+    - python
+    - larray
+    - pyqt
+    - qtpy
+    - pytest-runner
+
+#test:
+#  requires:
+#    - pytest
+#    - pytest-runner
+
+#  imports:
+#    - larray-editor
+
+#  commands:
+#    - pytest
+
+  # commands:
+    # You can put test commands to be run here.  Use this to test that the
+    # entry points work.
+
+  # You can also put a file called run_test.py in the recipe that will be run
+  # at test time.
+
+  # requires:
+    # Put any additional test requirements here.  For example
+    # - nose
+
+about:
+  home:  https://github.com/larray-project/larray-editor
+  license: GPL
+  summary: "Graphical User Interface for LArray"
+
+# See
+# http://docs.continuum.io/conda/build.html for
+# more information about meta.yaml
