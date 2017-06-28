@@ -1,0 +1,9 @@
+experiments/
+build/
+dist/
+.cache/
+.eggs/
+.idea/
+*.pyc
+*.pyd
+larray-editor.egg-info
