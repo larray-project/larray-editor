@@ -23,6 +23,7 @@ requirements:
   run:
     - python
     - larray
+    - matplotlib
     - pyqt
     - qtpy
     - pytest-runner
