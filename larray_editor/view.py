@@ -502,8 +502,7 @@ class ArrayView(QTableView):
     def to_excel(self):
         """View selection in Excel"""
         if xw is None:
-            raise Exception("to_excel() is not available because xlwings is "
-                            "not installed")
+            QMessageBox.critical(self, "Error", "to_excel() is not available because xlwings is not installed")
         data = self._selection_data()
         if data is None:
             return
@@ -554,7 +553,7 @@ class ArrayView(QTableView):
 
     def plot(self):
         if not matplotlib_present:
-            raise Exception("plot() is not available because matplotlib is not installed")
+            QMessageBox.critical(self, "Error", "plot() is not available because matplotlib is not installed")
         data = self._selection_data(headers=False)
         if data is None:
             return
