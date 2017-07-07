@@ -1047,7 +1047,6 @@ class MappingEditor(QMainWindow):
             kernel = kernel_manager.kernel
 
             kernel.shell.run_cell('from larray import *')
-            kernel.shell.push(dict(self.data.items()))
             text_formatter = kernel.shell.display_formatter.formatters['text/plain']
 
             def void_formatter(array, *args, **kwargs):
@@ -1144,6 +1143,8 @@ class MappingEditor(QMainWindow):
         # convert input data to Session if not
         else:
             self.data = data if isinstance(data, la.Session) else la.Session(data)
+            if qtconsole_available:
+                self.kernel.shell.push(dict(self.data.items()))
             arrays = [k for k, v in self.data.items() if self._display_in_grid(k, v)]
             self.add_list_items(arrays)
 
