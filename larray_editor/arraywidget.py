@@ -569,6 +569,82 @@ class ArrayEditorWidget(QWidget):
         self.setLayout(layout)
         self.set_data(data, bg_value=bg_value, bg_gradient=bg_gradient)
 
+        # See http://doc.qt.io/qt-4.8/qt-draganddrop-fridgemagnets-dragwidget-cpp.html for an example
+        self.setAcceptDrops(True)
+
+    def mousePressEvent(self, event):
+        if event.button() != Qt.LeftButton:
+            return
+        self.dragLabel = self.childAt(event.pos())
+        self.dragStartPosition = event.pos()
+
+    def mouseMoveEvent(self, event):
+        from qtpy.QtCore import QMimeData, QByteArray
+        from qtpy.QtGui import QPixmap, QDrag
+
+        if not (event.button() != Qt.LeftButton and isinstance(self.dragLabel, QLabel)):
+            return
+
+        if (event.pos() - self.dragStartPosition).manhattanLength() < QApplication.startDragDistance():
+            return
+
+        axis_index = self.filters_layout.indexOf(self.dragLabel) // 2
+
+        # prepare hotSpot, mimeData and pixmap objects
+        mimeData = QMimeData()
+        mimeData.setText(self.dragLabel.text())
+        mimeData.setData("application/x-axis-index", QByteArray.number(axis_index))
+        pixmap = QPixmap(self.dragLabel.size())
+        self.dragLabel.render(pixmap)
+
+        # prepare drag object
+        drag = QDrag(self)
+        drag.setMimeData(mimeData)
+        drag.setPixmap(pixmap)
+        drag.setHotSpot(event.pos() - self.dragStartPosition)
+
+        drag.exec_(Qt.MoveAction | Qt.CopyAction, Qt.CopyAction)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasText():
+            if self.filters_layout.geometry().contains(event.pos()):
+                event.setDropAction(Qt.MoveAction)
+                event.accept()
+            else:
+                event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasText() and self.filters_layout.geometry().contains(event.pos()):
+            child = self.childAt(event.pos())
+            if isinstance(child, QLabel) and child.text() != "Filters":
+                event.setDropAction(Qt.MoveAction)
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        if event.mimeData().hasText():
+            if self.filters_layout.geometry().contains(event.pos()):
+                previous_index, success = event.mimeData().data("application/x-axis-index").toInt()
+                new_index = self.filters_layout.indexOf(self.childAt(event.pos())) // 2
+
+                la_data = self.model.get_data()
+                new_axes = la_data.axes.copy()
+                new_axes.insert(new_index, new_axes.pop(new_axes[previous_index]))
+                la_data = la_data.transpose(new_axes)
+                self.set_data(la_data, self.model.bg_gradient, self.model.bg_value)
+
+                event.setDropAction(Qt.MoveAction)
+                event.accept()
+            else:
+                event.acceptProposedAction()
+        else:
+            event.ignore()
+
     def set_data(self, data, bg_gradient=None, bg_value=None):
         la_data = la.aslarray(data)
         axes = la_data.axes
