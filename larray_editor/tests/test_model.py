@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 
 from larray import ndtest, zeros, LArray
-from larray_editor.model import ArrayModel, Product, LARGE_NROWS, LARGE_COLS
+from larray_editor.arraymodel import ArrayModel, Product, LARGE_NROWS, LARGE_COLS
 
 @pytest.fixture(scope="module")
 def data():

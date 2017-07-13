@@ -1,6 +1,5 @@
 from __future__ import absolute_import, division, print_function
 
-import os
 import sys
 import traceback
 from collections import OrderedDict
@@ -8,7 +7,7 @@ import numpy as np
 import larray as la
 
 from qtpy.QtWidgets import QApplication, QMainWindow
-from larray_editor.view import MappingEditor, ArrayEditor, SessionComparator, ArrayComparator, REOPEN_LAST_FILE
+from larray_editor.editor import REOPEN_LAST_FILE
 
 __all__ = ['view', 'edit', 'compare', 'REOPEN_LAST_FILE']
 
@@ -115,7 +114,13 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     if not title and obj is not REOPEN_LAST_FILE:
         title = get_title(obj, depth=depth + 1)
 
-    dlg = MappingEditor(parent) if obj is REOPEN_LAST_FILE or isinstance(obj, (str, la.Session)) else ArrayEditor(parent)
+    if obj is REOPEN_LAST_FILE or isinstance(obj, (str, la.Session)):
+        from larray_editor.editor import MappingEditor
+        dlg = MappingEditor(parent)
+    else:
+        from larray_editor.editor import ArrayEditor
+        dlg = ArrayEditor(parent)
+
     if dlg.setup_and_check(obj, title=title, minvalue=minvalue, maxvalue=maxvalue, readonly=readonly):
         if parent or isinstance(dlg, QMainWindow):
             dlg.show()
@@ -187,9 +192,11 @@ def compare(*args, **kwargs):
         parent = _app.activeWindow()
 
     if any(isinstance(a, la.Session) for a in args):
+        from larray_editor.comparator import SessionComparator
         dlg = SessionComparator(parent)
         default_name = 'session'
     else:
+        from larray_editor.comparator import ArrayComparator
         dlg = ArrayComparator(parent)
         default_name = 'array'
 
@@ -331,6 +338,10 @@ if __name__ == "__main__":
     # edit(file)
     # edit('fake_path')
     # edit(REOPEN_LAST_FILE)
+
+    # edit(arr2)
+    # compare(la.Session(arr2=arr2, arr3=arr3), la.Session(arr2=arr2 + 1.0, arr3=arr3 + 1.0))
+    # compare(arr2, arr2 + 1.0)
 
     # s = la.local_arrays()
     # view(s)

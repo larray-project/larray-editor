@@ -1,113 +1,14 @@
 from __future__ import absolute_import, division, print_function
 
-import sys
 import numpy as np
-import pandas as pd
 import larray as la
 
-from qtpy.QtCore import (Qt, QVariant, QModelIndex, QAbstractTableModel)
-from qtpy.QtGui import (QFont, QColor)
-from qtpy.QtWidgets import (QMessageBox)
-from qtpy import PYQT5
+from larray_editor.utils import (get_font, from_qvariant, to_qvariant, to_text_string,
+                                 is_float, is_number, SUPPORTED_FORMATS)
 
-PY2 = sys.version[0] == '2'
-
-
-def _get_font(family, size, bold=False, italic=False):
-    weight = QFont.Bold if bold else QFont.Normal
-    font = QFont(family, size, weight)
-    if italic:
-        font.setItalic(True)
-    return to_qvariant(font)
-
-def is_float(dtype):
-    """Return True if datatype dtype is a float kind"""
-    return ('float' in dtype.name) or dtype.name in ['single', 'double']
-
-def is_number(dtype):
-    """Return True is datatype dtype is a number kind"""
-    return is_float(dtype) or ('int' in dtype.name) or ('long' in dtype.name) or ('short' in dtype.name)
-
-# Spyder compat
-# -------------
-
-# Note: string and unicode data types will be formatted with '%s' (see below)
-SUPPORTED_FORMATS = {
-    'object': '%s',
-    'single': '%.2f',
-    'double': '%.2f',
-    'float_': '%.2f',
-    'longfloat': '%.2f',
-    'float32': '%.2f',
-    'float64': '%.2f',
-    'float96': '%.2f',
-    'float128': '%.2f',
-    'csingle': '%r',
-    'complex_': '%r',
-    'clongfloat': '%r',
-    'complex64': '%r',
-    'complex128': '%r',
-    'complex192': '%r',
-    'complex256': '%r',
-    'byte': '%d',
-    'short': '%d',
-    'intc': '%d',
-    'int_': '%d',
-    'longlong': '%d',
-    'intp': '%d',
-    'int8': '%d',
-    'int16': '%d',
-    'int32': '%d',
-    'int64': '%d',
-    'ubyte': '%d',
-    'ushort': '%d',
-    'uintc': '%d',
-    'uint': '%d',
-    'ulonglong': '%d',
-    'uintp': '%d',
-    'uint8': '%d',
-    'uint16': '%d',
-    'uint32': '%d',
-    'uint64': '%d',
-    'bool_': '%r',
-    'bool8': '%r',
-    'bool': '%r',
-}
-# =======================
-
-def get_font(section):
-    return _get_font('Calibri', 11)
-
-def to_qvariant(obj=None):
-    return obj
-
-def from_qvariant(qobj=None, pytype=None):
-    # FIXME: force API level 2 instead of handling this
-    if isinstance(qobj, QVariant):
-        assert pytype is str
-        return pytype(qobj.toString())
-    return qobj
-
-def _(text):
-    return text
-
-def to_text_string(obj, encoding=None):
-    """Convert `obj` to (unicode) text string"""
-    if PY2:
-        # Python 2
-        if encoding is None:
-            return unicode(obj)
-        else:
-            return unicode(obj, encoding)
-    else:
-        # Python 3
-        if encoding is None:
-            return str(obj)
-        elif isinstance(obj, str):
-            # In case this function is not used properly, this could happen
-            return obj
-        else:
-            return str(obj, encoding)
+from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel
+from qtpy.QtGui import QColor
+from qtpy.QtWidgets import QMessageBox
 
 
 LARGE_SIZE = 5e5
