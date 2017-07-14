@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function
+
 import os
 import sys
 import numpy as np
@@ -220,3 +222,145 @@ def show_figure(parent, figure):
     canvas = FigureCanvas(figure)
     main = PlotDialog(canvas, parent)
     main.show()
+
+
+class Product(object):
+    """
+    Represents the `cartesian product` of several arrays.
+
+    Parameters
+    ----------
+    arrays : iterable of array
+        List of arrays on which to apply the cartesian product.
+
+    Examples
+    --------
+    >>> p = Product([['a', 'b', 'c'], [1, 2]])
+    >>> for i in range(len(p)):
+    ...     print(p[i])
+    ('a', 1)
+    ('a', 2)
+    ('b', 1)
+    ('b', 2)
+    ('c', 1)
+    ('c', 2)
+    >>> p[1:4]
+    [('a', 2), ('b', 1), ('b', 2)]
+    >>> list(p)
+    [('a', 1), ('a', 2), ('b', 1), ('b', 2), ('c', 1), ('c', 2)]
+    """
+    def __init__(self, arrays):
+        self.arrays = arrays
+        assert len(arrays)
+        shape = [len(a) for a in self.arrays]
+        self.div_mod = [(int(np.prod(shape[i + 1:])), shape[i])
+                        for i in range(len(shape))]
+        self.length = np.prod(shape)
+
+    def to_tuple(self, key):
+        if key >= self.length:
+            raise IndexError("index %d out of range for Product of length %d" % (key, self.length))
+        return tuple(key // div % mod for div, mod in self.div_mod)
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, key):
+        if isinstance(key, (int, np.integer)):
+            return tuple(array[i]
+                         for array, i in zip(self.arrays, self.to_tuple(key)))
+        else:
+            assert isinstance(key, slice), \
+                "key (%s) has invalid type (%s)" % (key, type(key))
+            start, stop, step = key.start, key.stop, key.step
+            if start is None:
+                start = 0
+            if stop is None:
+                stop = self.length
+            if step is None:
+                step = 1
+
+            return [tuple(array[i]
+                          for array, i in zip(self.arrays, self.to_tuple(i)))
+                    for i in range(start, stop, step)]
+
+
+class _LazyLabels(object):
+    def __init__(self, arrays):
+        self.prod = Product(arrays)
+
+    def __getitem__(self, key):
+        return ' '.join(self.prod[key])
+
+    def __len__(self):
+        return len(self.prod)
+
+
+class _LazyDimLabels(object):
+    """
+    Examples
+    --------
+    >>> p = Product([['a', 'b', 'c'], [1, 2]])
+    >>> list(p)
+    [('a', 1), ('a', 2), ('b', 1), ('b', 2), ('c', 1), ('c', 2)]
+    >>> l0 = _LazyDimLabels(p, 0)
+    >>> l1 = _LazyDimLabels(p, 1)
+    >>> for i in range(len(p)):
+    ...     print(l0[i], l1[i])
+    a 1
+    a 2
+    b 1
+    b 2
+    c 1
+    c 2
+    >>> l0[1:4]
+    ['a', 'b', 'b']
+    >>> l1[1:4]
+    [2, 1, 2]
+    >>> list(l0)
+    ['a', 'a', 'b', 'b', 'c', 'c']
+    >>> list(l1)
+    [1, 2, 1, 2, 1, 2]
+    """
+    def __init__(self, prod, i):
+        self.prod = prod
+        self.i = i
+
+    def __iter__(self):
+        return iter(self.prod[i][self.i] for i in range(len(self.prod)))
+
+    def __getitem__(self, key):
+        key_prod = self.prod[key]
+        if isinstance(key, slice):
+            return [p[self.i] for p in key_prod]
+        else:
+            return key_prod[self.i]
+
+    def __len__(self):
+        return len(self.prod)
+
+
+class _LazyRange(object):
+    def __init__(self, length, offset):
+        self.length = length
+        self.offset = offset
+
+    def __getitem__(self, key):
+        if key >= self.offset:
+            return key - self.offset
+        else:
+            return ''
+
+    def __len__(self):
+        return self.length + self.offset
+
+
+class _LazyNone(object):
+    def __init__(self, length):
+        self.length = length
+
+    def __getitem__(self, key):
+        return ' '
+
+    def __len__(self):
+        return self.length
