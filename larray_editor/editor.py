@@ -456,8 +456,10 @@ class MappingEditor(QMainWindow):
 
     def set_current_array(self, array, name):
         self.current_array = array
-        self.current_array_name = name
         self.arraywidget.set_data(array)
+        if name != '<expr>' and name != self.current_array_name:
+            self.arraywidget.set_filters()
+            self.current_array_name = name
         self.update_title()
 
     def _add_arrays(self, arrays):
@@ -468,7 +470,7 @@ class MappingEditor(QMainWindow):
             self.kernel.shell.push(dict(arrays))
 
     def _is_unsaved_modifications(self):
-        if self.arraywidget.model.readonly:
+        if self.arraywidget.readonly:
             return False
         else:
             return self.arraywidget.dirty or self._unsaved_modifications
@@ -497,6 +499,7 @@ class MappingEditor(QMainWindow):
         if self._ask_to_save_if_unsaved_modifications():
             self._reset()
             self.arraywidget.set_data(zeros(0))
+            self.arraywidget.set_filters()
             self.set_current_file(None)
             self._unsaved_modifications = False
             self.statusBar().showMessage("Viewer has been reset", 4000)
@@ -629,7 +632,7 @@ class MappingEditor(QMainWindow):
 
     def apply_changes(self):
         # update _unsaved_modifications only if 1 or more changes have been applied
-        if len(self.arraywidget.model.changes) > 0:
+        if self.arraywidget.dirty:
             self._unsaved_modifications = True
         self.arraywidget.accept_changes()
 
@@ -723,7 +726,7 @@ class ArrayEditor(QDialog):
         return True
 
     def autofit_columns(self):
-        self.arraywidget.view.autofit_columns()
+        self.arraywidget.autofit_columns()
 
     @Slot()
     def accept(self):

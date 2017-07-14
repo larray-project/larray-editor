@@ -74,10 +74,11 @@ import math
 from itertools import chain
 
 import numpy as np
-from qtpy.QtCore import Qt, QPoint, QItemSelection, QItemSelectionModel, QItemSelectionRange, Slot
+from qtpy.QtCore import Qt, QPoint, QItemSelection, QItemSelectionModel, QItemSelectionRange, Slot, Signal
 from qtpy.QtGui import QDoubleValidator, QIntValidator, QKeySequence, QFontMetrics, QCursor
-from qtpy.QtWidgets import (QApplication, QHBoxLayout, QTableView, QItemDelegate, QLineEdit, QCheckBox,
-                            QMessageBox, QMenu, QLabel, QSpinBox, QWidget, QVBoxLayout, QToolTip, QShortcut)
+from qtpy.QtWidgets import (QApplication, QTableView, QHeaderView, QItemDelegate, QLineEdit, QCheckBox,
+                            QMessageBox, QMenu, QLabel, QSpinBox, QWidget, QToolTip, QShortcut, QScrollBar,
+                            QHBoxLayout, QVBoxLayout, QGridLayout, QSizePolicy, QFrame)
 
 try:
     import xlwings as xw
@@ -86,9 +87,90 @@ except ImportError:
 
 from larray_editor.utils import (keybinding, create_action, clear_layout, get_font, from_qvariant, to_qvariant,
                                  is_number, is_float, _, ima)
-from larray_editor.arraymodel import ArrayModel
+from larray_editor.arrayadapter import LArrayDataAdapter
+from larray_editor.arraymodel import LabelsArrayModel, DataArrayModel
 from larray_editor.combo import FilterComboBox, FilterMenu
 import larray as la
+
+# XXX: define Enum instead ?
+TOP, BOTTOM = 0, 1
+LEFT, RIGHT = 0, 1
+
+class LabelsView(QTableView):
+    """"Labels view class"""
+
+    allSelected = Signal()
+
+    def __init__(self, parent, model, position):
+        QTableView.__init__(self, parent)
+        # set model
+        if not isinstance(model, LabelsArrayModel):
+            raise TypeError("Expected model of type {}. Received {} instead"
+                            .format(LabelsArrayModel.__name__, type(model).__name__))
+        self.setModel(model)
+        # set position
+        if not (isinstance(position, (list, tuple)) and len(position) == 2):
+            raise TypeError("Expected tuple or list of length 2")
+        self.position = position
+
+        self.setSelectionMode(QTableView.ContiguousSelection)
+
+        self.horizontalHeader().setFrameStyle(QFrame.NoFrame)
+        self.verticalHeader().setFrameStyle(QFrame.NoFrame)
+
+        # make the grid a bit more compact
+        self.horizontalHeader().setDefaultSectionSize(64)
+        self.horizontalHeader().setFixedHeight(10)
+        self.verticalHeader().setDefaultSectionSize(20)
+        self.verticalHeader().setFixedWidth(10)
+        # to fetch more rows/columns when required
+        self.horizontalScrollBar().valueChanged.connect(self.on_horizontal_scroll_changed)
+        self.verticalScrollBar().valueChanged.connect(self.on_vertical_scroll_changed)
+
+        # hide horizontal/vertical headers
+        if position == (TOP, RIGHT):
+            self.verticalHeader().hide()
+        elif position == (BOTTOM, LEFT):
+            self.horizontalHeader().hide()
+
+        # Hide scrollbars
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        self.model().modelReset.connect(self.updateGeometry)
+        self.horizontalHeader().sectionResized.connect(self.updateGeometry)
+        self.verticalHeader().sectionResized.connect(self.updateGeometry)
+
+    def on_vertical_scroll_changed(self, value):
+        if value == self.verticalScrollBar().maximum():
+            self.model().fetch_more_rows()
+
+    def on_horizontal_scroll_changed(self, value):
+        if value == self.horizontalScrollBar().maximum():
+            self.model().fetch_more_columns()
+
+    def updateSectionHeight(self, logicalIndex, oldSize, newSize):
+        self.setRowHeight(logicalIndex, newSize)
+
+    def updateSectionWidth(self, logicalIndex, oldSize, newSize):
+        self.setColumnWidth(logicalIndex, newSize)
+
+    def selectAll(self):
+        self.allSelected.emit()
+
+    def updateGeometry(self):
+        # Set maximum height
+        if self.position[0] == TOP:
+            maximum_height = self.horizontalHeader().height() + \
+                             sum(self.rowHeight(r) for r in range(self.model().rowCount()))
+            self.setFixedHeight(maximum_height)
+        # Set maximum width
+        if self.position[1] == LEFT:
+            maximum_width = self.verticalHeader().width() + \
+                            sum(self.columnWidth(c) for c in range(self.model().columnCount()))
+            self.setFixedWidth(maximum_width)
+        # update geometry
+        super().updateGeometry()
 
 
 class ArrayDelegate(QItemDelegate):
@@ -167,16 +249,25 @@ class ArrayDelegate(QItemDelegate):
         editor.setText(text)
 
 
-class ArrayView(QTableView):
-    """Array view class"""
+class DataView(QTableView):
+    """Data array view class"""
+
+    signal_copy = Signal()
+    signal_excel = Signal()
+    signal_paste = Signal()
+    signal_plot = Signal()
+
     def __init__(self, parent, model, dtype, shape):
         QTableView.__init__(self, parent)
-
+        # set model
+        if not isinstance(model, DataArrayModel):
+            raise TypeError("Expected model of type {}. Received {} instead"
+                            .format(DataArrayModel.__name__, type(model).__name__))
         self.setModel(model)
-        delegate = ArrayDelegate(dtype, self,
-                                 minvalue=model.minvalue,
-                                 maxvalue=model.maxvalue)
+        # set array delegate
+        delegate = ArrayDelegate(dtype, self, minvalue=model.minvalue, maxvalue=model.maxvalue)
         self.setItemDelegate(delegate)
+
         self.setSelectionMode(QTableView.ContiguousSelection)
 
         self.shape = shape
@@ -188,33 +279,42 @@ class ArrayView(QTableView):
         # here. I was also unable to get the function an action.triggered is connected to, so I couldn't do this via
         # a loop on self.context_menu.actions.
         shortcuts = [
-            (keybinding('Copy'), self.copy),
-            (QKeySequence("Ctrl+E"), self.to_excel),
-            (keybinding('Paste'), self.paste),
-            (keybinding('Print'), self.plot)
+            (keybinding('Copy'), self.parent().copy),
+            (QKeySequence("Ctrl+E"), self.parent().to_excel),
+            (keybinding('Paste'), self.parent().paste),
+            (keybinding('Print'), self.parent().plot)
         ]
         for key_seq, target in shortcuts:
             shortcut = QShortcut(key_seq, self)
             shortcut.activated.connect(target)
 
+        self.horizontalHeader().setFrameStyle(QFrame.NoFrame)
+        self.verticalHeader().setFrameStyle(QFrame.NoFrame)
+
         # make the grid a bit more compact
         self.horizontalHeader().setDefaultSectionSize(64)
         self.verticalHeader().setDefaultSectionSize(20)
+        # Hide horizontal+vertical headers
+        self.horizontalHeader().hide()
+        self.verticalHeader().hide()
 
-        self.horizontalScrollBar().valueChanged.connect(
-            self.on_horizontal_scroll_changed)
-        self.verticalScrollBar().valueChanged.connect(
-            self.on_vertical_scroll_changed)
-        # self.horizontalHeader().sectionClicked.connect(
-        #     self.on_horizontal_header_clicked)
+        # Hide scrollbars
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
-    def on_horizontal_header_clicked(self, section_index):
-        menu = FilterMenu(self)
-        header = self.horizontalHeader()
-        headerpos = self.mapToGlobal(header.pos())
-        posx = headerpos.x() + header.sectionPosition(section_index)
-        posy = headerpos.y() + header.height()
-        menu.exec_(QPoint(posx, posy))
+        # to fetch more rows/columns when required
+        self.horizontalScrollBar().valueChanged.connect(self.on_horizontal_scroll_changed)
+        self.verticalScrollBar().valueChanged.connect(self.on_vertical_scroll_changed)
+
+        # self.horizontalHeader().sectionClicked.connect(self.on_horizontal_header_clicked)
+
+    # def on_horizontal_header_clicked(self, section_index):
+    #     menu = FilterMenu(self)
+    #     header = self.horizontalHeader()
+    #     headerpos = self.mapToGlobal(header.pos())
+    #     posx = headerpos.x() + header.sectionPosition(section_index)
+    #     posy = headerpos.y() + header.height()
+    #     menu.exec_(QPoint(posx, posy))
 
     def on_vertical_scroll_changed(self, value):
         if value == self.verticalScrollBar().maximum():
@@ -224,27 +324,46 @@ class ArrayView(QTableView):
         if value == self.horizontalScrollBar().maximum():
             self.model().fetch_more_columns()
 
+    def updateSectionHeight(self, logicalIndex, oldSize, newSize):
+        self.setRowHeight(logicalIndex, newSize)
+
+    def updateSectionWidth(self, logicalIndex, oldSize, newSize):
+        self.setColumnWidth(logicalIndex, newSize)
+
+    def selectNewRow(self, row_index):
+        # if not MultiSelection mode activated, selectRow will unselect previously
+        # selected rows (unless SHIFT or CTRL key is pressed)
+        self.setSelectionMode(QTableView.MultiSelection)
+        self.selectRow(row_index)
+        self.setSelectionMode(QTableView.ContiguousSelection)
+
+    def selectNewColumn(self, column_index):
+        # if not MultiSelection mode activated, selectColumn will unselect previously
+        # selected columns (unless SHIFT or CTRL key is pressed)
+        self.setSelectionMode(QTableView.MultiSelection)
+        self.selectColumn(column_index)
+        self.setSelectionMode(QTableView.ContiguousSelection)
+
     def setup_context_menu(self):
         """Setup context menu"""
         self.copy_action = create_action(self, _('Copy'),
                                          shortcut=keybinding('Copy'),
                                          icon=ima.icon('edit-copy'),
-                                         triggered=self.copy)
+                                         triggered=lambda: self.signal_copy.emit())
         self.excel_action = create_action(self, _('Copy to Excel'),
                                           shortcut="Ctrl+E",
                                           # icon=ima.icon('edit-copy'),
-                                          triggered=self.to_excel)
+                                          triggered=lambda: self.signal_excel.emit())
         self.paste_action = create_action(self, _('Paste'),
                                           shortcut=keybinding('Paste'),
                                           icon=ima.icon('edit-paste'),
-                                          triggered=self.paste)
+                                          triggered=lambda: self.signal_paste.emit())
         self.plot_action = create_action(self, _('Plot'),
                                          shortcut=keybinding('Print'),
                                          # icon=ima.icon('editcopy'),
-                                         triggered=self.plot)
+                                         triggered=lambda: self.signal_plot.emit())
         menu = QMenu(self)
-        menu.addActions([self.copy_action, self.excel_action, self.plot_action,
-                         self.paste_action])
+        menu.addActions([self.copy_action, self.excel_action, self.plot_action, self.paste_action])
         return menu
 
     def autofit_columns(self):
@@ -275,7 +394,7 @@ class ArrayView(QTableView):
         elif keyseq == QKeySequence.Paste:
             self.paste()
         elif keyseq == QKeySequence.Print:
-            self.plot()
+            self.parent().plot()
         elif keyseq == "Ctrl+E":
             self.to_excel()
         # allow to start editing cells by pressing Enter
@@ -288,6 +407,11 @@ class ArrayView(QTableView):
 
     def _selection_bounds(self, none_selects_all=True):
         """
+        Parameters
+        ----------
+        none_selects_all : bool, optional
+            If True (default) and selection is empty, returns all data.        
+        
         Returns
         -------
         tuple
@@ -306,206 +430,16 @@ class ArrayView(QTableView):
         assert len(selection) == 1
         srange = selection[0]
         assert isinstance(srange, QItemSelectionRange)
-        xoffset = len(self.model().xlabels) - 1
-        yoffset = len(self.model().ylabels) - 1
-        row_min = max(srange.top() - xoffset, 0)
-        row_max = max(srange.bottom() - xoffset, 0)
-        col_min = max(srange.left() - yoffset, 0)
-        col_max = max(srange.right() - yoffset, 0)
+        row_min = srange.top()
+        row_max = srange.bottom()
+        col_min = srange.left()
+        col_max = srange.right()
         # if not all rows/columns have been loaded
         if row_min == 0 and row_max == self.model().rows_loaded - 1:
             row_max = self.model().total_rows - 1
         if col_min == 0 and col_max == self.model().cols_loaded - 1:
             col_max = self.model().total_cols - 1
         return row_min, row_max + 1, col_min, col_max + 1
-
-    def _selection_data(self, headers=True, none_selects_all=True):
-        """
-        Returns an iterator over selected labels and data
-        if headers=True and a Numpy ndarray containing only
-        the data otherwise.
-
-        Parameters
-        ----------
-        headers : bool, optional
-            Labels are also returned if True.
-        none_selects_all : bool, optional
-            If True (default) and selection is empty, returns all data.
-
-        Returns
-        -------
-        numpy.ndarray or itertools.chain
-        """
-        bounds = self._selection_bounds(none_selects_all=none_selects_all)
-        if bounds is None:
-            return None
-        row_min, row_max, col_min, col_max = bounds
-        raw_data = self.model().get_values(row_min, col_min, row_max, col_max)
-        if headers:
-            xlabels = self.model().xlabels
-            ylabels = self.model().ylabels
-            # FIXME: this is extremely ad-hoc. We should either use
-            # model.data.ndim (orig_ndim?) or add a new concept (eg dim_names)
-            # in addition to xlabels & ylabels,
-            # TODO: in the future (pandas-based branch) we should use
-            # to_string(data[self._selection_filter()])
-            dim_names = xlabels[0]
-            if len(dim_names) > 1:
-                dim_headers = dim_names[:-2] + [dim_names[-2] + ' \\ ' +
-                                                dim_names[-1]]
-            else:
-                dim_headers = dim_names
-            topheaders = [dim_headers + list(xlabels[i][col_min:col_max])
-                          for i in range(1, len(xlabels))]
-            if not dim_names:
-                return raw_data
-            elif len(dim_names) == 1:
-                # 1 dimension
-                return chain(topheaders, [chain([''], row) for row in raw_data])
-            else:
-                # >1 dimension
-                assert len(dim_names) > 1
-                return chain(topheaders,
-                             [chain([ylabels[j][r + row_min]
-                                     for j in range(1, len(ylabels))],
-                                    row)
-                              for r, row in enumerate(raw_data)])
-        else:
-            return raw_data
-
-    @Slot()
-    def copy(self):
-        """Copy selection as text to clipboard"""
-        data = self._selection_data()
-        if data is None:
-            return
-
-        # np.savetxt make things more complicated, especially on py3
-        # XXX: why don't we use repr for everything?
-        def vrepr(v):
-            if isinstance(v, float):
-                return repr(v)
-            else:
-                return str(v)
-        text = '\n'.join('\t'.join(vrepr(v) for v in line) for line in data)
-        clipboard = QApplication.clipboard()
-        clipboard.setText(text)
-
-    @Slot()
-    def to_excel(self):
-        """View selection in Excel"""
-        if xw is None:
-            QMessageBox.critical(self, "Error", "to_excel() is not available because xlwings is not installed")
-        data = self._selection_data()
-        if data is None:
-            return
-        # convert (row) generators to lists then array
-        # TODO: the conversion to array is currently necessary even though xlwings will translate it back to a list
-        #       anyway. The problem is that our lists contains numpy types and especially np.str_ crashes xlwings.
-        #       unsure how we should fix this properly: in xlwings, or change _selection_data to return only standard
-        #       Python types.
-        xw.view(np.array([list(r) for r in data]))
-
-    @Slot()
-    def paste(self):
-        model = self.model()
-        bounds = self._selection_bounds()
-        if bounds is None:
-            return
-        row_min, row_max, col_min, col_max = bounds
-        clipboard = QApplication.clipboard()
-        text = str(clipboard.text())
-        list_data = [line.split('\t') for line in text.splitlines()]
-        try:
-            # take the first cell which contains '\'
-            pos_last = next(i for i, v in enumerate(list_data[0]) if '\\' in v)
-        except StopIteration:
-            # if there isn't any, assume 1d array
-            pos_last = 0
-        if pos_last:
-            # ndim > 1
-            list_data = [line[pos_last + 1:] for line in list_data[1:]]
-        elif len(list_data) == 2 and list_data[1][0] == '':
-            # ndim == 1
-            list_data = [list_data[1][1:]]
-        new_data = np.array(list_data)
-        if new_data.shape[0] > 1:
-            row_max = row_min + new_data.shape[0]
-        if new_data.shape[1] > 1:
-            col_max = col_min + new_data.shape[1]
-
-        result = model.set_values(row_min, col_min, row_max, col_max, new_data)
-        if result is None:
-            return
-
-        # TODO: when pasting near bottom/right boundaries and size of
-        # new_data exceeds destination size, we should either have an error
-        # or clip new_data
-        self.selectionModel().select(QItemSelection(*result),
-                                     QItemSelectionModel.ClearAndSelect)
-
-    def plot(self):
-        from matplotlib.figure import Figure
-        from larray_editor.utils import show_figure
-
-        data = self._selection_data(headers=False)
-        if data is None:
-            return
-
-        row_min, row_max, col_min, col_max = self._selection_bounds()
-        dim_names = self.model().xlabels[0]
-        # label for each selected column
-        xlabels = self.model().xlabels[1][col_min:col_max]
-        # list of selected labels for each index column
-        labels_per_index_column = [col_labels[row_min:row_max] for col_labels in self.model().ylabels[1:]]
-        # list of (str) label for each selected row
-        ylabels = [[str(label) for label in row_labels]
-                   for row_labels in zip(*labels_per_index_column)]
-        # if there is only one dimension, ylabels is empty
-        if not ylabels:
-            ylabels = [[]]
-
-        assert data.ndim == 2
-
-        figure = Figure()
-
-        # create an axis
-        ax = figure.add_subplot(111)
-
-        if data.shape[1] == 1:
-            # plot one column
-            xlabel = ','.join(dim_names[:-1])
-            xticklabels = ['\n'.join(ylabels[row]) for row in range(row_max - row_min)]
-            xdata = np.arange(row_max - row_min)
-            ax.plot(xdata, data[:, 0])
-            ax.set_ylabel(xlabels[0])
-        else:
-            # plot each row as a line
-            xlabel = dim_names[-1]
-            xticklabels = [str(label) for label in xlabels]
-            xdata = np.arange(col_max - col_min)
-            for row in range(len(data)):
-                ax.plot(xdata, data[row], label=' '.join(ylabels[row]))
-
-        # set x axis
-        ax.set_xlabel(xlabel)
-        ax.set_xlim((xdata[0], xdata[-1]))
-        # we need to do that because matplotlib is smart enough to
-        # not show all ticks but a selection. However, that selection
-        # may include ticks outside the range of x axis
-        xticks = [t for t in ax.get_xticks().astype(int) if t <= len(xticklabels) - 1]
-        xticklabels = [xticklabels[t] for t in xticks]
-        ax.set_xticks(xticks)
-        ax.set_xticklabels(xticklabels)
-
-        if data.shape[1] != 1 and ylabels != [[]]:
-            # set legend
-            # box = ax.get_position()
-            # ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
-            # ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-            ax.legend()
-
-        show_figure(self, figure)
 
 
 def ndigits(value):
@@ -532,15 +466,113 @@ def ndigits(value):
     return int_digits + negative
 
 
+class ScrollBar(QScrollBar):
+    """
+    A specialised scrollbar.
+    """
+    def __init__(self, parent, data_scrollbar):
+        super(ScrollBar, self).__init__(data_scrollbar.orientation(), parent)
+        self.setMinimum(data_scrollbar.minimum())
+        self.setMaximum(data_scrollbar.maximum())
+        self.setSingleStep(data_scrollbar.singleStep())
+        self.setPageStep(data_scrollbar.pageStep())
+
+        data_scrollbar.valueChanged.connect(self.setValue)
+        self.valueChanged.connect(data_scrollbar.setValue)
+
+        data_scrollbar.rangeChanged.connect(self.setRange)
+        self.rangeChanged.connect(data_scrollbar.setRange)
+
+
 class ArrayEditorWidget(QWidget):
     def __init__(self, parent, data, readonly=False, bg_value=None, bg_gradient=None, minvalue=None, maxvalue=None):
         QWidget.__init__(self, parent)
         readonly = np.isscalar(data)
-        self.model = ArrayModel(data, readonly=readonly, parent=self,
-                                bg_value=bg_value, bg_gradient=bg_gradient,
-                                minvalue=minvalue, maxvalue=maxvalue)
-        self.view = ArrayView(self, self.model, data.dtype, data.shape)
+        self.readonly = readonly
 
+        self.model_axes = LabelsArrayModel(parent=self, readonly=readonly)
+        self.view_axes = LabelsView(parent=self, model=self.model_axes, position=(TOP, LEFT))
+
+        self.model_xlabels = LabelsArrayModel(parent=self, readonly=readonly)
+        self.view_xlabels = LabelsView(parent=self, model=self.model_xlabels, position=(TOP, RIGHT))
+
+        self.model_ylabels = LabelsArrayModel(parent=self, readonly=readonly)
+        self.view_ylabels = LabelsView(parent=self, model=self.model_ylabels, position=(BOTTOM, LEFT))
+
+        self.model_data = DataArrayModel(parent=self, readonly=readonly, bg_value=bg_value, bg_gradient=bg_gradient,
+                                         minvalue=minvalue, maxvalue=maxvalue)
+        self.view_data = DataView(parent=self, model=self.model_data, dtype=data.dtype, shape=data.shape)
+
+        self.data_adapter = LArrayDataAdapter(axes_model=self.model_axes, xlabels_model=self.model_xlabels,
+                                              ylabels_model=self.model_ylabels, data_model=self.model_data, data=data)
+
+        # Create vertical and horizontal scrollbars
+        self.vscrollbar = ScrollBar(self, self.view_data.verticalScrollBar())
+        self.hscrollbar = ScrollBar(self, self.view_data.horizontalScrollBar())
+
+        # Synchronize resizing
+        self.view_axes.horizontalHeader().sectionResized.connect(self.view_ylabels.updateSectionWidth)
+        self.view_axes.verticalHeader().sectionResized.connect(self.view_xlabels.updateSectionHeight)
+        self.view_xlabels.horizontalHeader().sectionResized.connect(self.view_data.updateSectionWidth)
+        self.view_ylabels.verticalHeader().sectionResized.connect(self.view_data.updateSectionHeight)
+        # Synchronize auto-resizing
+        self.view_xlabels.horizontalHeader().sectionHandleDoubleClicked.connect(self.resizeColumnToContents)
+        self.view_ylabels.verticalHeader().sectionHandleDoubleClicked.connect(self.resizeRowToContents)
+
+        # synchronize specific methods
+        self.view_axes.allSelected.connect(self.view_data.selectAll)
+        self.view_data.signal_copy.connect(self.copy)
+        self.view_data.signal_excel.connect(self.to_excel)
+        self.view_data.signal_paste.connect(self.paste)
+        self.view_data.signal_plot.connect(self.plot)
+
+        # Synchronize scrolling
+        # data <--> xlabels
+        self.view_data.horizontalScrollBar().valueChanged.connect(self.view_xlabels.horizontalScrollBar().setValue)
+        self.view_xlabels.horizontalScrollBar().valueChanged.connect(self.view_data.horizontalScrollBar().setValue)
+        # data <--> ylabels
+        self.view_data.verticalScrollBar().valueChanged.connect(self.view_ylabels.verticalScrollBar().setValue)
+        self.view_ylabels.verticalScrollBar().valueChanged.connect(self.view_data.verticalScrollBar().setValue)
+
+        # Synchronize selecting columns(rows) via hor.(vert.) header of x(y)labels view
+        self.view_xlabels.horizontalHeader().sectionPressed.connect(self.view_data.selectColumn)
+        self.view_xlabels.horizontalHeader().sectionEntered.connect(self.view_data.selectNewColumn)
+        self.view_ylabels.verticalHeader().sectionPressed.connect(self.view_data.selectRow)
+        self.view_ylabels.verticalHeader().sectionEntered.connect(self.view_data.selectNewRow)
+
+        # following lines are required to keep usual selection color
+        # when selecting rows/columns via headers of label views.
+        # Otherwise, selected rows/columns appear in grey.
+        self.view_data.setStyleSheet("""QTableView {
+            selection-background-color: palette(highlight);
+            selection-color: white;
+            }""")
+
+        # set external borders
+        array_frame = QFrame(self)
+        array_frame.setFrameStyle(QFrame.Box)
+        # remove borders of internal tables
+        self.view_axes.setFrameStyle(QFrame.NoFrame)
+        self.view_xlabels.setFrameStyle(QFrame.NoFrame)
+        self.view_ylabels.setFrameStyle(QFrame.NoFrame)
+        self.view_data.setFrameStyle(QFrame.NoFrame)
+        # Set layout of table views:
+        # [ axes  ][xlabels]|V|
+        # [ylabels][ data  ]|s|
+        # |  H. scrollbar  |
+        array_layout = QGridLayout()
+        array_layout.addWidget(self.view_axes, 0, 0)
+        array_layout.addWidget(self.view_xlabels, 0, 1)
+        array_layout.addWidget(self.view_ylabels, 1, 0)
+        self.view_data.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        array_layout.addWidget(self.view_data, 1, 1)
+        array_layout.addWidget(self.vscrollbar, 0, 2, 2, 1)
+        array_layout.addWidget(self.hscrollbar, 2, 0, 1, 2)
+        array_layout.setSpacing(0)
+        array_layout.setContentsMargins(0, 0, 0, 0)
+        array_frame.setLayout(array_layout)
+
+        # Set filters and buttons layout
         self.filters_layout = QHBoxLayout()
         btn_layout = QHBoxLayout()
         btn_layout.setAlignment(Qt.AlignLeft)
@@ -558,24 +590,24 @@ class ArrayEditorWidget(QWidget):
         btn_layout.addWidget(scientific)
 
         bgcolor = QCheckBox(_('Background color'))
-        bgcolor.stateChanged.connect(self.model.bgcolor)
+        bgcolor.stateChanged.connect(self.model_data.bgcolor)
         self.bgcolor_checkbox = bgcolor
         btn_layout.addWidget(bgcolor)
 
+        # Set widget layout
         layout = QVBoxLayout()
         layout.addLayout(self.filters_layout)
-        layout.addWidget(self.view)
+        layout.addWidget(array_frame)
         layout.addLayout(btn_layout)
         self.setLayout(layout)
         self.set_data(data, bg_value=bg_value, bg_gradient=bg_gradient)
+        self.set_filters()
 
         # See http://doc.qt.io/qt-4.8/qt-draganddrop-fridgemagnets-dragwidget-cpp.html for an example
         self.setAcceptDrops(True)
 
     def mousePressEvent(self, event):
-        if event.button() != Qt.LeftButton:
-            return
-        self.dragLabel = self.childAt(event.pos())
+        self.dragLabel = self.childAt(event.pos()) if event.button() == Qt.LeftButton else None
         self.dragStartPosition = event.pos()
 
     def mouseMoveEvent(self, event):
@@ -632,11 +664,12 @@ class ArrayEditorWidget(QWidget):
                 previous_index, success = event.mimeData().data("application/x-axis-index").toInt()
                 new_index = self.filters_layout.indexOf(self.childAt(event.pos())) // 2
 
-                la_data = self.model.get_data()
+                la_data = self.data_adapter.get_data()
                 new_axes = la_data.axes.copy()
                 new_axes.insert(new_index, new_axes.pop(new_axes[previous_index]))
                 la_data = la_data.transpose(new_axes)
-                self.set_data(la_data, self.model.bg_gradient, self.model.bg_value)
+                self.set_data(la_data, self.model_data.bg_gradient, self.model_data.bg_value)
+                self.set_filters()
 
                 event.setDropAction(Qt.MoveAction)
                 event.accept()
@@ -647,6 +680,11 @@ class ArrayEditorWidget(QWidget):
 
     def set_data(self, data, bg_gradient=None, bg_value=None):
         la_data = la.aslarray(data)
+        self.data_adapter.set_data(la_data, bg_gradient=bg_gradient, bg_value=bg_value)
+        self._update(la_data)
+
+    def set_filters(self):
+        la_data = self.data_adapter.get_data()
         axes = la_data.axes
         display_names = axes.display_names
 
@@ -657,9 +695,7 @@ class ArrayEditorWidget(QWidget):
             filters_layout.addWidget(QLabel(display_name))
             filters_layout.addWidget(self.create_filter_combo(axis))
         filters_layout.addStretch()
-
-        self.model.set_data(la_data, bg_gradient=bg_gradient, bg_value=bg_value)
-        self._update(la_data)
+        self.data_adapter.update_filtered_data({})
 
     def _update(self, la_data):
         size = la_data.size
@@ -674,7 +710,7 @@ class ArrayEditorWidget(QWidget):
         # XXX: self.ndecimals vs self.digits
         self.digits = self.choose_ndecimals(data_sample, use_scientific)
         self.use_scientific = use_scientific
-        self.model.set_format(self.cell_format)
+        self.model_data.set_format(self.cell_format)
 
         self.digits_spinbox.setValue(self.digits)
         self.digits_spinbox.setEnabled(is_number(la_data.dtype))
@@ -682,8 +718,8 @@ class ArrayEditorWidget(QWidget):
         self.scientific_checkbox.setChecked(use_scientific)
         self.scientific_checkbox.setEnabled(is_number(la_data.dtype))
 
-        self.bgcolor_checkbox.setChecked(self.model.bgcolor_enabled)
-        self.bgcolor_checkbox.setEnabled(self.model.bgcolor_enabled)
+        self.bgcolor_checkbox.setChecked(self.model_data.bgcolor_enabled)
+        self.bgcolor_checkbox.setEnabled(self.model_data.bgcolor_enabled)
 
     def choose_scientific(self, data):
         # max_digits = self.get_max_digits()
@@ -773,23 +809,36 @@ class ArrayEditorWidget(QWidget):
                 return ndigits
         return maxdigits
 
+    def autofit_columns(self):
+        self.view_data.autofit_columns()
+
+    def resizeColumnToContents(self, column):
+        self.view_data.resizeColumnToContents(column)
+        width = self.view_data.columnWidth(column)
+        self.view_xlabels.setColumnWidth(column, width)
+
+    def resizeRowToContents(self, row):
+        self.view_data.resizeRowToContents(row)
+        height = self.view_data.rowHeight(row)
+        self.view_ylabels.setRowHeight(row, height)
+
     @property
     def dirty(self):
-        self.model.update_global_changes()
-        return len(self.model.changes) > 1
+        self.data_adapter.update_changes()
+        return len(self.data_adapter.changes) > 0
 
     def accept_changes(self):
         """Accept changes"""
-        la_data = self.model.accept_changes()
+        la_data = self.data_adapter.accept_changes()
         self._update(la_data)
 
     def reject_changes(self):
         """Reject changes"""
-        self.model.reject_changes()
+        self.data_adapter.reject_changes()
 
     @property
     def cell_format(self):
-        type = self.model.get_data().dtype.type
+        type = self.data_adapter.dtype.type
         if type in (np.str, np.str_, np.bool_, np.bool, np.object_):
             return '%s'
         else:
@@ -798,19 +847,187 @@ class ArrayEditorWidget(QWidget):
 
     def scientific_changed(self, value):
         self.use_scientific = value
-        self.digits = self.choose_ndecimals(self.model.get_data(), value)
+        self.digits = self.choose_ndecimals(self.data_adapter.get_data(), value)
         self.digits_spinbox.setValue(self.digits)
-        self.model.set_format(self.cell_format)
+        self.model_data.set_format(self.cell_format)
 
     def digits_changed(self, value):
         self.digits = value
-        self.model.set_format(self.cell_format)
+        self.model_data.set_format(self.cell_format)
 
     def create_filter_combo(self, axis):
         def filter_changed(checked_items):
-            filtered = self.model.change_filter(axis, checked_items)
+            filtered = self.data_adapter.change_filter(axis, checked_items)
             self._update(filtered)
         combo = FilterComboBox(self)
         combo.addItems([str(l) for l in axis.labels])
         combo.checkedItemsChanged.connect(filter_changed)
         return combo
+
+    def _selection_data(self, headers=True, none_selects_all=True):
+        """
+        Returns an iterator over selected labels and data
+        if headers=True and a Numpy ndarray containing only
+        the data otherwise.
+
+        Parameters
+        ----------
+        headers : bool, optional
+            Labels are also returned if True.
+        none_selects_all : bool, optional
+            If True (default) and selection is empty, returns all data.
+
+        Returns
+        -------
+        numpy.ndarray or itertools.chain
+        """
+        bounds = self.view_data._selection_bounds(none_selects_all=none_selects_all)
+        if bounds is None:
+            return None
+        row_min, row_max, col_min, col_max = bounds
+        raw_data = self.model_data.get_values(row_min, col_min, row_max, col_max)
+        if headers:
+            if not self.data_adapter.ndim:
+                return raw_data
+            # FIXME: this is extremely ad-hoc.
+            # TODO: in the future (pandas-based branch) we should use to_string(data[self._selection_filter()])
+            dim_headers = self.model_axes.get_values()
+            xlabels = self.model_xlabels.get_values(top=col_min, bottom=col_max)
+            topheaders = [[dim_header[0] for dim_header in dim_headers] + [label[0] for label in xlabels]]
+            if self.data_adapter.ndim == 1:
+                return chain(topheaders, [chain([''], row) for row in raw_data])
+            else:
+                assert self.data_adapter.ndim > 1
+                ylabels = self.model_ylabels.get_values(left=row_min, right=row_max)
+                return chain(topheaders,
+                             [chain([ylabels[j][r] for j in range(len(ylabels))], row)
+                              for r, row in enumerate(raw_data)])
+        else:
+            return raw_data
+
+    def copy(self):
+        """Copy selection as text to clipboard"""
+        data = self._selection_data()
+        if data is None:
+            return
+
+        # np.savetxt make things more complicated, especially on py3
+        # XXX: why don't we use repr for everything?
+        def vrepr(v):
+            if isinstance(v, float):
+                return repr(v)
+            else:
+                return str(v)
+        text = '\n'.join('\t'.join(vrepr(v) for v in line) for line in data)
+        clipboard = QApplication.clipboard()
+        clipboard.setText(text)
+
+    def to_excel(self):
+        """View selection in Excel"""
+        if xw is None:
+            QMessageBox.critical(self, "Error", "to_excel() is not available because xlwings is not installed")
+        data = self._selection_data()
+        if data is None:
+            return
+        # convert (row) generators to lists then array
+        # TODO: the conversion to array is currently necessary even though xlwings will translate it back to a list
+        #       anyway. The problem is that our lists contains numpy types and especially np.str_ crashes xlwings.
+        #       unsure how we should fix this properly: in xlwings, or change _selection_data to return only standard
+        #       Python types.
+        xw.view(np.array([list(r) for r in data]))
+
+    def paste(self):
+        bounds = self.view_data._selection_bounds()
+        if bounds is None:
+            return
+        row_min, row_max, col_min, col_max = bounds
+        clipboard = QApplication.clipboard()
+        text = str(clipboard.text())
+        list_data = [line.split('\t') for line in text.splitlines()]
+        try:
+            # take the first cell which contains '\'
+            pos_last = next(i for i, v in enumerate(list_data[0]) if '\\' in v)
+        except StopIteration:
+            # if there isn't any, assume 1d array
+            pos_last = 0
+        if pos_last:
+            # ndim > 1
+            list_data = [line[pos_last + 1:] for line in list_data[1:]]
+        elif len(list_data) == 2 and list_data[1][0] == '':
+            # ndim == 1
+            list_data = [list_data[1][1:]]
+        new_data = np.array(list_data)
+        if new_data.shape[0] > 1:
+            row_max = row_min + new_data.shape[0]
+        if new_data.shape[1] > 1:
+            col_max = col_min + new_data.shape[1]
+
+        result = self.model_data.set_values(row_min, col_min, row_max, col_max, new_data)
+        if result is None:
+            return
+
+        # TODO: when pasting near bottom/right boundaries and size of
+        # new_data exceeds destination size, we should either have an error
+        # or clip new_data
+        self.view_data.selectionModel().select(QItemSelection(*result), QItemSelectionModel.ClearAndSelect)
+
+    def plot(self):
+        from matplotlib.figure import Figure
+        from larray_editor.utils import show_figure
+
+        data = self._selection_data(headers=False)
+        if data is None:
+            return
+
+        row_min, row_max, col_min, col_max = self.view_data._selection_bounds()
+        dim_names = self.data_adapter.get_axes_names()
+        # labels
+        xlabels = [label[0] for label in self.model_xlabels.get_values(top=col_min, bottom=col_max)]
+        ylabels = self.model_ylabels.get_values(left=row_min, right=row_max)
+        # transpose ylabels
+        ylabels = [[str(ylabels[i][j]) for i in range(len(ylabels))] for j in range(len(ylabels[0]))]
+        # if there is only one dimension, ylabels is empty
+        if not ylabels:
+            ylabels = [[]]
+
+        assert data.ndim == 2
+
+        figure = Figure()
+
+        # create an axis
+        ax = figure.add_subplot(111)
+
+        if data.shape[1] == 1:
+            # plot one column
+            xlabel = ','.join(dim_names[:-1])
+            xticklabels = ['\n'.join(row) for row in ylabels]
+            xdata = np.arange(row_max - row_min)
+            ax.plot(xdata, data[:, 0])
+            ax.set_ylabel(xlabels[0])
+        else:
+            # plot each row as a line
+            xlabel = dim_names[-1]
+            xticklabels = [str(label) for label in xlabels]
+            xdata = np.arange(col_max - col_min)
+            for row in range(len(data)):
+                ax.plot(xdata, data[row], label=' '.join(ylabels[row]))
+
+        # set x axis
+        ax.set_xlabel(xlabel)
+        ax.set_xlim((xdata[0], xdata[-1]))
+        # we need to do that because matplotlib is smart enough to
+        # not show all ticks but a selection. However, that selection
+        # may include ticks outside the range of x axis
+        xticks = [t for t in ax.get_xticks().astype(int) if t <= len(xticklabels) - 1]
+        xticklabels = [xticklabels[t] for t in xticks]
+        ax.set_xticks(xticks)
+        ax.set_xticklabels(xticklabels)
+
+        if data.shape[1] != 1 and ylabels != [[]]:
+            # set legend
+            # box = ax.get_position()
+            # ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
+            # ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+            ax.legend()
+
+        show_figure(self, figure)
