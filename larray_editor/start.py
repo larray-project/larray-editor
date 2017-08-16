@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import sys
-from larray import edit
+from larray_editor import edit
 
 def main():
     if os.name == 'nt':
