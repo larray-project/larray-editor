@@ -18,7 +18,7 @@ TESTS_REQUIRE = ['pytest']
 SETUP_REQUIRES = ['pytest-runner']
 
 LICENSE = 'GPLv3'
-URL = 'https://github.com/larray-project/larray_editor'
+URL = 'https://github.com/larray-project/larray-editor'
 PACKAGE_DATA = {'larray_editor': ['images/*']}
 ENTRY_POINTS = {'gui_scripts': ['larray-editor = larray_editor.start:main']}
 
