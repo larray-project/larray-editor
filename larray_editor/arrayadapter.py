@@ -99,9 +99,14 @@ class LArrayDataAdapter(object):
         self.filtered_data = self.la_data[self.current_filter]
         if np.isscalar(self.filtered_data):
             self.filtered_data = la.aslarray(self.filtered_data)
-        axes = self.get_axes()
-        xlabels = self.get_xlabels()
-        ylabels = self.get_ylabels()
+        if len(self.filtered_data) == 0:
+            axes = [[]]
+            xlabels = [[]]
+            ylabels = [[]]
+        else:
+            axes = self.get_axes()
+            xlabels = self.get_xlabels()
+            ylabels = self.get_ylabels()
         data_2D = self.get_2D_data()
         changes_2D = self.get_changes_2D()
         self.axes_model.set_data(axes)

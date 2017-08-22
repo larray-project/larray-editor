@@ -499,7 +499,7 @@ class MappingEditor(QMainWindow):
     def new(self):
         if self._ask_to_save_if_unsaved_modifications():
             self._reset()
-            self.arraywidget.set_data(zeros(0))
+            self.arraywidget.set_data(np.empty(0))
             self.arraywidget.set_filters()
             self.set_current_file(None)
             self._unsaved_modifications = False
