@@ -165,6 +165,7 @@ class MappingEditor(QMainWindow):
                 arraywidget_layout = QVBoxLayout()
                 arraywidget_layout.addWidget(self.arraywidget)
                 arraywidget_layout.addLayout(btn_layout)
+                arraywidget_layout.setContentsMargins(0, 0, 0, 0)
 
                 # you cant add a layout directly in a splitter, so we have to wrap it in a widget
                 arraywidget = QWidget()
