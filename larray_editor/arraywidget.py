@@ -410,8 +410,8 @@ class DataView(QTableView):
         Parameters
         ----------
         none_selects_all : bool, optional
-            If True (default) and selection is empty, returns all data.        
-        
+            If True (default) and selection is empty, returns all data.
+
         Returns
         -------
         tuple
@@ -550,7 +550,7 @@ class ArrayEditorWidget(QWidget):
 
         # set external borders
         array_frame = QFrame(self)
-        array_frame.setFrameStyle(QFrame.Box)
+        array_frame.setFrameStyle(QFrame.StyledPanel)
         # remove borders of internal tables
         self.view_axes.setFrameStyle(QFrame.NoFrame)
         self.view_xlabels.setFrameStyle(QFrame.NoFrame)
@@ -599,6 +599,7 @@ class ArrayEditorWidget(QWidget):
         layout.addLayout(self.filters_layout)
         layout.addWidget(array_frame)
         layout.addLayout(btn_layout)
+        layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
         self.set_data(data, bg_value=bg_value, bg_gradient=bg_gradient)
         self.set_filters()
