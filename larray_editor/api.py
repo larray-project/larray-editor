@@ -11,6 +11,7 @@ from larray_editor.editor import REOPEN_LAST_FILE
 
 __all__ = ['view', 'edit', 'compare', 'REOPEN_LAST_FILE']
 
+
 def qapplication():
     return QApplication(sys.argv)
 
@@ -69,7 +70,7 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     ----------
     obj : np.ndarray, LArray, Session, dict, str or REOPEN_LAST_FILE, optional
         Object to visualize. If string, array(s) will be loaded from the file given as argument.
-        Passing the constant REOPEN_LAST_FILE loads the last opened file. 
+        Passing the constant REOPEN_LAST_FILE loads the last opened file.
         Defaults to the collection of all local variables where the function was called.
     title : str, optional
         Title for the current object. Defaults to the name of the first object found in the caller namespace which
