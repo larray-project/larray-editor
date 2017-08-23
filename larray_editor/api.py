@@ -335,7 +335,7 @@ if __name__ == "__main__":
     # file = abspath('test_session.xlsx')
     # ses.save(file)
 
-    edit(la.Session(arr2=arr2))
+    edit(ses)
     # edit(ses)
     # edit(file)
     # edit('fake_path')
