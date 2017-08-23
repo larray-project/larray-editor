@@ -691,11 +691,12 @@ class ArrayEditorWidget(QWidget):
 
         filters_layout = self.filters_layout
         clear_layout(filters_layout)
-        filters_layout.addWidget(QLabel(_("Filters")))
-        for axis, display_name in zip(axes, display_names):
-            filters_layout.addWidget(QLabel(display_name))
-            filters_layout.addWidget(self.create_filter_combo(axis))
-        filters_layout.addStretch()
+        if len(la_data) > 0:
+            filters_layout.addWidget(QLabel(_("Filters")))
+            for axis, display_name in zip(axes, display_names):
+                filters_layout.addWidget(QLabel(display_name))
+                filters_layout.addWidget(self.create_filter_combo(axis))
+            filters_layout.addStretch()
         self.data_adapter.update_filtered_data({})
 
     def _update(self, la_data):
