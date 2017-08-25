@@ -815,14 +815,16 @@ class ArrayEditorWidget(QWidget):
         self.view_data.autofit_columns()
 
     def resizeColumnToContents(self, column):
-        self.view_data.resizeColumnToContents(column)
-        width = self.view_data.columnWidth(column)
-        self.view_xlabels.setColumnWidth(column, width)
+        width = max(self.view_xlabels.horizontalHeader().sectionSizeHint(column),
+                    self.view_data.sizeHintForColumn(column))
+        self.view_data.horizontalHeader().resizeSection(column, width)
+        self.view_xlabels.horizontalHeader().resizeSection(column, width)
 
     def resizeRowToContents(self, row):
-        self.view_data.resizeRowToContents(row)
-        height = self.view_data.rowHeight(row)
-        self.view_ylabels.setRowHeight(row, height)
+        height = max(self.view_xlabels.verticalHeader().sectionSizeHint(row),
+                     self.view_data.sizeHintForRow(row))
+        self.view_data.verticalHeader().resizeSection(row, height)
+        self.view_ylabels.verticalHeader().resizeSection(row, height)
 
     @property
     def dirty(self):
