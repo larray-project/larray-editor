@@ -680,9 +680,8 @@ class ArrayEditorWidget(QWidget):
             event.ignore()
 
     def set_data(self, data, bg_gradient=None, bg_value=None):
-        la_data = la.aslarray(data)
-        self.data_adapter.set_data(la_data, bg_gradient=bg_gradient, bg_value=bg_value)
-        self._update(la_data)
+        self.data_adapter.set_data(data, bg_gradient=bg_gradient, bg_value=bg_value)
+        self._update()
 
     def set_filters(self):
         la_data = self.data_adapter.get_data()
@@ -699,11 +698,13 @@ class ArrayEditorWidget(QWidget):
             filters_layout.addStretch()
         self.data_adapter.update_filtered_data({})
 
-    def _update(self, la_data):
-        size = la_data.size
+    def _update(self):
+        # TODO: Adapter must provide a method to return a data sample as a Numpy array
+        data = self.data_adapter.get_data().data
+        size, dtype = data.size, data.dtype
         # this will yield a data sample of max 199
         step = (size // 100) if size > 100 else 1
-        data_sample = la_data.data.flat[::step]
+        data_sample = data.flat[::step]
 
         # TODO: refactor so that the expensive format_helper is not called
         # twice (or the values are cached)
@@ -715,10 +716,10 @@ class ArrayEditorWidget(QWidget):
         self.model_data.set_format(self.cell_format)
 
         self.digits_spinbox.setValue(self.digits)
-        self.digits_spinbox.setEnabled(is_number(la_data.dtype))
+        self.digits_spinbox.setEnabled(is_number(dtype))
 
         self.scientific_checkbox.setChecked(use_scientific)
-        self.scientific_checkbox.setEnabled(is_number(la_data.dtype))
+        self.scientific_checkbox.setEnabled(is_number(dtype))
 
         self.bgcolor_checkbox.setChecked(self.model_data.bgcolor_enabled)
         self.bgcolor_checkbox.setEnabled(self.model_data.bgcolor_enabled)

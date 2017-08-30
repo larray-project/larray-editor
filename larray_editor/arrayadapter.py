@@ -88,6 +88,8 @@ class LArrayDataAdapter(object):
     # - set_data (which reset the current filter)
     # - update_data (which sets new data but keeps current filter unchanged)
     def set_data(self, data, bg_gradient=None, bg_value=None, current_filter=None):
+        if data is None:
+            data = la.LArray([])
         if current_filter is None:
             self.current_filter = {}
         self.la_data = la.aslarray(data)
