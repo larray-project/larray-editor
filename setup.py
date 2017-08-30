@@ -13,7 +13,8 @@ AUTHOR = 'Gaetan de Menten, Geert Bryon, Johan Duyck, Alix Damman'
 AUTHOR_EMAIL = 'gdementen@gmail.com'
 DESCRIPTION = "Graphical User Interface for LArray library"
 LONG_DESCRIPTION = readlocal("README.rst")
-INSTALL_REQUIRES = ['larray'] # pyqt, qtpy and matplotlib required (see conda recipe)
+# pyqt cannot be installed via pypi. Dependencies (pyqt, qtpy and matplotlib) moved to conda recipe
+INSTALL_REQUIRES = ['larray']
 TESTS_REQUIRE = ['pytest']
 SETUP_REQUIRES = ['pytest-runner']
 
