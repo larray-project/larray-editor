@@ -125,7 +125,8 @@ class LabelsArrayModel(AbstractArrayModel):
     font : QFont, optional
         Font. Default is `Calibri` with size 11.
     """
-    def __init__(self, parent=None, data=None, readonly=False, font=None):
+    def __init__(self, parent=None, data=None, readonly=False, font=None, orientation=Qt.Horizontal):
+        self.orientation = orientation
         AbstractArrayModel.__init__(self, parent, data, readonly, font)
         self.font.setBold(True)
 
@@ -136,8 +137,12 @@ class LabelsArrayModel(AbstractArrayModel):
             QMessageBox.critical(self.dialog, "Error", "Expected list or tuple.")
             data = [[]]
         self._data = data
-        self.total_rows = len(data[0])
-        self.total_cols = len(data) if self.total_rows > 0 else 0
+        if self.orientation == Qt.Horizontal:
+            self.total_rows = len(data) if self.total_cols > 0 else 0
+            self.total_cols = len(data[0])
+        else:
+            self.total_rows = len(data[0])
+            self.total_cols = len(data) if self.total_rows > 0 else 0
         self._compute_rows_cols_loaded()
 
     def flags(self, index):
@@ -145,19 +150,26 @@ class LabelsArrayModel(AbstractArrayModel):
         return Qt.ItemIsEnabled
 
     def get_value(self, index):
-        i = index.row()
-        j = index.column()
-        # we need to inverse column and row because of the way vlabels are generated
-        return str(self._data[j][i])
+        if self.orientation == Qt.Horizontal:
+            i, j = index.row(), index.column()
+        else:
+            i, j = index.column(), index.row()
+        return str(self._data[i][j])
 
     # XXX: I wonder if we shouldn't return a 2D Numpy array of strings?
     def get_values(self, left=0, top=0, right=None, bottom=None):
-        if right is None:
-            right = self.total_rows
-        if bottom is None:
-            bottom = self.total_cols
-        values = [list(line[left:right]) for line in self._data[top:bottom]]
-        return values
+        if self.orientation == Qt.Horizontal:
+            if right is None:
+                right = self.total_cols
+            if bottom is None:
+                bottom = self.total_rows
+            return [list(line[left:right]) for line in self._data[top:bottom]]
+        else:
+            if right is None:
+                right = self.total_rows
+            if bottom is None:
+                bottom = self.total_cols
+            return [list(line[top:bottom]) for line in self._data[left:right]]
 
     def data(self, index, role=Qt.DisplayRole):
         # print('data', index.column(), index.row(), self.rowCount(), self.columnCount(), '\n', self._data)

@@ -6,13 +6,15 @@ from larray_editor.utils import Product, _LazyNone, _LazyDimLabels
 
 
 class LArrayDataAdapter(object):
-    def __init__(self, axes_model, hlabels_model, vlabels_model, data_model,
-                 data=None, changes=None, current_filter=None, bg_gradient=None, bg_value=None):
+    def __init__(self, axes_model, hlabels_model, vlabels_model, data_model, data=None,
+                 changes=None, current_filter=None, nb_dims_hlabels=1, bg_gradient=None, bg_value=None):
         # set models
         self.axes_model = axes_model
         self.hlabels_model = hlabels_model
         self.vlabels_model = vlabels_model
         self.data_model = data_model
+        # set number of dims of hlabels
+        self.nb_dims_hlabels = nb_dims_hlabels
         # set current filter
         if current_filter is None:
             current_filter = {}
@@ -31,38 +33,49 @@ class LArrayDataAdapter(object):
         assert isinstance(changes, dict)
         self.changes = changes
 
+    def update_nb_dims_hlabels(self, nb_dims_hlabels):
+        self.nb_dims_hlabels = nb_dims_hlabels
+        self.update_axes_and_labels()
+
     def get_axes_names(self):
         return self.filtered_data.axes.display_names
 
     def get_axes(self):
-        axes = self.filtered_data.axes
+        axes_names = self.filtered_data.axes.display_names
         # test self.filtered_data.size == 0 is required in case an instance built as LArray([]) is passed
         # test len(axes) == 0 is required when a user filters until to get a scalar
-        if self.filtered_data.size == 0 or len(axes) == 0:
+        if self.filtered_data.size == 0 or len(axes_names) == 0:
             return None
+        elif len(axes_names) == 1:
+            return [axes_names]
         else:
-            axes_names = axes.display_names
-            if len(axes_names) >= 2:
-                axes_names = axes_names[:-2] + [axes_names[-2] + '\\' + axes_names[-1]]
-            return [[axis_name] for axis_name in axes_names]
+            nb_dims_vlabels = len(axes_names) - self.nb_dims_hlabels
+            # axes corresponding to horizontal labels are set to the last column
+            res = [['' for c in range(nb_dims_vlabels-1)] + [axis_name] for axis_name in axes_names[nb_dims_vlabels:]]
+            # axes corresponding to vertical labels are set to the last row
+            res = res + [[axis_name for axis_name in axes_names[:nb_dims_vlabels]]]
+            return res
 
-    def get_hlabels(self):
+    def get_labels(self):
         axes = self.filtered_data.axes
         if self.filtered_data.size == 0 or len(axes) == 0:
-            return None
+            vlabels = None
+            hlabels = None
         else:
-            return [[label] for label in axes.labels[-1]]
-
-    def get_vlabels(self):
-        axes = self.filtered_data.axes
-        if self.filtered_data.size == 0 or len(axes) == 0:
-            return None
-        elif len(axes) == 1:
-            return [['']]
-        else:
-            labels = axes.labels[:-1]
-            prod = Product(labels)
-            return [_LazyDimLabels(prod, i) for i in range(len(labels))]
+            nb_dims_vlabels = len(axes) - self.nb_dims_hlabels
+            def get_labels_product(axes, extra_row=False):
+                if len(axes) == 0:
+                    return [[' ']]
+                else:
+                    # XXX: appends a fake axis instead of using _LazyNone because
+                    # _LazyNone mess up with LabelsArrayModel.get_values (in which slices are used)
+                    if extra_row:
+                        axes.append(la.Axis([' ']))
+                    prod = Product(axes.labels)
+                    return [_LazyDimLabels(prod, i) for i in range(len(axes.labels))]
+            vlabels = get_labels_product(axes[:nb_dims_vlabels])
+            hlabels = get_labels_product(axes[nb_dims_vlabels:], nb_dims_vlabels > 0)
+        return vlabels, hlabels
 
     def get_2D_data(self):
         """Returns Numpy 2D ndarray"""
@@ -109,6 +122,20 @@ class LArrayDataAdapter(object):
         self.bg_value = la.aslarray(bg_value) if bg_value is not None else None
         self.update_filtered_data(current_filter, reset_minmax=True)
 
+    def update_axes_and_labels(self):
+        axes = self.get_axes()
+        vlabels, hlabels = self.get_labels()
+        self.axes_model.set_data(axes)
+        self.hlabels_model.set_data(hlabels)
+        self.vlabels_model.set_data(vlabels)
+
+    def update_data_2D(self, reset_minmax=False):
+        data_2D = self.get_2D_data()
+        changes_2D = self.get_changes_2D()
+        bg_value_2D = self.get_bg_value_2D(data_2D.shape)
+        self.data_model.set_data(data_2D, changes_2D, reset_minmax=reset_minmax)
+        self.data_model.set_bg_value(bg_value_2D)
+
     def update_filtered_data(self, current_filter=None, reset_minmax=False):
         if current_filter is not None:
             assert isinstance(current_filter, dict)
@@ -116,17 +143,8 @@ class LArrayDataAdapter(object):
         self.filtered_data = self.la_data[self.current_filter]
         if np.isscalar(self.filtered_data):
             self.filtered_data = la.aslarray(self.filtered_data)
-        axes = self.get_axes()
-        hlabels = self.get_hlabels()
-        vlabels = self.get_vlabels()
-        data_2D = self.get_2D_data()
-        changes_2D = self.get_changes_2D()
-        bg_value_2D = self.get_bg_value_2D(data_2D.shape)
-        self.axes_model.set_data(axes)
-        self.hlabels_model.set_data(hlabels)
-        self.vlabels_model.set_data(vlabels)
-        self.data_model.set_data(data_2D, changes_2D, reset_minmax=reset_minmax)
-        self.data_model.set_bg_value(bg_value_2D)
+        self.update_axes_and_labels()
+        self.update_data_2D(reset_minmax=reset_minmax)
 
     def get_data(self):
         return self.la_data
