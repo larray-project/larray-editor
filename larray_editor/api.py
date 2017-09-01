@@ -35,7 +35,10 @@ def find_names(obj, depth=0):
     """
     # noinspection PyProtectedMember
     l = sys._getframe(depth + 1).f_locals
-    return sorted(k for k, v in l.items() if v is obj)
+    names = [k for k, v in l.items() if v is obj]
+    if any(not name.startswith('_') for name in names):
+        names = [name for name in names if not name.startswith('_')]
+    return sorted(names)
 
 
 def get_title(obj, depth=0, maxnames=3):
@@ -334,6 +337,10 @@ if __name__ == "__main__":
     # from larray.tests.common import abspath
     # file = abspath('test_session.xlsx')
     # ses.save(file)
+
+    # import cProfile as profile
+    # profile.runctx('edit(la.Session(arr2=arr2))', vars(), {},
+    #                'c:\\tmp\\edit.profile')
 
     edit(ses)
     # edit(ses)
