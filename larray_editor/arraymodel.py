@@ -147,7 +147,7 @@ class LabelsArrayModel(AbstractArrayModel):
     def get_value(self, index):
         i = index.row()
         j = index.column()
-        # we need to inverse column and row because of the way ylabels are generated
+        # we need to inverse column and row because of the way vlabels are generated
         return str(self._data[j][i])
 
     # XXX: I wonder if we shouldn't return a 2D Numpy array of strings?
