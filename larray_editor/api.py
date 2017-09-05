@@ -3,10 +3,10 @@ from __future__ import absolute_import, division, print_function
 import sys
 import traceback
 from collections import OrderedDict
-import numpy as np
-import larray as la
 
 from qtpy.QtWidgets import QApplication, QMainWindow
+import larray as la
+
 from larray_editor.editor import REOPEN_LAST_FILE
 
 __all__ = ['view', 'edit', 'compare', 'REOPEN_LAST_FILE']
@@ -98,9 +98,10 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     >>> # will open an editor for a1 only
     >>> edit(a1)                                                                                       # doctest: +SKIP
     """
+    install_except_hook()
+
     _app = QApplication.instance()
     if _app is None:
-        install_except_hook()
         _app = qapplication()
         _app.setOrganizationName("LArray")
         _app.setApplicationName("Viewer")
@@ -131,8 +132,8 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
             _app.exec_()
         else:
             dlg.exec_()
-    if parent is None:
-        restore_except_hook()
+
+    restore_except_hook()
 
 
 def view(obj=None, title='', depth=0):
@@ -185,11 +186,12 @@ def compare(*args, **kwargs):
     >>> compare(a1, a2, title='first comparison')                                                      # doctest: +SKIP
     >>> compare(a1 + 1, a2, title='second comparison', names=['a1+1', 'a2'])                           # doctest: +SKIP
     """
+    install_except_hook()
+
     title = kwargs.pop('title', '')
     names = kwargs.pop('names', None)
     _app = QApplication.instance()
     if _app is None:
-        install_except_hook()
         _app = qapplication()
         parent = None
     else:
@@ -219,8 +221,8 @@ def compare(*args, **kwargs):
             dlg.show()
         else:
             dlg.exec_()
-    if parent is None:
-        restore_except_hook()
+
+    restore_except_hook()
 
 _orig_except_hook = sys.excepthook
 
@@ -258,6 +260,7 @@ def restore_display_hook():
 
 if __name__ == "__main__":
     """Array editor test"""
+    import numpy as np
 
     lipro = la.Axis(['P%02d' % i for i in range(1, 16)], 'lipro')
     age = la.Axis('age=0..115')
