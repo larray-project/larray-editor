@@ -6,7 +6,6 @@ from larray_editor.utils import Product, _LazyNone, _LazyDimLabels
 
 
 class LArrayDataAdapter(object):
-
     def __init__(self, axes_model, xlabels_model, ylabels_model, data_model,
                  data=None, changes=None, current_filter=None, bg_gradient=None, bg_value=None):
         # set models

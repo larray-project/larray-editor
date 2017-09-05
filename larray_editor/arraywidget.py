@@ -681,7 +681,7 @@ class ArrayEditorWidget(QWidget):
 
     def set_data(self, data, bg_gradient=None, bg_value=None):
         self.data_adapter.set_data(data, bg_gradient=bg_gradient, bg_value=bg_value)
-        self._update()
+        self._update_digits_scientific(self.data_adapter.get_data())
 
     def set_filters(self):
         la_data = self.data_adapter.get_data()
@@ -698,9 +698,13 @@ class ArrayEditorWidget(QWidget):
             filters_layout.addStretch()
         self.data_adapter.update_filtered_data({})
 
-    def _update(self):
+    def _update_digits_scientific(self, data):
+        """
+        data : LArray
+        """
         # TODO: Adapter must provide a method to return a data sample as a Numpy array
-        data = self.data_adapter.get_data().data
+        assert isinstance(data, la.LArray)
+        data = data.data
         size, dtype = data.size, data.dtype
         # this will yield a data sample of max 199
         step = (size // 100) if size > 100 else 1
@@ -835,7 +839,7 @@ class ArrayEditorWidget(QWidget):
     def accept_changes(self):
         """Accept changes"""
         la_data = self.data_adapter.accept_changes()
-        self._update(la_data)
+        self._update_digits_scientific(la_data)
 
     def reject_changes(self):
         """Reject changes"""
@@ -863,7 +867,7 @@ class ArrayEditorWidget(QWidget):
     def create_filter_combo(self, axis):
         def filter_changed(checked_items):
             filtered = self.data_adapter.change_filter(axis, checked_items)
-            self._update(filtered)
+            self._update_digits_scientific(filtered)
         combo = FilterComboBox(self)
         combo.addItems([str(l) for l in axis.labels])
         combo.checkedItemsChanged.connect(filter_changed)
