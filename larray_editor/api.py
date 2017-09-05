@@ -178,6 +178,8 @@ def compare(*args, **kwargs):
     names : list of str, optional
         Names for arrays or sessions being compared. Defaults to the name of the first objects found in the caller
         namespace which correspond to the passed objects.
+    depth : int, optional
+        Stack depth where to look for variables. Defaults to 0 (where this function was called).
 
     Examples
     --------
@@ -190,6 +192,7 @@ def compare(*args, **kwargs):
 
     title = kwargs.pop('title', '')
     names = kwargs.pop('names', None)
+    depth = kwargs.pop('depth', 0)
     _app = QApplication.instance()
     if _app is None:
         _app = qapplication()
@@ -211,8 +214,8 @@ def compare(*args, **kwargs):
         return obj_names[0] if obj_names else '%s %d' % (default_name, i)
 
     if names is None:
-        # depth=2 because of the list comprehension
-        names = [get_name(i, a, depth=2) for i, a in enumerate(args)]
+        # depth + 2 because of the list comprehension
+        names = [get_name(i, a, depth=depth + 2) for i, a in enumerate(args)]
     else:
         assert isinstance(names, list) and len(names) == len(args)
 
