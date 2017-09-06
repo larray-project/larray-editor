@@ -109,6 +109,9 @@ class MappingEditor(QMainWindow):
 
         self._listwidget = QListWidget(self)
         self._listwidget.currentItemChanged.connect(self.on_item_changed)
+        # this is a workaround for the fact that no currentItemChanged signal is emitted when no item was selected
+        # before
+        self._listwidget.itemSelectionChanged.connect(self.on_selection_changed)
         self._listwidget.setMinimumWidth(45)
 
         del_item_shortcut = QShortcut(QKeySequence(Qt.Key_Delete), self._listwidget)
@@ -417,6 +420,14 @@ class MappingEditor(QMainWindow):
                     if isinstance(cur_output, matplotlib.axes.Subplot) and 'inline' not in matplotlib.get_backend():
                         show_figure(self, cur_output.figure)
 
+    def on_selection_changed(self, *args, **kwargs):
+        selected = self._listwidget.selectedItems()
+        if selected:
+            assert len(selected) == 1
+            selected_item = selected[0]
+            assert isinstance(selected_item, QListWidgetItem)
+            self.on_item_changed(selected_item, None)
+
     def on_item_changed(self, curr, prev):
         if curr is not None:
             name = str(curr.text())
@@ -457,12 +468,11 @@ class MappingEditor(QMainWindow):
         self.setWindowTitle(' - '.join(title))
 
     def set_current_array(self, array, name):
-        self.current_array = array
-        self.arraywidget.set_data(array)
-        if name != '<expr>' and name != self.current_array_name:
-            self.arraywidget.set_filters()
+        if array is not self.current_array:
+            self.current_array = array
+            self.arraywidget.set_data(array)
             self.current_array_name = name
-        self.update_title()
+            self.update_title()
 
     def _add_arrays(self, arrays):
         for k, v in arrays.items():
@@ -501,7 +511,6 @@ class MappingEditor(QMainWindow):
         if self._ask_to_save_if_unsaved_modifications():
             self._reset()
             self.arraywidget.set_data(np.empty(0))
-            self.arraywidget.set_filters()
             self.set_current_file(None)
             self._unsaved_modifications = False
             self.statusBar().showMessage("Viewer has been reset", 4000)

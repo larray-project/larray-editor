@@ -602,7 +602,6 @@ class ArrayEditorWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
         self.set_data(data, bg_value=bg_value, bg_gradient=bg_gradient)
-        self.set_filters()
 
         # See http://doc.qt.io/qt-4.8/qt-draganddrop-fridgemagnets-dragwidget-cpp.html for an example
         self.setAcceptDrops(True)
@@ -670,7 +669,6 @@ class ArrayEditorWidget(QWidget):
                 new_axes.insert(new_index, new_axes.pop(new_axes[previous_index]))
                 la_data = la_data.transpose(new_axes)
                 self.set_data(la_data, self.model_data.bg_gradient, self.model_data.bg_value)
-                self.set_filters()
 
                 event.setDropAction(Qt.MoveAction)
                 event.accept()
@@ -683,7 +681,7 @@ class ArrayEditorWidget(QWidget):
         self.data_adapter.set_data(data, bg_gradient=bg_gradient, bg_value=bg_value)
         self._update_digits_scientific(self.data_adapter.get_data())
 
-    def set_filters(self):
+        # update filters
         la_data = self.data_adapter.get_data()
         axes = la_data.axes
         display_names = axes.display_names
