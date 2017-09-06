@@ -74,9 +74,9 @@ import math
 from itertools import chain
 
 import numpy as np
-from qtpy.QtCore import Qt, QPoint, QItemSelection, QItemSelectionModel, QItemSelectionRange, Slot, Signal
+from qtpy.QtCore import Qt, QPoint, QItemSelection, QItemSelectionModel, Signal
 from qtpy.QtGui import QDoubleValidator, QIntValidator, QKeySequence, QFontMetrics, QCursor
-from qtpy.QtWidgets import (QApplication, QTableView, QHeaderView, QItemDelegate, QLineEdit, QCheckBox,
+from qtpy.QtWidgets import (QApplication, QTableView, QItemDelegate, QLineEdit, QCheckBox,
                             QMessageBox, QMenu, QLabel, QSpinBox, QWidget, QToolTip, QShortcut, QScrollBar,
                             QHBoxLayout, QVBoxLayout, QGridLayout, QSizePolicy, QFrame)
 
@@ -333,6 +333,9 @@ class DataView(QTableView):
     def selectNewRow(self, row_index):
         # if not MultiSelection mode activated, selectRow will unselect previously
         # selected rows (unless SHIFT or CTRL key is pressed)
+
+        # this produces a selection with multiple QItemSelectionRange. We could merge them here, but it is
+        # easier to handle in _selection_bounds
         self.setSelectionMode(QTableView.MultiSelection)
         self.selectRow(row_index)
         self.setSelectionMode(QTableView.ContiguousSelection)
@@ -340,6 +343,9 @@ class DataView(QTableView):
     def selectNewColumn(self, column_index):
         # if not MultiSelection mode activated, selectColumn will unselect previously
         # selected columns (unless SHIFT or CTRL key is pressed)
+
+        # this produces a selection with multiple QItemSelectionRange. We could merge them here, but it is
+        # easier to handle in _selection_bounds
         self.setSelectionMode(QTableView.MultiSelection)
         self.selectColumn(column_index)
         self.setSelectionMode(QTableView.ContiguousSelection)
@@ -427,13 +433,12 @@ class DataView(QTableView):
                 return 0, model.total_rows, 0, model.total_cols
             else:
                 return None
-        assert len(selection) == 1
-        srange = selection[0]
-        assert isinstance(srange, QItemSelectionRange)
-        row_min = srange.top()
-        row_max = srange.bottom()
-        col_min = srange.left()
-        col_max = srange.right()
+        # merge potentially multiple selections into one big rect
+        row_min = min(srange.top() for srange in selection)
+        row_max = max(srange.bottom() for srange in selection)
+        col_min = min(srange.left() for srange in selection)
+        col_max = max(srange.right() for srange in selection)
+
         # if not all rows/columns have been loaded
         if row_min == 0 and row_max == self.model().rows_loaded - 1:
             row_max = self.model().total_rows - 1
