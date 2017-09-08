@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 
 from larray_editor.utils import (get_font, from_qvariant, to_qvariant, to_text_string,
-                                 is_float, is_number, SUPPORTED_FORMATS)
+                                 is_float, is_number, LinearGradient, SUPPORTED_FORMATS)
 
 from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel
 from qtpy.QtGui import QColor
@@ -217,19 +217,10 @@ class DataArrayModel(AbstractArrayModel):
         AbstractArrayModel.__init__(self, parent, data, readonly, font)
         self._format = format
 
-        # Backgroundcolor settings
-        # TODO: use LinearGradient
-        # self.bgfunc = bgfunc
-        huerange = [.66, .99]  # Hue
-        self.sat = .7  # Saturation
-        self.val = 1.  # Value
-        self.alp = .6  # Alpha-channel
-        self.hue0 = huerange[0]
-        self.dhue = huerange[1] - huerange[0]
+        # Backgroundcolor settings (HSV --> Hue, Saturation, Value, Alpha-channel)
+        self.hsv_min = [0.66, 0.7, 1.0, 0.6]
+        self.hsv_max = [0.99, 0.7, 1.0, 0.6]
         self.bgcolor_enabled = True
-        # hue = self.hue0
-        # color = QColor.fromHsvF(hue, self.sat, self.val, self.alp)
-        # self.color = to_qvariant(color)
 
         self.minvalue = minvalue
         self.maxvalue = maxvalue
@@ -293,11 +284,14 @@ class DataArrayModel(AbstractArrayModel):
             if self.vmax == self.vmin:
                 self.vmin -= 1
             self.bgcolor_enabled = True
+            self.bg_gradient = LinearGradient([(self.vmin, self.hsv_min), (self.vmax, self.hsv_max)])
+
         # ValueError for empty arrays
         except (TypeError, ValueError):
             self.vmin = None
             self.vmax = None
             self.bgcolor_enabled = False
+            self.bg_gradient = None
 
     def set_format(self, format):
         """Change display format"""
@@ -352,12 +346,8 @@ class DataArrayModel(AbstractArrayModel):
                 return to_qvariant(self._format % value)
         elif role == Qt.BackgroundColorRole:
             if self.bgcolor_enabled and value is not np.ma.masked:
-                if self.bg_gradient is None:
-                    maxdiff = self.vmax - self.vmin
-                    color_val = float(self.color_func(value))
-                    hue = self.hue0 + self.dhue * (self.vmax - color_val) / maxdiff
-                    color = QColor.fromHsvF(hue, self.sat, self.val, self.alp)
-                    return to_qvariant(color)
+                if self.bg_value is None:
+                    return self.bg_gradient[float(self.color_func(value))]
                 else:
                     bg_value = self.bg_value
                     x, y = index.row(), index.column()
