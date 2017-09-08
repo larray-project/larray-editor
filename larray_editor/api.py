@@ -110,8 +110,12 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
         parent = _app.activeWindow()
 
     if obj is None:
-        local_vars = sys._getframe(depth + 1).f_locals
-        obj = OrderedDict([(k, local_vars[k]) for k in sorted(local_vars.keys())])
+        caller_frame = sys._getframe(depth + 1)
+        global_vars = caller_frame.f_globals
+        local_vars = caller_frame.f_locals
+        obj = OrderedDict()
+        obj.update([(k, global_vars[k]) for k in sorted(global_vars.keys())])
+        obj.update([(k, local_vars[k]) for k in sorted(local_vars.keys())])
 
     if not isinstance(obj, la.Session) and hasattr(obj, 'keys'):
         obj = la.Session(obj)
