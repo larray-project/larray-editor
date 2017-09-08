@@ -218,8 +218,8 @@ class DataArrayModel(AbstractArrayModel):
         self._format = format
 
         # Backgroundcolor settings (HSV --> Hue, Saturation, Value, Alpha-channel)
-        self.hsv_min = [0.66, 0.7, 1.0, 0.6]
-        self.hsv_max = [0.99, 0.7, 1.0, 0.6]
+        self.hsv_min = [0.99, 0.7, 1.0, 0.6]
+        self.hsv_max = [0.66, 0.7, 1.0, 0.6]
         self.bgcolor_enabled = True
 
         self.minvalue = minvalue
