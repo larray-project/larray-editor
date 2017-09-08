@@ -170,6 +170,12 @@ class LinearGradient(object):
     I cannot believe I had to roll my own class for this when PyQt already
     contains QLinearGradient... but you cannot get intermediate values out of
     QLinearGradient!
+    
+    Parameters
+    ----------
+    stop_points: list/tuple, optional
+        List containing pairs (stop_position, colors_HsvF). 
+        `colors` is a 4 elements list containing `hue`, `saturation`, `value` and `alpha-channel`
     """
     def __init__(self, stop_points=None):
         if stop_points is None:
