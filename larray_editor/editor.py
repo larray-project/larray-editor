@@ -230,6 +230,9 @@ class MappingEditor(QMainWindow):
             arrays = [k for k, v in self.data.items() if self._display_in_grid(k, v)]
             self.add_list_items(arrays)
 
+        # tracking data changes
+        self.arraywidget.model_data.dataChanged.connect(self.data_changed)
+
         return True
 
     def _reset(self):
@@ -276,6 +279,22 @@ class MappingEditor(QMainWindow):
         help_menu.addAction(create_action(self, _('Online &Tutorial'), triggered=self.open_tutorial))
         help_menu.addAction(create_action(self, _('Online Objects and Functions (API) &Reference'),
                                           triggered=self.open_api_documentation))
+
+    def data_changed(self):
+        # We do not set self._unsaved_modifications to True because if users click on `Discard` button
+        # (which calls reject_changes) or choose to display another array, all temporary changes are lost.
+        # `update_title` relies on _is_unsaved_modifications() which checks both self._unsaved_modifications
+        # and self.arraywidget.dirty
+        self.update_title()
+
+    @property
+    def unsaved_modifications(self):
+        return self._unsaved_modifications
+
+    @unsaved_modifications.setter
+    def unsaved_modifications(self, unsaved_modifications):
+        self._unsaved_modifications = unsaved_modifications
+        self.update_title()
 
     def add_list_item(self, name):
         listitem = QListWidgetItem(self._listwidget)
@@ -339,7 +358,7 @@ class MappingEditor(QMainWindow):
 
         # 3) mark session as dirty if needed
         if len(changed_displayable_keys) > 0 or deleted_displayable_keys:
-            self._unsaved_modifications = True
+            self.unsaved_modifications = True
 
         # 4) change displayed array in the array widget
         # only display first result if there are more than one
@@ -465,6 +484,10 @@ class MappingEditor(QMainWindow):
             title = [name]
         # extra info
         title += [self.title]
+        # add '*' at the end of the title if unsaved modifications.
+        if self._is_unsaved_modifications():
+            title += ['*']
+        # set title
         self.setWindowTitle(' - '.join(title))
 
     def set_current_array(self, array, name):
@@ -512,7 +535,7 @@ class MappingEditor(QMainWindow):
             self._reset()
             self.arraywidget.set_data(np.empty(0))
             self.set_current_file(None)
-            self._unsaved_modifications = False
+            self.unsaved_modifications = False
             self.statusBar().showMessage("Viewer has been reset", 4000)
 
     def _open_file(self, filepath):
@@ -532,7 +555,7 @@ class MappingEditor(QMainWindow):
             self.statusBar().showMessage("File {} loaded".format(os.path.basename(filepath)), 4000)
         self._add_arrays(session)
         self._listwidget.setCurrentRow(0)
-        self._unsaved_modifications = False
+        self.unsaved_modifications = False
 
     def open(self):
         if self._ask_to_save_if_unsaved_modifications():
@@ -563,7 +586,7 @@ class MappingEditor(QMainWindow):
         session = Session({k: v for k, v in self.data.items() if self._display_in_grid(k, v)})
         session.save(filepath)
         self.set_current_file(filepath)
-        self._unsaved_modifications = False
+        self.unsaved_modifications = False
         self.statusBar().showMessage("Arrays saved in file {}".format(filepath), 4000)
 
     def save(self):
@@ -642,13 +665,14 @@ class MappingEditor(QMainWindow):
             event.ignore()
 
     def apply_changes(self):
-        # update _unsaved_modifications only if 1 or more changes have been applied
+        # update unsaved_modifications (and thus title) only if at least 1 change has been applied
         if self.arraywidget.dirty:
-            self._unsaved_modifications = True
+            self.unsaved_modifications = True
         self.arraywidget.accept_changes()
 
     def discard_changes(self):
         self.arraywidget.reject_changes()
+        self.update_title()
 
     def get_value(self):
         """Return modified array -- this is *not* a copy"""
