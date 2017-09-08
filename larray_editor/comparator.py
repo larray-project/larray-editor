@@ -59,11 +59,11 @@ class ArrayComparator(QDialog):
         else:
             # all 0.5 (white)
             bg_value = full_like(diff, 0.5)
-        gradient = LinearGradient([(0, [.66, .85, 1., .6]),
-                                   (0.5 - 1e-16, [.66, .15, 1., .6]),
+        gradient = LinearGradient([(0, [.99, .85, 1., .6]),
+                                   (0.5 - 1e-16, [.99, .15, 1., .6]),
                                    (0.5, [1., 0., 1., 1.]),
-                                   (0.5 + 1e-16, [.99, .15, 1., .6]),
-                                   (1, [.99, .85, 1., .6])])
+                                   (0.5 + 1e-16, [.66, .15, 1., .6]),
+                                   (1, [.66, .85, 1., .6])])
 
         self.arraywidget = ArrayEditorWidget(self, self.array, readonly=True,
                                              bg_value=bg_value,
@@ -105,11 +105,11 @@ class SessionComparator(QDialog):
         self.names = None
         self.arraywidget = None
         self.maxdiff_label = None
-        self.gradient = LinearGradient([(0, [.66, .85, 1., .6]),
-                                        (0.5 - 1e-16, [.66, .15, 1., .6]),
+        self.gradient = LinearGradient([(0, [.99, .85, 1., .6]),
+                                        (0.5 - 1e-16, [.99, .15, 1., .6]),
                                         (0.5, [1., 0., 1., 1.]),
-                                        (0.5 + 1e-16, [.99, .15, 1., .6]),
-                                        (1, [.99, .85, 1., .6])])
+                                        (0.5 + 1e-16, [.66, .15, 1., .6]),
+                                        (1, [.66, .85, 1., .6])])
 
     def setup_and_check(self, sessions, names, title=''):
         """
