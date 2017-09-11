@@ -91,6 +91,7 @@ class LArrayDataAdapter(object):
             data = la.LArray([])
         if current_filter is None:
             self.current_filter = {}
+        self.changes = {}
         self.la_data = la.aslarray(data)
         self.update_filtered_data(current_filter)
         self.data_model.set_background(bg_gradient, bg_value)
@@ -175,7 +176,11 @@ class LArrayDataAdapter(object):
         tuple
             Positional index (row, column) of the modified data cell.
         """
-        assert isinstance(k, tuple) and len(k) == self.la_data.ndim
+        if not isinstance(k, tuple):
+            raise ValueError("Expected tuple argument. Passed argument is of type {}".format(type(k).__name__))
+        if len(k) != self.la_data.ndim:
+            raise ValueError("Length of passed tuple k ({}) must be equal to the number of dimensions "
+                             "of current array ({}).\nPassed argument is: {}".format(len(k), self.la_data.ndim, k))
         dkey = {axis_id: axis_key for axis_key, axis_id in zip(k, self.la_data.axes.ids)}
         # transform global dictionary key to "local" (filtered) key by removing
         # the parts of the key which are redundant with the filter
