@@ -201,8 +201,8 @@ class DataArrayModel(AbstractArrayModel):
         Parent Widget.
     bg_gradient : LinearGradient, optional
         Background color gradient
-    bg_value : LArray, optional
-        Background color value
+    bg_value : Numpy ndarray, optional
+        Background color value. Must have the shape as data
     minvalue : scalar
         Minimum value allowed.
     maxvalue : scalar
@@ -299,7 +299,14 @@ class DataArrayModel(AbstractArrayModel):
         self.reset()
 
     def set_background(self, bg_gradient=None, bg_value=None):
-        self.bg_gradient = bg_gradient
+        if bg_gradient is not None and not isinstance(bg_gradient, LinearGradient):
+            raise ValueError("Expected None or LinearGradient instance for `bg_gradient` argument")
+        if bg_value is not None and not (isinstance(bg_value, np.ndarray) and bg_value.ndim == 2):
+            raise ValueError("Expected None or 2D Numpy ndarray with shape {} for `bg_value` argument"
+                             .format(self._data.shape))
+        # self.bg_gradient must never be None
+        if bg_gradient is not None:
+            self.bg_gradient = bg_gradient
         self.bg_value = bg_value
         self.reset()
 
@@ -349,13 +356,8 @@ class DataArrayModel(AbstractArrayModel):
                 if self.bg_value is None:
                     return self.bg_gradient[float(self.color_func(value))]
                 else:
-                    bg_value = self.bg_value
-                    x, y = index.row(), index.column()
-                    # FIXME: this is buggy on filtered data. We should change
-                    # bg_value when changing the filter.
-                    idx = y + x * bg_value.shape[-1]
-                    value = bg_value.data.flat[idx]
-                    return self.bg_gradient[value]
+                    i, j = index.row(), index.column()
+                    return self.bg_gradient[self.bg_value[i][j]]
         # elif role == Qt.ToolTipRole:
         #     return to_qvariant("{}\n{}".format(repr(value),self.get_labels(index)))
         return to_qvariant()

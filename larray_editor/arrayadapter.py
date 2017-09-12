@@ -83,6 +83,15 @@ class LArrayDataAdapter(object):
                 changes_2D[local_key] = v
         return changes_2D
 
+    def get_bg_value_2D(self, shape_2D):
+        if self.bg_value is not None:
+            filtered_bg_value = self.bg_value[self.current_filter]
+            if np.isscalar(filtered_bg_value):
+                filtered_bg_value = la.aslarray(filtered_bg_value)
+            return filtered_bg_value.data.reshape(shape_2D)
+        else:
+            return None
+
     # XXX: or create two methods?:
     # - set_data (which reset the current filter)
     # - update_data (which sets new data but keeps current filter unchanged)
@@ -93,8 +102,9 @@ class LArrayDataAdapter(object):
             self.current_filter = {}
         self.changes = {}
         self.la_data = la.aslarray(data)
+        self.bg_value = la.aslarray(bg_value) if bg_value is not None else None
+        self.bg_gradient = bg_gradient
         self.update_filtered_data(current_filter)
-        self.data_model.set_background(bg_gradient, bg_value)
 
     def update_filtered_data(self, current_filter=None):
         if current_filter is not None:
@@ -113,10 +123,12 @@ class LArrayDataAdapter(object):
             ylabels = self.get_ylabels()
         data_2D = self.get_2D_data()
         changes_2D = self.get_changes_2D()
+        bg_value_2D = self.get_bg_value_2D(data_2D.shape)
         self.axes_model.set_data(axes)
         self.xlabels_model.set_data(xlabels)
         self.ylabels_model.set_data(ylabels)
         self.data_model.set_data(data_2D, changes_2D)
+        self.data_model.set_background(self.bg_gradient, bg_value_2D)
 
     def get_data(self):
         return self.la_data

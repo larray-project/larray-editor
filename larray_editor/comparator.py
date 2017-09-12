@@ -54,7 +54,7 @@ class ArrayComparator(QDialog):
         layout.addLayout(maxdiff_layout)
 
         if absmax:
-            # scale diff to 0-1
+            # scale diff to range 0-1
             bg_value = (diff / absmax) / 2 + 0.5
         else:
             # all 0.5 (white)

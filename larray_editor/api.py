@@ -352,15 +352,15 @@ if __name__ == "__main__":
     # profile.runctx('edit(la.Session(arr2=arr2))', vars(), {},
     #                'c:\\tmp\\edit.profile')
 
-    edit(ses)
+    # edit(ses)
     # edit(ses)
     # edit(file)
     # edit('fake_path')
     # edit(REOPEN_LAST_FILE)
 
-    # edit(arr2)
+    edit(arr2)
     # compare(la.Session(arr2=arr2, arr3=arr3), la.Session(arr2=arr2 + 1.0, arr3=arr3 + 1.0))
-    # compare(arr2, arr2 + 1.0)
+    compare(arr3, arr3 + la.ndrange(arr3.axes))
 
     # s = la.local_arrays()
     # view(s)
