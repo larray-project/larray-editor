@@ -301,7 +301,7 @@ class DataArrayModel(AbstractArrayModel):
     def set_background(self, bg_gradient=None, bg_value=None):
         if bg_gradient is not None and not isinstance(bg_gradient, LinearGradient):
             raise ValueError("Expected None or LinearGradient instance for `bg_gradient` argument")
-        if bg_value is not None and not (isinstance(bg_value, np.ndarray) and bg_value.ndim == 2):
+        if bg_value is not None and not (isinstance(bg_value, np.ndarray) and bg_value.shape == self._data.shape):
             raise ValueError("Expected None or 2D Numpy ndarray with shape {} for `bg_value` argument"
                              .format(self._data.shape))
         # self.bg_gradient must never be None
@@ -357,7 +357,7 @@ class DataArrayModel(AbstractArrayModel):
                     return self.bg_gradient[float(self.color_func(value))]
                 else:
                     i, j = index.row(), index.column()
-                    return self.bg_gradient[self.bg_value[i][j]]
+                    return self.bg_gradient[self.bg_value[i, j]]
         # elif role == Qt.ToolTipRole:
         #     return to_qvariant("{}\n{}".format(repr(value),self.get_labels(index)))
         return to_qvariant()
