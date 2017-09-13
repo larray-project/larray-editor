@@ -504,12 +504,12 @@ class ArrayEditorWidget(QWidget):
         self.model_ylabels = LabelsArrayModel(parent=self, readonly=readonly)
         self.view_ylabels = LabelsView(parent=self, model=self.model_ylabels, position=(BOTTOM, LEFT))
 
-        self.model_data = DataArrayModel(parent=self, readonly=readonly, bg_value=bg_value, bg_gradient=bg_gradient,
-                                         minvalue=minvalue, maxvalue=maxvalue)
+        self.model_data = DataArrayModel(parent=self, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
         self.view_data = DataView(parent=self, model=self.model_data, dtype=data.dtype, shape=data.shape)
 
         self.data_adapter = LArrayDataAdapter(axes_model=self.model_axes, xlabels_model=self.model_xlabels,
-                                              ylabels_model=self.model_ylabels, data_model=self.model_data, data=data)
+                                              ylabels_model=self.model_ylabels, data_model=self.model_data, data=data,
+                                              bg_value=bg_value, bg_gradient=bg_gradient)
 
         # Create vertical and horizontal scrollbars
         self.vscrollbar = ScrollBar(self, self.view_data.verticalScrollBar())
