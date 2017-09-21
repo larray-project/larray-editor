@@ -118,11 +118,7 @@ class LabelsView(QTableView):
         self.horizontalHeader().setFrameStyle(QFrame.NoFrame)
         self.verticalHeader().setFrameStyle(QFrame.NoFrame)
 
-        # make the grid a bit more compact
-        self.horizontalHeader().setDefaultSectionSize(64)
-        self.horizontalHeader().setFixedHeight(10)
-        self.verticalHeader().setDefaultSectionSize(20)
-        self.verticalHeader().setFixedWidth(10)
+        self.set_default_size()
         # to fetch more rows/columns when required
         self.horizontalScrollBar().valueChanged.connect(self.on_horizontal_scroll_changed)
         self.verticalScrollBar().valueChanged.connect(self.on_vertical_scroll_changed)
@@ -141,6 +137,13 @@ class LabelsView(QTableView):
         self.horizontalHeader().sectionResized.connect(self.updateGeometry)
         self.verticalHeader().sectionResized.connect(self.updateGeometry)
 
+    def set_default_size(self):
+        # make the grid a bit more compact
+        self.horizontalHeader().setDefaultSectionSize(64)
+        self.horizontalHeader().setFixedHeight(10)
+        self.verticalHeader().setDefaultSectionSize(20)
+        self.verticalHeader().setFixedWidth(10)
+
     def on_vertical_scroll_changed(self, value):
         if value == self.verticalScrollBar().maximum():
             self.model().fetch_more_rows()
@@ -154,6 +157,16 @@ class LabelsView(QTableView):
 
     def updateSectionWidth(self, logicalIndex, oldSize, newSize):
         self.setColumnWidth(logicalIndex, newSize)
+
+    def autofit_columns(self):
+        """Resize cells to contents"""
+        QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
+
+        # Spyder loads more columns before resizing, but since it does not
+        # load all columns anyway, I do not see the point
+        # self.model().fetch_more_columns()
+        self.resizeColumnsToContents()
+        QApplication.restoreOverrideCursor()
 
     def selectAll(self):
         self.allSelected.emit()
@@ -291,9 +304,7 @@ class DataView(QTableView):
         self.horizontalHeader().setFrameStyle(QFrame.NoFrame)
         self.verticalHeader().setFrameStyle(QFrame.NoFrame)
 
-        # make the grid a bit more compact
-        self.horizontalHeader().setDefaultSectionSize(64)
-        self.verticalHeader().setDefaultSectionSize(20)
+        self.set_default_size()
         # Hide horizontal+vertical headers
         self.horizontalHeader().hide()
         self.verticalHeader().hide()
@@ -307,6 +318,11 @@ class DataView(QTableView):
         self.verticalScrollBar().valueChanged.connect(self.on_vertical_scroll_changed)
 
         # self.horizontalHeader().sectionClicked.connect(self.on_horizontal_header_clicked)
+
+    def set_default_size(self):
+        # make the grid a bit more compact
+        self.horizontalHeader().setDefaultSectionSize(64)
+        self.verticalHeader().setDefaultSectionSize(20)
 
     # def on_horizontal_header_clicked(self, section_index):
     #     menu = FilterMenu(self)
@@ -701,6 +717,11 @@ class ArrayEditorWidget(QWidget):
             filters_layout.addStretch()
         self.data_adapter.update_filtered_data({})
 
+        # reset default size
+        self.view_ylabels.set_default_size()
+        self.view_xlabels.set_default_size()
+        self.view_data.set_default_size()
+
     def _update_digits_scientific(self, data):
         """
         data : LArray
@@ -820,7 +841,9 @@ class ArrayEditorWidget(QWidget):
         return maxdigits
 
     def autofit_columns(self):
-        self.view_data.autofit_columns()
+        self.view_xlabels.autofit_columns()
+        for column in range(self.model_xlabels.columnCount()):
+            self.resizeColumnToContents(column)
 
     def resizeColumnToContents(self, column):
         # must be connected to view_labels.horizontalHeader().sectionHandleDoubleClicked signal
