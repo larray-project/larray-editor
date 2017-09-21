@@ -338,10 +338,13 @@ if __name__ == "__main__":
     arr7 = la.from_lists([['a',                   1,                    2,                    3],
                           [ '', 1664780726569649730, -9196963249083393206, -7664327348053294350]])
 
+    # test autoresizing
+    arr8 = la.zeros('a=a_long_label,another_long_label')
+
     # compare(arr3, arr4, arr5, arr6)
 
     # view(la.stack((arr3, arr4), la.Axis('arrays=arr3,arr4')))
-    ses = la.Session(arr2=arr2, arr3=arr3, arr4=arr4, arr5=arr5, arr6=arr6, arr7=arr7,
+    ses = la.Session(arr2=arr2, arr3=arr3, arr4=arr4, arr5=arr5, arr6=arr6, arr7=arr7, arr8=arr8,
                      data2=data2, data3=data3)
 
     # from larray.tests.common import abspath
@@ -358,9 +361,9 @@ if __name__ == "__main__":
     # edit('fake_path')
     # edit(REOPEN_LAST_FILE)
 
-    edit(arr2)
+    edit(ses)
     # compare(la.Session(arr2=arr2, arr3=arr3), la.Session(arr2=arr2 + 1.0, arr3=arr3 + 1.0))
-    compare(arr3, arr3 + la.ndrange(arr3.axes))
+    # compare(arr3, arr3 + la.ndrange(arr3.axes))
 
     # s = la.local_arrays()
     # view(s)
