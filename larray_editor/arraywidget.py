@@ -823,15 +823,17 @@ class ArrayEditorWidget(QWidget):
         self.view_data.autofit_columns()
 
     def resizeColumnToContents(self, column):
-        width = max(self.view_xlabels.horizontalHeader().sectionSizeHint(column),
+        # must be connected to view_labels.horizontalHeader().sectionHandleDoubleClicked signal
+        width = max(self.view_xlabels.horizontalHeader().sectionSize(column),
                     self.view_data.sizeHintForColumn(column))
-        self.view_data.horizontalHeader().resizeSection(column, width)
+        # no need to call resizeSection on view_data (see synchronization lines in init)
         self.view_xlabels.horizontalHeader().resizeSection(column, width)
 
     def resizeRowToContents(self, row):
-        height = max(self.view_xlabels.verticalHeader().sectionSizeHint(row),
+        # must be connected to view_labels.verticalHeader().sectionHandleDoubleClicked
+        height = max(self.view_xlabels.verticalHeader().sectionSize(row),
                      self.view_data.sizeHintForRow(row))
-        self.view_data.verticalHeader().resizeSection(row, height)
+        # no need to call resizeSection on view_data (see synchronization lines in init)
         self.view_ylabels.verticalHeader().resizeSection(row, height)
 
     @property
