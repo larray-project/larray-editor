@@ -35,15 +35,19 @@ class LArrayDataAdapter(object):
         return self.filtered_data.axes.display_names
 
     def get_axes(self):
-        axes_names = self.filtered_data.axes.display_names
-        if len(axes_names) >= 2:
-            axes_names = axes_names[:-2] + [axes_names[-2] + '\\' + axes_names[-1]]
-        return [[axis_name] for axis_name in axes_names]
+        axes = self.filtered_data.axes
+        if len(axes) == 0:
+            return None
+        else:
+            axes_names = axes.display_names
+            if len(axes_names) >= 2:
+                axes_names = axes_names[:-2] + [axes_names[-2] + '\\' + axes_names[-1]]
+            return [[axis_name] for axis_name in axes_names]
 
     def get_xlabels(self):
         axes = self.filtered_data.axes
         if len(axes) == 0:
-            return [[]]
+            return None
         elif len(axes.labels[-1]) == 0:
             return [['']]
         else:
@@ -52,7 +56,7 @@ class LArrayDataAdapter(object):
     def get_ylabels(self):
         axes = self.filtered_data.axes
         if len(axes) == 0:
-            return [[]]
+            return None
         elif len(axes) == 1:
             return [['']]
         else:
@@ -113,14 +117,9 @@ class LArrayDataAdapter(object):
         self.filtered_data = self.la_data[self.current_filter]
         if np.isscalar(self.filtered_data):
             self.filtered_data = la.aslarray(self.filtered_data)
-        if len(self.filtered_data) == 0:
-            axes = [[]]
-            xlabels = [[]]
-            ylabels = [[]]
-        else:
-            axes = self.get_axes()
-            xlabels = self.get_xlabels()
-            ylabels = self.get_ylabels()
+        axes = self.get_axes()
+        xlabels = self.get_xlabels()
+        ylabels = self.get_ylabels()
         data_2D = self.get_2D_data()
         changes_2D = self.get_changes_2D()
         bg_value_2D = self.get_bg_value_2D(data_2D.shape)

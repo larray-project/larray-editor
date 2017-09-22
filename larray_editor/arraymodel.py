@@ -139,7 +139,7 @@ class LabelsArrayModel(AbstractArrayModel):
             data = [[]]
         self._data = data
         self.total_rows = len(data[0])
-        self.total_cols = len(data)
+        self.total_cols = len(data) if self.total_rows > 0 else 0
         self._compute_rows_cols_loaded()
 
     def flags(self, index):
