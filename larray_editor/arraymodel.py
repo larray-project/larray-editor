@@ -286,8 +286,11 @@ class DataArrayModel(AbstractArrayModel):
             self.bgcolor_enabled = True
             self.bg_gradient = LinearGradient([(self.vmin, self.hsv_min), (self.vmax, self.hsv_max)])
 
-        # ValueError for empty arrays
-        except (TypeError, ValueError):
+        # a) ValueError for empty arrays
+        # b) AssertionError for fail of LinearGradient.init
+        #    -> for very large float number (e.g. 1664780726569649730), doing self.vmin -= 1 does nothing.
+        #       Then, vman = vmin and LinearGradient.init fails
+        except (TypeError, ValueError, AssertionError):
             self.vmin = None
             self.vmax = None
             self.bgcolor_enabled = False
