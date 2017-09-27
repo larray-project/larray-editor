@@ -537,10 +537,10 @@ class ArrayEditorWidget(QWidget):
         self.view_xlabels.horizontalHeader().sectionResized.connect(self.view_data.updateSectionWidth)
         self.view_ylabels.verticalHeader().sectionResized.connect(self.view_data.updateSectionHeight)
         # Synchronize auto-resizing
-        self.view_axes.horizontalHeader().sectionHandleDoubleClicked.connect(self.resizeAxesColumnToContents)
-        self.view_xlabels.horizontalHeader().sectionHandleDoubleClicked.connect(self.resizeDataColumnToContents)
-        self.view_axes.verticalHeader().sectionHandleDoubleClicked.connect(self.resizeAxesRowToContents)
-        self.view_ylabels.verticalHeader().sectionHandleDoubleClicked.connect(self.resizeDataRowToContents)
+        self.view_axes.horizontalHeader().sectionHandleDoubleClicked.connect(self.resize_axes_column_to_contents)
+        self.view_xlabels.horizontalHeader().sectionHandleDoubleClicked.connect(self.resize_xlabels_column_to_contents)
+        self.view_axes.verticalHeader().sectionHandleDoubleClicked.connect(self.resize_axes_row_to_contents)
+        self.view_ylabels.verticalHeader().sectionHandleDoubleClicked.connect(self.resize_ylabels_row_to_contents)
 
         # synchronize specific methods
         self.view_axes.allSelected.connect(self.view_data.selectAll)
@@ -846,35 +846,35 @@ class ArrayEditorWidget(QWidget):
     def autofit_columns(self):
         self.view_axes.autofit_columns()
         for column in range(self.model_axes.columnCount()):
-            self.resizeAxesColumnToContents(column)
+            self.resize_axes_column_to_contents(column)
         self.view_xlabels.autofit_columns()
         for column in range(self.model_xlabels.columnCount()):
-            self.resizeDataColumnToContents(column)
+            self.resize_xlabels_column_to_contents(column)
 
-    def resizeAxesColumnToContents(self, column):
+    def resize_axes_column_to_contents(self, column):
         # must be connected to view_axes.horizontalHeader().sectionHandleDoubleClicked signal
         width = max(self.view_axes.horizontalHeader().sectionSize(column),
                     self.view_ylabels.sizeHintForColumn(column))
         # no need to call resizeSection on view_ylabels (see synchronization lines in init)
         self.view_axes.horizontalHeader().resizeSection(column, width)
 
-    def resizeDataColumnToContents(self, column):
+    def resize_xlabels_column_to_contents(self, column):
         # must be connected to view_labels.horizontalHeader().sectionHandleDoubleClicked signal
         width = max(self.view_xlabels.horizontalHeader().sectionSize(column),
                     self.view_data.sizeHintForColumn(column))
         # no need to call resizeSection on view_data (see synchronization lines in init)
         self.view_xlabels.horizontalHeader().resizeSection(column, width)
 
-    def resizeAxesRowToContents(self, row):
+    def resize_axes_row_to_contents(self, row):
         # must be connected to view_axes.verticalHeader().sectionHandleDoubleClicked
         height = max(self.view_axes.verticalHeader().sectionSize(row),
                      self.view_xlabels.sizeHintForRow(row))
         # no need to call resizeSection on view_xlabels (see synchronization lines in init)
         self.view_axes.verticalHeader().resizeSection(row, height)
 
-    def resizeDataRowToContents(self, row):
+    def resize_ylabels_row_to_contents(self, row):
         # must be connected to view_labels.verticalHeader().sectionHandleDoubleClicked
-        height = max(self.view_xlabels.verticalHeader().sectionSize(row),
+        height = max(self.view_ylabels.verticalHeader().sectionSize(row),
                      self.view_data.sizeHintForRow(row))
         # no need to call resizeSection on view_data (see synchronization lines in init)
         self.view_ylabels.verticalHeader().resizeSection(row, height)
