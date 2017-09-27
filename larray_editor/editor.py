@@ -539,23 +539,29 @@ class MappingEditor(QMainWindow):
             self.statusBar().showMessage("Viewer has been reset", 4000)
 
     def _open_file(self, filepath):
-        self._reset()
         session = Session()
         if '.csv' in filepath:
             filepath = [filepath]
         if isinstance(filepath, (list, tuple)):
-            session.load(None, filepath)
-            dirname = os.path.dirname(filepath[0])
-            basenames = [os.path.basename(fpath) for fpath in filepath]
-            self.set_current_file(dirname)
-            self.statusBar().showMessage("CSV files {} loaded".format(' ,'.join(basenames)), 4000)
+            current_file_name = os.path.dirname(filepath[0])
+            display_name = ','.join(os.path.basename(fpath) for fpath in filepath)
+            names = filepath
+            filepath = None
         else:
-            session.load(filepath)
-            self.set_current_file(filepath)
-            self.statusBar().showMessage("File {} loaded".format(os.path.basename(filepath)), 4000)
-        self._add_arrays(session)
-        self._listwidget.setCurrentRow(0)
-        self.unsaved_modifications = False
+            names = None
+            current_file_name = filepath
+            display_name = os.path.basename(filepath)
+        try:
+            session.load(filepath, names)
+            self._reset()
+            self.set_current_file(current_file_name)
+            self._add_arrays(session)
+            self._listwidget.setCurrentRow(0)
+            self.unsaved_modifications = False
+            self.statusBar().showMessage("Loaded: {}".format(display_name), 4000)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", "Something went wrong during load of file(s) {}:\n{}"
+                                 .format(display_name, e))
 
     def open(self):
         if self._ask_to_save_if_unsaved_modifications():
@@ -583,11 +589,14 @@ class MappingEditor(QMainWindow):
                     QMessageBox.warning(self, "Warning", "File {} could not be found".format(filepath))
 
     def _save_data(self, filepath):
-        session = Session({k: v for k, v in self.data.items() if self._display_in_grid(k, v)})
-        session.save(filepath)
-        self.set_current_file(filepath)
-        self.unsaved_modifications = False
-        self.statusBar().showMessage("Arrays saved in file {}".format(filepath), 4000)
+        try:
+            session = Session({k: v for k, v in self.data.items() if self._display_in_grid(k, v)})
+            session.save(filepath)
+            self.set_current_file(filepath)
+            self.unsaved_modifications = False
+            self.statusBar().showMessage("Arrays saved in file {}".format(filepath), 4000)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", "Something went wrong during save in file {}:\n{}".format(filepath, e))
 
     def save(self):
         """
