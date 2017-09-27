@@ -539,34 +539,29 @@ class MappingEditor(QMainWindow):
             self.statusBar().showMessage("Viewer has been reset", 4000)
 
     def _open_file(self, filepath):
-        def _update_arrays(current_file_name, session):
+        session = Session()
+        if '.csv' in filepath:
+            filepath = [filepath]
+        if isinstance(filepath, (list, tuple)):
+            current_file_name = os.path.dirname(filepath[0])
+            display_name = ','.join(os.path.basename(fpath) for fpath in filepath)
+            names = filepath
+            filepath = None
+        else:
+            names = None
+            current_file_name = filepath
+            display_name = os.path.basename(filepath)
+        try:
+            session.load(filepath, names)
             self._reset()
             self.set_current_file(current_file_name)
             self._add_arrays(session)
             self._listwidget.setCurrentRow(0)
             self.unsaved_modifications = False
-
-        session = Session()
-        if '.csv' in filepath:
-            filepath = [filepath]
-        if isinstance(filepath, (list, tuple)):
-            dirname = os.path.dirname(filepath[0])
-            basenames = [os.path.basename(fpath) for fpath in filepath]
-            try:
-                session.load(None, filepath)
-                _update_arrays(dirname, session)
-                self.statusBar().showMessage("CSV files {} loaded".format(' ,'.join(basenames)), 4000)
-            except Exception as e:
-                QMessageBox.critical(self, "Error", "Something went wrong during load of CSV files {}:\n{}"
-                                     .format(' ,'.join(basenames), e))
-        else:
-            try:
-                session.load(filepath)
-                _update_arrays(filepath, session)
-                self.statusBar().showMessage("File {} loaded".format(os.path.basename(filepath), 4000))
-            except Exception as e:
-                QMessageBox.critical(self, "Error", "Something went wrong during load of file {}:\n{}"
-                                     .format(filepath, e))
+            self.statusBar().showMessage("Loaded: {}".format(display_name), 4000)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", "Something went wrong during load of file(s) {}:\n{}"
+                                 .format(display_name, e))
 
     def open(self):
         if self._ask_to_save_if_unsaved_modifications():
