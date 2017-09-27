@@ -339,12 +339,13 @@ if __name__ == "__main__":
                           [ '', 1664780726569649730, -9196963249083393206, -7664327348053294350]])
 
     # test autoresizing
-    arr8 = la.zeros('a=a_long_label,another_long_label')
+    arr8 = la.zeros('a=a_long_label,another_long_label; b=this_is_a_label,this_is_another_one')
+    arr9 = la.zeros('a=a0,a1; long_name_axis=this_is_a_label,this_is_another_one')
 
     # compare(arr3, arr4, arr5, arr6)
 
     # view(la.stack((arr3, arr4), la.Axis('arrays=arr3,arr4')))
-    ses = la.Session(arr2=arr2, arr3=arr3, arr4=arr4, arr5=arr5, arr6=arr6, arr7=arr7, arr8=arr8,
+    ses = la.Session(arr2=arr2, arr3=arr3, arr4=arr4, arr5=arr5, arr6=arr6, arr7=arr7, arr8=arr8, arr9=arr9,
                      data2=data2, data3=data3)
 
     # from larray.tests.common import abspath
