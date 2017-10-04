@@ -35,29 +35,28 @@ class LArrayDataAdapter(object):
         return self.filtered_data.axes.display_names
 
     def get_axes(self):
-        axes = self.filtered_data.axes
-        if self.filtered_data.size == 0 or len(axes) == 0:
+        if self.filtered_data.size == 0:
             return None
         else:
-            axes_names = axes.display_names
+            axes_names = self.filtered_data.axes.display_names
             if len(axes_names) >= 2:
                 axes_names = axes_names[:-2] + [axes_names[-2] + '\\' + axes_names[-1]]
             return [[axis_name] for axis_name in axes_names]
 
     def get_xlabels(self):
-        axes = self.filtered_data.axes
-        if self.filtered_data.size == 0 or len(axes) == 0:
+        if self.filtered_data.size == 0:
             return None
-        elif len(axes.labels[-1]) == 0:
+        axes = self.filtered_data.axes
+        if len(axes.labels[-1]) == 0:
             return [['']]
         else:
             return [[label] for label in axes.labels[-1]]
 
     def get_ylabels(self):
-        axes = self.filtered_data.axes
-        if self.filtered_data.size == 0 or len(axes) == 0:
+        if self.filtered_data.size == 0:
             return None
-        elif len(axes) == 1:
+        axes = self.filtered_data.axes
+        if len(axes) == 1:
             return [['']]
         else:
             labels = axes.labels[:-1]
