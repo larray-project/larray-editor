@@ -478,8 +478,13 @@ class MappingEditor(QMainWindow):
             axes_info = ' x '.join("%s (%d)" % (display_name, len(axis))
                                    for display_name, axis
                                    in zip(axes.display_names, axes))
-            title += [(name + ': ' + axes_info) if name else axes_info]
-        # name of non-LArray displayed item (if not None)
+            dtype = ' [{}]'.format(array.dtype.name)
+            title += [(name + ': ' + axes_info + dtype) if name else axes_info + dtype]
+        elif isinstance(array, np.ndarray):
+            shape = ' x '.join('({})'.format(length) for length in array.shape)
+            dtype = ' [{}]'.format(array.dtype.name)
+            title += [(name + ': ' + shape + dtype) if name else shape + dtype]
+        # name of non-LArray/Numpy displayed item (if not None)
         elif name:
             title = [name]
         # extra info
