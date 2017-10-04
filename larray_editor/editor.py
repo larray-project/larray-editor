@@ -533,7 +533,7 @@ class MappingEditor(QMainWindow):
     def new(self):
         if self._ask_to_save_if_unsaved_modifications():
             self._reset()
-            self.arraywidget.set_data(np.empty(0))
+            self.arraywidget.set_data()
             self.set_current_file(None)
             self.unsaved_modifications = False
             self.statusBar().showMessage("Viewer has been reset", 4000)

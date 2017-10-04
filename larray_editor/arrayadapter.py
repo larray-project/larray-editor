@@ -36,7 +36,7 @@ class LArrayDataAdapter(object):
 
     def get_axes(self):
         axes = self.filtered_data.axes
-        if len(axes) == 0:
+        if self.filtered_data.size == 0 or len(axes) == 0:
             return None
         else:
             axes_names = axes.display_names
@@ -46,7 +46,7 @@ class LArrayDataAdapter(object):
 
     def get_xlabels(self):
         axes = self.filtered_data.axes
-        if len(axes) == 0:
+        if self.filtered_data.size == 0 or len(axes) == 0:
             return None
         elif len(axes.labels[-1]) == 0:
             return [['']]
@@ -55,7 +55,7 @@ class LArrayDataAdapter(object):
 
     def get_ylabels(self):
         axes = self.filtered_data.axes
-        if len(axes) == 0:
+        if self.filtered_data.size == 0 or len(axes) == 0:
             return None
         elif len(axes) == 1:
             return [['']]

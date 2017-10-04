@@ -506,9 +506,9 @@ class ScrollBar(QScrollBar):
 
 
 class ArrayEditorWidget(QWidget):
-    def __init__(self, parent, data, readonly=False, bg_value=None, bg_gradient=None, minvalue=None, maxvalue=None):
+    def __init__(self, parent, data=None, readonly=False, bg_value=None, bg_gradient=None, minvalue=None, maxvalue=None):
         QWidget.__init__(self, parent)
-        readonly = np.isscalar(data)
+        readonly = data is not None and np.isscalar(data)
         self.readonly = readonly
 
         self.model_axes = LabelsArrayModel(parent=self, readonly=readonly)
@@ -700,15 +700,17 @@ class ArrayEditorWidget(QWidget):
         else:
             event.ignore()
 
-    def set_data(self, data, bg_gradient=None, bg_value=None):
+    def set_data(self, data=None, bg_gradient=None, bg_value=None):
+        # update adapter
         self.data_adapter.set_data(data, bg_gradient=bg_gradient, bg_value=bg_value)
-        self._update_digits_scientific(self.data_adapter.get_data())
-
-        # update filters
         la_data = self.data_adapter.get_data()
         axes = la_data.axes
         display_names = axes.display_names
 
+        # update data format and bgcolor
+        self._update_digits_scientific(la_data)
+
+        # update filters
         filters_layout = self.filters_layout
         clear_layout(filters_layout)
         if len(la_data) > 0:
