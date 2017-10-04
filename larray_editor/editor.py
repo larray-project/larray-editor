@@ -96,8 +96,8 @@ class MappingEditor(QMainWindow):
             title = _("Session viewer") if readonly else _("Session editor")
         if readonly:
             title += ' (' + _('read only') + ')'
-        self.title = title
-        self.setWindowTitle(self.title)
+        self._title = title
+        self.setWindowTitle(title)
 
         self.statusBar().showMessage("Welcome to the LArray Viewer", 4000)
 
@@ -464,7 +464,9 @@ class MappingEditor(QMainWindow):
 
     def update_title(self):
         array = self.current_array
-        name = self.current_array_name
+        name = self.current_array_name if self.current_array_name is not None else ''
+        dtype = array.dtype.name
+        unsave_marker = '*' if self._is_unsaved_modifications() else ''
         title = []
         if isinstance(array, LArray):
             # current file (if not None)
@@ -474,24 +476,16 @@ class MappingEditor(QMainWindow):
                 else:
                     title = [self.current_file]
             # array info
-            axes = array.axes
-            axes_info = ' x '.join("%s (%d)" % (display_name, len(axis))
-                                   for display_name, axis
-                                   in zip(axes.display_names, axes))
-            dtype = ' [{}]'.format(array.dtype.name)
-            title += [(name + ': ' + axes_info + dtype) if name else axes_info + dtype]
-        elif isinstance(array, np.ndarray):
-            shape = ' x '.join('({})'.format(length) for length in array.shape)
-            dtype = ' [{}]'.format(array.dtype.name)
-            title += [(name + ': ' + shape + dtype) if name else shape + dtype]
-        # name of non-LArray/Numpy displayed item (if not None)
-        elif name:
-            title = [name]
+            shape = ['{} ({})'.format(display_name, len(axis))
+                     for display_name, axis in zip(array.axes.display_names, array.axes)]
+        # if it's not an LArray, it must be a Numpy ndarray
+        else:
+            shape = [str(length) for length in array.shape]
+        # name + shape + dtype
+        array_info = ' x '.join(shape) + ' [{}]'.format(dtype)
+        title += [unsave_marker + name + ': ' + array_info]
         # extra info
-        title += [self.title]
-        # add '*' at the end of the title if unsaved modifications.
-        if self._is_unsaved_modifications():
-            title += ['*']
+        title += [self._title]
         # set title
         self.setWindowTitle(' - '.join(title))
 
