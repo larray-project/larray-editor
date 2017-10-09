@@ -478,8 +478,9 @@ class MappingEditor(QMainWindow):
             # array info
             shape = ['{} ({})'.format(display_name, len(axis))
                      for display_name, axis in zip(array.axes.display_names, array.axes)]
-        # if it's not an LArray, it must be a Numpy ndarray
         else:
+            # if it's not an LArray, it must be a Numpy ndarray
+            assert isinstance(array, np.ndarray)
             shape = [str(length) for length in array.shape]
         # name + shape + dtype
         array_info = ' x '.join(shape) + ' [{}]'.format(dtype)
