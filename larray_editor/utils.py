@@ -4,8 +4,6 @@ import os
 import sys
 import numpy as np
 
-PY2 = sys.version[0] == '2'
-
 from qtpy import PYQT5
 from qtpy.QtCore import QVariant
 from qtpy.QtGui import QIcon, QColor, QFont, QKeySequence
@@ -18,6 +16,8 @@ else:
     from matplotlib.backends.backend_qt4agg import FigureCanvas
     from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 
+
+PY2 = sys.version[0] == '2'
 
 # Note: string and unicode data types will be formatted with '%s' (see below)
 SUPPORTED_FORMATS = {
@@ -62,6 +62,7 @@ SUPPORTED_FORMATS = {
     'bool': '%r',
 }
 
+
 def _get_font(family, size, bold=False, italic=False):
     weight = QFont.Bold if bold else QFont.Normal
     font = QFont(family, size, weight)
@@ -69,19 +70,24 @@ def _get_font(family, size, bold=False, italic=False):
         font.setItalic(True)
     return to_qvariant(font)
 
+
 def is_float(dtype):
     """Return True if datatype dtype is a float kind"""
     return ('float' in dtype.name) or dtype.name in ['single', 'double']
+
 
 def is_number(dtype):
     """Return True is datatype dtype is a number kind"""
     return is_float(dtype) or ('int' in dtype.name) or ('long' in dtype.name) or ('short' in dtype.name)
 
+
 def get_font(section):
     return _get_font('Calibri', 11)
 
+
 def to_qvariant(obj=None):
     return obj
+
 
 def from_qvariant(qobj=None, pytype=None):
     # FIXME: force API level 2 instead of handling this
@@ -90,8 +96,10 @@ def from_qvariant(qobj=None, pytype=None):
         return pytype(qobj.toString())
     return qobj
 
+
 def _(text):
     return text
+
 
 def to_text_string(obj, encoding=None):
     """Convert `obj` to (unicode) text string"""
@@ -111,10 +119,12 @@ def to_text_string(obj, encoding=None):
         else:
             return str(obj, encoding)
 
+
 def keybinding(attr):
     """Return keybinding"""
     ks = getattr(QKeySequence, attr)
     return QKeySequence.keyBindings(ks)[0]
+
 
 def create_action(parent, text, icon=None, triggered=None, shortcut=None, statustip=None):
     """Create a QAction"""
@@ -130,6 +140,7 @@ def create_action(parent, text, icon=None, triggered=None, shortcut=None, status
     # action.setShortcutContext(Qt.WidgetShortcut)
     return action
 
+
 def clear_layout(layout):
     for i in reversed(range(layout.count())):
         item = layout.itemAt(i)
@@ -139,6 +150,7 @@ def clear_layout(layout):
             widget.deleteLater()
         layout.removeItem(item)
 
+
 def get_idx_rect(index_list):
     """Extract the boundaries from a list of indexes"""
     rows = [i.row() for i in index_list]
@@ -147,7 +159,6 @@ def get_idx_rect(index_list):
 
 
 class IconManager(object):
-
     _icons = {'larray': 'larray.ico'}
     _icon_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'images')
 
@@ -162,6 +173,7 @@ class IconManager(object):
         # appropriate PySide.QtGui.QIcon.themeName() .
             return QIcon.fromTheme(ref)
 
+
 ima = IconManager()
 
 
@@ -170,11 +182,11 @@ class LinearGradient(object):
     I cannot believe I had to roll my own class for this when PyQt already
     contains QLinearGradient... but you cannot get intermediate values out of
     QLinearGradient!
-    
+
     Parameters
     ----------
     stop_points: list/tuple, optional
-        List containing pairs (stop_position, colors_HsvF). 
+        List containing pairs (stop_position, colors_HsvF).
         `colors` is a 4 elements list containing `hue`, `saturation`, `value` and `alpha-channel`
     """
     def __init__(self, stop_points=None):
@@ -223,6 +235,7 @@ class PlotDialog(QDialog):
         layout.addWidget(canvas)
         self.setLayout(layout)
         canvas.draw()
+
 
 def show_figure(parent, figure):
     canvas = FigureCanvas(figure)
