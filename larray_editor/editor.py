@@ -625,7 +625,7 @@ class MappingEditor(QMainWindow):
         QDesktopServices.openUrl(QUrl("http://larray.readthedocs.io/en/stable/"))
 
     def open_tutorial(self):
-        QDesktopServices.openUrl(QUrl("http://larray.readthedocs.io/en/stable/notebooks/LArray_intro.html"))
+        QDesktopServices.openUrl(QUrl("http://larray.readthedocs.io/en/stable/tutorial.html"))
 
     def open_api_documentation(self):
         QDesktopServices.openUrl(QUrl("http://larray.readthedocs.io/en/stable/api.html"))
