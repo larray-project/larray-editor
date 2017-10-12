@@ -917,8 +917,7 @@ class ArrayEditorWidget(QWidget):
 
     def create_filter_combo(self, axis):
         def filter_changed(checked_items):
-            filtered = self.data_adapter.change_filter(axis, checked_items)
-            self._update_digits_scientific(filtered)
+            self.data_adapter.change_filter(axis, checked_items)
         combo = FilterComboBox(self)
         combo.addItems([str(l) for l in axis.labels])
         combo.checkedItemsChanged.connect(filter_changed)
