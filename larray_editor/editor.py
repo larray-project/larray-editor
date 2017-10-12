@@ -373,6 +373,7 @@ class MappingEditor(QMainWindow):
         del self.data[name]
         if qtconsole_available:
             self.kernel.shell.del_var(name)
+        self.unsaved_modifications = True
         self._listwidget.takeItem(self._listwidget.row(current_item))
 
     def line_edit_update(self):
