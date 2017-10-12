@@ -19,6 +19,13 @@ else:
 
 PY2 = sys.version[0] == '2'
 
+if PY2:
+    def commonpath(paths):
+        return os.path.dirname(os.path.commonprefix(paths))
+else:
+    commonpath = os.path.commonpath
+
+
 # Note: string and unicode data types will be formatted with '%s' (see below)
 SUPPORTED_FORMATS = {
     'object': '%s',
