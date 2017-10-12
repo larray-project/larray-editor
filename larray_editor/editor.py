@@ -200,8 +200,6 @@ class MappingEditor(QMainWindow):
 
         layout.addWidget(main_splitter)
 
-        self._listwidget.setCurrentRow(0)
-
         self.resize(800, 600)
         self.setMinimumSize(400, 300)
 
@@ -229,6 +227,7 @@ class MappingEditor(QMainWindow):
                 self.kernel.shell.push(dict(self.data.items()))
             arrays = [k for k, v in self.data.items() if self._display_in_grid(k, v)]
             self.add_list_items(arrays)
+        self._listwidget.setCurrentRow(0)
 
         # tracking data changes
         self.arraywidget.model_data.dataChanged.connect(self.data_changed)
