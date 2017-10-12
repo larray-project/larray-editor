@@ -1,4 +1,5 @@
 from qtpy import QtGui, QtCore, QtWidgets
+from qtpy.QtCore import QPoint
 
 
 class StandardItemModelIterator(object):
@@ -117,6 +118,24 @@ class FilterMenu(QtWidgets.QMenu):
         is_checked = [i for i, item in enumerate(model[1:]) if item.checked]
         self.checkedItemsChanged.emit(is_checked)
 
+    def select_offset(self, offset):
+        """offset: 1 for next, -1 for previous"""
+
+        model = self._model
+        # model.blockSignals(True)
+        indices_checked = [i for i, item in enumerate(model) if item.checked]
+        first_checked = indices_checked[0]
+        # check first_checked + offset, uncheck the rest
+        to_check = first_checked + offset
+
+        # wrap around
+        to_check = to_check if to_check < len(model) else 1
+        to_check = to_check if to_check > 0 else len(model) - 1
+
+        is_checked = ["partial"] + [i == to_check for i in range(1, len(model))]
+        for checked, item in zip(is_checked, model):
+            item.checked = checked
+
     def addItem(self, text):
         item = StandardItem(text)
         # not editable
@@ -221,6 +240,12 @@ class FilterComboBox(QtWidgets.QToolButton):
                 self.showMenu()
 
         return False
+
+    def wheelEvent(self, event):
+        delta = event.angleDelta()
+        assert isinstance(delta, QPoint)
+        offset = 1 if delta.y() < 0 else -1
+        self._menu.select_offset(offset)
 
 
 if __name__ == '__main__':
