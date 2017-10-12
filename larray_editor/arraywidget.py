@@ -569,7 +569,7 @@ class ArrayEditorWidget(QWidget):
         self.view_data.setStyleSheet("""QTableView {
             selection-background-color: palette(highlight);
             selection-color: white;
-            }""")
+        }""")
 
         # set external borders
         array_frame = QFrame(self)
