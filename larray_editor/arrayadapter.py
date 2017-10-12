@@ -222,7 +222,6 @@ class LArrayDataAdapter(object):
             else:
                 self.current_filter[axis_id] = axis.labels[indices]
         self.update_filtered_data()
-        return self.filtered_data
 
     def clear_changes(self):
         self.changes.clear()
