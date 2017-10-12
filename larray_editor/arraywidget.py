@@ -713,7 +713,8 @@ class ArrayEditorWidget(QWidget):
         # update filters
         filters_layout = self.filters_layout
         clear_layout(filters_layout)
-        if len(la_data) > 0:
+        # len(axes) > 0 is not good because we can have len 0 axes
+        if la_data.size > 0:
             filters_layout.addWidget(QLabel(_("Filters")))
             for axis, display_name in zip(axes, display_names):
                 filters_layout.addWidget(QLabel(display_name))
