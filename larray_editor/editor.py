@@ -4,7 +4,7 @@ import matplotlib
 import numpy as np
 
 from larray import LArray, Session, zeros
-from larray_editor.utils import PYQT5, _, create_action, show_figure, ima
+from larray_editor.utils import PYQT5, _, create_action, show_figure, ima, commonpath
 from larray_editor.arraywidget import ArrayEditorWidget
 
 from qtpy.QtCore import Qt, QSettings, QUrl, Slot
@@ -465,26 +465,38 @@ class MappingEditor(QMainWindow):
     def update_title(self):
         array = self.current_array
         name = self.current_array_name if self.current_array_name is not None else ''
-        dtype = array.dtype.name
-        unsave_marker = '*' if self._is_unsaved_modifications() else ''
-        title = []
-        if isinstance(array, LArray):
-            # current file (if not None)
-            if self.current_file is not None:
-                if os.path.isdir(self.current_file):
-                    title = ['{}/{}.csv'.format(self.current_file, name)]
-                else:
-                    title = [self.current_file]
-            # array info
-            shape = ['{} ({})'.format(display_name, len(axis))
-                     for display_name, axis in zip(array.axes.display_names, array.axes)]
+
+        unsaved_marker = '*' if self._is_unsaved_modifications() else ''
+        if self.current_file is not None:
+            basename = os.path.basename(self.current_file)
+            if os.path.isdir(self.current_file):
+                assert not name.endswith('.csv')
+                fname = os.path.join(basename, '{}.csv'.format(name))
+                name = ''
+            else:
+                fname = basename
         else:
-            # if it's not an LArray, it must be a Numpy ndarray
-            assert isinstance(array, np.ndarray)
-            shape = [str(length) for length in array.shape]
-        # name + shape + dtype
-        array_info = ' x '.join(shape) + ' [{}]'.format(dtype)
-        title += [unsave_marker + name + ': ' + array_info]
+            fname = '<new>'
+        title = ['{}{}'.format(unsaved_marker, fname)]
+
+        if array is not None:
+            dtype = array.dtype.name
+            # current file (if not None)
+            if isinstance(array, LArray):
+                # array info
+                shape = ['{} ({})'.format(display_name, len(axis))
+                         for display_name, axis in zip(array.axes.display_names, array.axes)]
+            else:
+                # if it's not an LArray, it must be a Numpy ndarray
+                assert isinstance(array, np.ndarray)
+                shape = [str(length) for length in array.shape]
+            # name + shape + dtype
+            array_info = ' x '.join(shape) + ' [{}]'.format(dtype)
+            if name:
+                title += [name + ': ' + array_info]
+            else:
+                title += [array_info]
+
         # extra info
         title += [self._title]
         # set title
@@ -540,13 +552,20 @@ class MappingEditor(QMainWindow):
 
     def _open_file(self, filepath):
         session = Session()
-        if '.csv' in filepath:
-            filepath = [filepath]
+        # a list => .csv files. Possibly a single .csv file.
         if isinstance(filepath, (list, tuple)):
-            current_file_name = os.path.dirname(filepath[0])
-            display_name = ','.join(os.path.basename(fpath) for fpath in filepath)
-            names = filepath
-            filepath = None
+            fpaths = filepath
+            if len(fpaths) == 1:
+                common_fpath = os.path.dirname(fpaths[0])
+            else:
+                common_fpath = commonpath(fpaths)
+            basenames = [os.path.basename(fpath) for fpath in fpaths]
+            fnames = [os.path.relpath(fpath, common_fpath) for fpath in fpaths]
+
+            names = [os.path.splitext(fname)[0] for fname in fnames]
+            current_file_name = common_fpath
+            display_name = ','.join(basenames)
+            filepath = common_fpath
         else:
             names = None
             current_file_name = filepath
@@ -554,9 +573,9 @@ class MappingEditor(QMainWindow):
         try:
             session.load(filepath, names)
             self._reset()
-            self.set_current_file(current_file_name)
             self._add_arrays(session)
             self._listwidget.setCurrentRow(0)
+            self.set_current_file(current_file_name)
             self.unsaved_modifications = False
             self.statusBar().showMessage("Loaded: {}".format(display_name), 4000)
         except Exception as e:
@@ -571,6 +590,8 @@ class MappingEditor(QMainWindow):
             filepaths = res[0] if PYQT5 else res
             if len(filepaths) >= 1:
                 if all(['.csv' in filepath for filepath in filepaths]):
+                    # this means that even a single .csv file will be passed as a list (so that we can add arrays
+                    # and save them as a directory).
                     self._open_file(filepaths)
                 elif len(filepaths) == 1:
                     self._open_file(filepaths[0])
