@@ -1,28 +1,27 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
-
-from larray_editor.utils import (get_font, from_qvariant, to_qvariant, to_text_string,
-                                 is_float, is_number, LinearGradient, SUPPORTED_FORMATS)
-
 from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel
 from qtpy.QtGui import QColor
 from qtpy.QtWidgets import QMessageBox
 
+from larray_editor.utils import (get_font, from_qvariant, to_qvariant, to_text_string,
+                                 is_float, is_number, LinearGradient, SUPPORTED_FORMATS)
 
 LARGE_SIZE = 5e5
 LARGE_NROWS = 1e5
 LARGE_COLS = 60
 
+
 class AbstractArrayModel(QAbstractTableModel):
     """Labels Table Model.
-    
+
     Parameters
     ----------
     parent : QWidget, optional
         Parent Widget.
     data : array-like, optional
-        Input data. 
+        Input data.
     readonly : bool, optional
         If True, data cannot be changed. False by default.
     font : QFont, optional
