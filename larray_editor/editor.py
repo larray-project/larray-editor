@@ -653,7 +653,7 @@ class MappingEditor(QMainWindow):
             dataset_name, ok = QInputDialog.getItem(self, "load dataset example", "list of datasets examples",
                                                     dataset_names, 0, False)
             if ok and dataset_name:
-                filepath = EXAMPLE_FILES_DIR + 'data.h5'
+                filepath = os.path.join(EXAMPLE_FILES_DIR, 'data.h5')
                 self._open_file(filepath)
 
     def open_documentation(self):
