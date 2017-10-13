@@ -25,7 +25,7 @@ class LArrayDataAdapter(object):
         # set data
         if data is None:
             data = np.empty((0, 0), dtype=np.int8)
-        self.set_data(data, bg_gradient, bg_value)
+        self.set_data(data, bg_value, current_filter)
 
     def set_changes(self, changes=None):
         assert isinstance(changes, dict)
@@ -99,7 +99,7 @@ class LArrayDataAdapter(object):
     # XXX: or create two methods?:
     # - set_data (which reset the current filter)
     # - update_data (which sets new data but keeps current filter unchanged)
-    def set_data(self, data, bg_gradient=None, bg_value=None, current_filter=None):
+    def set_data(self, data, bg_value=None, current_filter=None):
         if data is None:
             data = la.LArray([])
         if current_filter is None:
@@ -107,10 +107,9 @@ class LArrayDataAdapter(object):
         self.changes = {}
         self.la_data = la.aslarray(data)
         self.bg_value = la.aslarray(bg_value) if bg_value is not None else None
-        self.bg_gradient = bg_gradient
-        self.update_filtered_data(current_filter)
+        self.update_filtered_data(current_filter, reset_minmax=True)
 
-    def update_filtered_data(self, current_filter=None):
+    def update_filtered_data(self, current_filter=None, reset_minmax=False):
         if current_filter is not None:
             assert isinstance(current_filter, dict)
             self.current_filter = current_filter
@@ -126,8 +125,8 @@ class LArrayDataAdapter(object):
         self.axes_model.set_data(axes)
         self.xlabels_model.set_data(xlabels)
         self.ylabels_model.set_data(ylabels)
-        self.data_model.set_data(data_2D, changes_2D)
-        self.data_model.set_background(self.bg_gradient, bg_value_2D)
+        self.data_model.set_data(data_2D, changes_2D, reset_minmax=reset_minmax)
+        self.data_model.set_bg_value(bg_value_2D)
 
     def get_data(self):
         return self.la_data

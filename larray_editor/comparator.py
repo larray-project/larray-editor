@@ -1,14 +1,74 @@
-from larray import LArray, Session, Axis, x, stack, full_like, larray_equal
-from larray_editor.utils import ima, LinearGradient, _
-from larray_editor.arraywidget import ArrayEditorWidget
-
+import numpy as np
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QDialogButtonBox, QHBoxLayout,
                             QDialog, QLabel)
 
+from larray import LArray, Session, Axis, X, stack, full_like, nan, zeros_like, isnan, larray_nan_equal, nan_equal
+from larray_editor.utils import ima, replace_inf, _
+from larray_editor.arraywidget import ArrayEditorWidget
+
+
+class ComparatorWidget(QWidget):
+    """Comparator Widget"""
+    def __init__(self, parent=None):
+        QWidget.__init__(self, parent)
+
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        # max diff label
+        maxdiff_layout = QHBoxLayout()
+        maxdiff_layout.addWidget(QLabel('maximum absolute relative difference:'))
+        self.maxdiff_label = QLabel('')
+        maxdiff_layout.addWidget(self.maxdiff_label)
+        maxdiff_layout.addStretch()
+        layout.addLayout(maxdiff_layout)
+
+        self.arraywidget = ArrayEditorWidget(self, np.array([]), readonly=True, bg_gradient='red-white-blue')
+        layout.addWidget(self.arraywidget)
+
+    def set_data(self, arrays, stack_axis):
+        assert all(np.isscalar(a) or isinstance(a, LArray) for a in arrays)
+        try:
+            array = stack(arrays, stack_axis)
+            array0 = array[stack_axis.i[0]]
+        except:
+            array = LArray([np.nan])
+            array0 = array
+        try:
+            isequal = nan_equal(array, array0)
+        except TypeError:
+            isequal = array == array0
+
+        try:
+            with np.errstate(divide='ignore', invalid='ignore'):
+                diff = array - array0
+                reldiff = diff / array0
+                # this is necessary for nan, inf and -inf (because inf - inf = nan, not 0)
+                # this is more precise than divnot0, it only ignore 0 / 0, not x / 0
+                reldiff[isequal] = 0
+                # replace -inf by min(reldiff), +inf by max(reldiff)
+                reldiff, relmin, relmax = replace_inf(reldiff)
+                maxabsreldiff = max(abs(relmin), abs(relmax))
+            if maxabsreldiff:
+                # scale reldiff to range 0-1 with 0.5 for reldiff = 0
+                bg_value = (reldiff / maxabsreldiff) / 2 + 0.5
+            else:
+                bg_value = full_like(array, 0.5)
+        except TypeError:
+            # str/object array
+            maxabsreldiff = np.nan
+            bg_value = full_like(array, 0.5)
+
+        # only show rows with a difference. For some reason, this is abysmally slow though.
+        # row_filter = (~isequal).any('session')
+        # array = array[row_filter]
+        # bg_value = bg_value[row_filter]
+        self.maxdiff_label.setText(str(maxabsreldiff))
+        self.arraywidget.set_data(array, bg_value=bg_value)
+
 
 class ArrayComparator(QDialog):
-    """Session Editor Dialog"""
+    """Array Comparator Dialog"""
     def __init__(self, parent=None):
         QDialog.__init__(self, parent)
 
@@ -18,19 +78,11 @@ class ArrayComparator(QDialog):
         # a segmentation fault on UNIX or an application crash on Windows
         self.setAttribute(Qt.WA_DeleteOnClose)
 
-        self.arrays = None
-        self.array = None
-        self.arraywidget = None
-
     def setup_and_check(self, arrays, names, title=''):
         """
         Setup ArrayComparator:
         return False if data is not supported, True otherwise
         """
-        assert all(isinstance(a, LArray) for a in arrays)
-        self.arrays = arrays
-        self.array = stack(arrays, Axis(names, 'arrays'))
-
         icon = ima.icon('larray')
         if icon is not None:
             self.setWindowIcon(icon)
@@ -41,35 +93,9 @@ class ArrayComparator(QDialog):
         self.setWindowTitle(title)
 
         layout = QVBoxLayout()
-        self.setLayout(layout)
-
-        diff = self.array - self.array[x.arrays.i[0]]
-        absmax = abs(diff).max()
-
-        # max diff label
-        maxdiff_layout = QHBoxLayout()
-        maxdiff_layout.addWidget(QLabel('maximum absolute difference: ' +
-                                        str(absmax)))
-        maxdiff_layout.addStretch()
-        layout.addLayout(maxdiff_layout)
-
-        if absmax:
-            # scale diff to range 0-1
-            bg_value = (diff / absmax) / 2 + 0.5
-        else:
-            # all 0.5 (white)
-            bg_value = full_like(diff, 0.5)
-        gradient = LinearGradient([(0, [.99, .85, 1., .6]),
-                                   (0.5 - 1e-16, [.99, .15, 1., .6]),
-                                   (0.5, [1., 0., 1., 1.]),
-                                   (0.5 + 1e-16, [.66, .15, 1., .6]),
-                                   (1, [.66, .85, 1., .6])])
-
-        self.arraywidget = ArrayEditorWidget(self, self.array, readonly=True,
-                                             bg_value=bg_value,
-                                             bg_gradient=gradient)
-
-        layout.addWidget(self.arraywidget)
+        comparator_widget = ComparatorWidget(self)
+        comparator_widget.set_data(arrays, Axis(names, 'array'))
+        layout.addWidget(comparator_widget)
 
         # Buttons configuration
         btn_layout = QHBoxLayout()
@@ -81,6 +107,7 @@ class ArrayComparator(QDialog):
         btn_layout.addWidget(bbox)
         layout.addLayout(btn_layout)
 
+        self.setLayout(layout)
         self.resize(800, 600)
         self.setMinimumSize(400, 300)
 
@@ -102,23 +129,18 @@ class SessionComparator(QDialog):
         self.setAttribute(Qt.WA_DeleteOnClose)
 
         self.sessions = None
-        self.names = None
-        self.arraywidget = None
-        self.maxdiff_label = None
-        self.gradient = LinearGradient([(0, [.99, .85, 1., .6]),
-                                        (0.5 - 1e-16, [.99, .15, 1., .6]),
-                                        (0.5, [1., 0., 1., 1.]),
-                                        (0.5 + 1e-16, [.66, .15, 1., .6]),
-                                        (1, [.66, .85, 1., .6])])
+        self.stack_axis = None
+        self.comparatorwidget = None
+        self.listwidget = None
 
-    def setup_and_check(self, sessions, names, title=''):
+    def setup_and_check(self, sessions, names, title='', colors='red-white-blue'):
         """
         Setup SessionComparator:
         return False if data is not supported, True otherwise
         """
         assert all(isinstance(s, Session) for s in sessions)
         self.sessions = sessions
-        self.names = names
+        self.stack_axis = Axis(names, 'session')
 
         icon = ima.icon('larray')
         if icon is not None:
@@ -132,47 +154,23 @@ class SessionComparator(QDialog):
         layout = QVBoxLayout()
         self.setLayout(layout)
 
-        names = sorted(set.union(*[set(s.names) for s in self.sessions]))
-        self._listwidget = listwidget = QListWidget(self)
-        self._listwidget.addItems(names)
-        self._listwidget.currentItemChanged.connect(self.on_item_changed)
-
-        for i, name in enumerate(names):
-            arrays = [s.get(name) for s in self.sessions]
-            eq = [larray_equal(a, arrays[0]) for a in arrays[1:]]
-            if not all(eq):
+        array_names = sorted(set.union(*[set(s.names) for s in self.sessions]))
+        listwidget = QListWidget(self)
+        listwidget.addItems(array_names)
+        listwidget.currentItemChanged.connect(self.on_item_changed)
+        for i, name in enumerate(array_names):
+            arrays = self.get_arrays(name)
+            if not all(larray_nan_equal(a, arrays[0]) for a in arrays[1:]):
                 listwidget.item(i).setForeground(Qt.red)
+        self.listwidget = listwidget
 
-        array, absmax, bg_value = self.get_array(names[0])
-
-        if not array.size:
-            array = LArray(['no data'])
-        self.arraywidget = ArrayEditorWidget(self, array, readonly=True,
-                                             bg_value=bg_value,
-                                             bg_gradient=self.gradient)
-
-        right_panel_layout = QVBoxLayout()
-
-        # max diff label
-        maxdiff_layout = QHBoxLayout()
-        maxdiff_layout.addWidget(QLabel('maximum absolute difference:'))
-        self.maxdiff_label = QLabel(str(absmax))
-        maxdiff_layout.addWidget(self.maxdiff_label)
-        maxdiff_layout.addStretch()
-        right_panel_layout.addLayout(maxdiff_layout)
-
-        # array_splitter.setSizePolicy(QSizePolicy.Expanding,
-        #                              QSizePolicy.Expanding)
-        right_panel_layout.addWidget(self.arraywidget)
-
-        # you cant add a layout directly in a splitter, so we have to wrap it
-        # in a widget
-        right_panel_widget = QWidget()
-        right_panel_widget.setLayout(right_panel_layout)
+        comparatorwidget = ComparatorWidget(self)
+        comparatorwidget.set_data(self.get_arrays(array_names[0]), self.stack_axis)
+        self.comparatorwidget = comparatorwidget
 
         main_splitter = QSplitter(Qt.Horizontal)
-        main_splitter.addWidget(self._listwidget)
-        main_splitter.addWidget(right_panel_widget)
+        main_splitter.addWidget(listwidget)
+        main_splitter.addWidget(comparatorwidget)
         main_splitter.setSizes([5, 95])
         main_splitter.setCollapsible(1, False)
 
@@ -195,25 +193,9 @@ class SessionComparator(QDialog):
         self.setWindowFlags(Qt.Window)
         return True
 
-    def get_array(self, name):
-        arrays = [s.get(name) for s in self.sessions]
-        array = stack(arrays, Axis(self.names, 'sessions'))
-        diff = array - array[x.sessions.i[0]]
-        absmax = abs(diff).max()
-        # scale diff to 0-1
-        if absmax:
-            bg_value = (diff / absmax) / 2 + 0.5
-        else:
-            bg_value = full_like(diff, 0.5)
-        # only show rows with a difference. For some reason, this is abysmally
-        # slow though.
-        # row_filter = (array != array[la.x.sessions.i[0]]).any(la.x.sessions)
-        # array = array[row_filter]
-        # bg_value = bg_value[row_filter]
-        return array, absmax, bg_value
+    def get_arrays(self, name):
+        return [s.get(name, nan) for s in self.sessions]
 
     def on_item_changed(self, curr, prev):
-        array, absmax, bg_value = self.get_array(str(curr.text()))
-        self.maxdiff_label.setText(str(absmax))
-        self.arraywidget.set_data(array, bg_value=bg_value,
-                                  bg_gradient=self.gradient)
+        arrays = self.get_arrays(str(curr.text()))
+        self.comparatorwidget.set_data(arrays, self.stack_axis)
