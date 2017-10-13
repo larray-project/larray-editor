@@ -503,11 +503,12 @@ class MappingEditor(QMainWindow):
         self.setWindowTitle(' - '.join(title))
 
     def set_current_array(self, array, name):
-        if array is not self.current_array:
-            self.current_array = array
-            self.arraywidget.set_data(array)
-            self.current_array_name = name
-            self.update_title()
+        # we should NOT check that "array is not self.current_array" because this method is also called to
+        # refresh the widget value because of an inplace setitem
+        self.current_array = array
+        self.arraywidget.set_data(array)
+        self.current_array_name = name
+        self.update_title()
 
     def _add_arrays(self, arrays):
         for k, v in arrays.items():
