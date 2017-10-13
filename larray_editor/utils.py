@@ -5,8 +5,8 @@ import sys
 import numpy as np
 
 from qtpy import PYQT5
-from qtpy.QtCore import QVariant
-from qtpy.QtGui import QIcon, QColor, QFont, QKeySequence
+from qtpy.QtCore import Qt, QVariant
+from qtpy.QtGui import QIcon, QColor, QFont, QKeySequence, QLinearGradient
 from qtpy.QtWidgets import QAction, QDialog, QVBoxLayout
 
 if PYQT5:
@@ -196,28 +196,43 @@ class LinearGradient(object):
         List containing pairs (stop_position, colors_HsvF).
         `colors` is a 4 elements list containing `hue`, `saturation`, `value` and `alpha-channel`
     """
-    def __init__(self, stop_points=None):
+    def __init__(self, stop_points=None, nan_color=None):
         if stop_points is None:
             stop_points = []
         # sort by position
         stop_points = sorted(stop_points, key=lambda x: x[0])
         positions, colors = zip(*stop_points)
-        self.positions = np.array(positions)
-        assert len(np.unique(self.positions)) == len(self.positions)
+        positions = np.array(positions)
+        # check positions are unique and between 0 and 1
+        assert len(np.unique(positions)) == len(positions)
+        assert np.all((0 <= positions) & (positions <= 1))
+        self.positions = positions
         self.colors = np.array(colors)
+        if nan_color is None:
+            nan_color = QColor(Qt.gray)
+        self.nan_color = nan_color
+
+    def as_qgradient(self):
+        qgradient = QLinearGradient(0, 0, 100, 0)
+        for pos, color in zip(self.positions, self.colors):
+            qgradient.setColorAt(pos, QColor.fromHsvF(*color))
+        return qgradient
 
     def __getitem__(self, key):
         """
         Parameters
         ----------
         key : float
+            must be between 0 and 1
 
         Returns
         -------
         QColor
         """
-        if key != key:
-            key = self.positions[0]
+        if np.isnan(key):
+            return self.nan_color
+        # this is enough to also avoid nan, inf & -inf
+        assert 0 <= key <= 1
         pos_idx = np.searchsorted(self.positions, key, side='right') - 1
         # if we are exactly on one of the bounds
         if pos_idx > 0 and key in self.positions:
@@ -225,7 +240,7 @@ class LinearGradient(object):
         pos0, pos1 = self.positions[pos_idx:pos_idx + 2]
         # col0 and col1 are ndarrays
         col0, col1 = self.colors[pos_idx:pos_idx + 2]
-        assert pos0 != pos1
+        assert pos1 > pos0
         color = col0 + (col1 - col0) * (key - pos0) / (pos1 - pos0)
         return to_qvariant(QColor.fromHsvF(*color))
 
@@ -390,3 +405,94 @@ class _LazyNone(object):
 
     def __len__(self):
         return self.length
+
+
+def replace_inf(value):
+    """Replace -inf/+inf in array with respectively min(array_without_inf)/max(array_without_inf).
+
+    Parameters
+    ----------
+    value : np.ndarray or any compatible type
+        Input array.
+
+    Returns
+    -------
+    (np.ndarray, float, float)
+        array with replaced values and minimum and maximum values excluding NaN and infinite
+
+    Examples
+    --------
+    >>> replace_inf(np.array([-5, np.inf, 0, -np.inf, -4, 5]))
+    (array([-5.,  5.,  0., -5., -4.,  5.]), -5.0, 5.0)
+    """
+    value = value.copy()
+    # replace -inf by min(value)
+    notneginf = value != -np.inf
+    minvalue = np.nanmin(value[notneginf])
+    value[~notneginf] = minvalue
+    # replace +inf by max(value)
+    notposinf = value != np.inf
+    maxvalue = np.nanmax(value[notposinf])
+    value[~notposinf] = maxvalue
+    return value, minvalue, maxvalue
+
+
+def scale_to_01range(value, vmin, vmax):
+    """Scale value to 0-1 range based on vmin and vmax.
+
+    NaN are left intact, but -inf and +inf are converted to 0 and 1 respectively.
+
+    Parameters
+    ----------
+    value : any numeric type
+        Value to scale.
+    vmin : any numeric type
+        Minimum used to do the scaling. This is the minimum value that is valid for value, *excluding -inf*.
+        vmin must be <= vmax.
+    vmax : any numeric type
+        Maximum used to do the scaling. This is the maximum value that is valid for value, *excluding +inf*.
+        vmax must be >= vmin.
+
+    Returns
+    -------
+    float or np.ndarray
+
+    Examples
+    --------
+    >>> scale_to_01range(5, 0, 10)
+    0.5
+    >>> scale_to_01range(1, 0, 10)
+    0.1
+    >>> scale_to_01range(np.nan, 0, 10)
+    nan
+    >>> scale_to_01range(+np.inf, 0, 10)
+    1.0
+    >>> scale_to_01range(-np.inf, 0, 10)
+    0.0
+    >>> scale_to_01range(5, 5, 5)
+    0.0
+    >>> scale_to_01range(np.array([-5, np.inf, 0, -np.inf, -4, 5]), -5, 5)
+    array([ 0. ,  1. ,  0.5,  0. ,  0.1,  1. ])
+    """
+    if hasattr(value, 'shape') and value.shape:
+        if vmin == vmax:
+            return np.where(np.isnan(value), np.nan, 0)
+        else:
+            assert vmin < vmax
+            with np.errstate(divide='ignore', invalid='ignore'):
+                res = (value - vmin) / (vmax - vmin)
+                res[value == -np.inf] = 0
+                res[value == +np.inf] = 1
+            return res
+    else:
+        if np.isnan(value):
+            return np.nan
+        elif value == -np.inf:
+            return 0.0
+        elif value == +np.inf:
+            return 1.0
+        elif vmin == vmax:
+            return 0.0
+        else:
+            assert vmin < vmax
+            return (value - vmin) / (vmax - vmin)

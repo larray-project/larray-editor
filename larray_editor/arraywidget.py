@@ -74,11 +74,12 @@ import math
 from itertools import chain
 
 import numpy as np
-from qtpy.QtCore import Qt, QPoint, QItemSelection, QItemSelectionModel, Signal
-from qtpy.QtGui import QDoubleValidator, QIntValidator, QKeySequence, QFontMetrics, QCursor
+from qtpy.QtCore import Qt, QPoint, QItemSelection, QItemSelectionModel, Signal, QSize
+from qtpy.QtGui import (QDoubleValidator, QIntValidator, QKeySequence, QFontMetrics, QCursor, QPixmap, QPainter,
+                        QLinearGradient, QColor, QIcon)
 from qtpy.QtWidgets import (QApplication, QTableView, QItemDelegate, QLineEdit, QCheckBox,
                             QMessageBox, QMenu, QLabel, QSpinBox, QWidget, QToolTip, QShortcut, QScrollBar,
-                            QHBoxLayout, QVBoxLayout, QGridLayout, QSizePolicy, QFrame)
+                            QHBoxLayout, QVBoxLayout, QGridLayout, QSizePolicy, QFrame, QComboBox)
 
 try:
     import xlwings as xw
@@ -86,7 +87,7 @@ except ImportError:
     xw = None
 
 from larray_editor.utils import (keybinding, create_action, clear_layout, get_font, from_qvariant, to_qvariant,
-                                 is_number, is_float, _, ima)
+                                 is_number, is_float, _, ima, LinearGradient)
 from larray_editor.arrayadapter import LArrayDataAdapter
 from larray_editor.arraymodel import LabelsArrayModel, DataArrayModel
 from larray_editor.combo import FilterComboBox, FilterMenu
@@ -505,10 +506,30 @@ class ScrollBar(QScrollBar):
         self.rangeChanged.connect(data_scrollbar.setRange)
 
 
+available_gradients = [
+    # Hue, Saturation, Value, Alpha-channel
+    ('red-blue', LinearGradient([(0, [0.99, 0.7, 1.0, 0.6]), (1, [0.66, 0.7, 1.0, 0.6])])),
+    ('blue-red', LinearGradient([(0, [0.66, 0.7, 1.0, 0.6]), (1, [0.99, 0.7, 1.0, 0.6])])),
+    ('red-white-blue', LinearGradient([(0, [.99, .85, 1., .6]),
+                                       (0.5 - 1e-16, [.99, .15, 1., .6]),
+                                       (0.5, [1., 0., 1., 1.]),
+                                       (0.5 + 1e-16, [.66, .15, 1., .6]),
+                                       (1, [.66, .85, 1., .6])])),
+    ('blue-white-red', LinearGradient([(0, [.66, .85, 1., .6]),
+                                       (0.5 - 1e-16, [.66, .15, 1., .6]),
+                                       (0.5, [1., 0., 1., 1.]),
+                                       (0.5 + 1e-16, [.99, .15, 1., .6]),
+                                       (1, [.99, .85, 1., .6])])),
+]
+gradient_map = dict(available_gradients)
+
+
+
 class ArrayEditorWidget(QWidget):
-    def __init__(self, parent, data=None, readonly=False, bg_value=None, bg_gradient=None,
+    def __init__(self, parent, data=None, readonly=False, bg_value=None, bg_gradient='blue-red',
                  minvalue=None, maxvalue=None):
         QWidget.__init__(self, parent)
+        assert bg_gradient in gradient_map
         readonly = np.isscalar(data)
         self.readonly = readonly
 
@@ -613,10 +634,33 @@ class ArrayEditorWidget(QWidget):
         self.scientific_checkbox = scientific
         btn_layout.addWidget(scientific)
 
-        bgcolor = QCheckBox(_('Background color'))
-        bgcolor.stateChanged.connect(self.model_data.bgcolor)
-        self.bgcolor_checkbox = bgcolor
-        btn_layout.addWidget(bgcolor)
+        gradient_chooser = QComboBox()
+        gradient_chooser.setMaximumSize(120, 20)
+        gradient_chooser.setIconSize(QSize(100, 20))
+
+        pixmap = QPixmap(100, 15)
+        pixmap.fill(Qt.white)
+        gradient_chooser.addItem(QIcon(pixmap), " ")
+
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        for name, gradient in available_gradients:
+            qgradient = gradient.as_qgradient()
+
+            # * fill with white because gradient can be transparent and if we do not "start from whilte", it skews the
+            #   colors.
+            # * 1 and 13 instead of 0 and 15 to have a transparent border around/between the gradients
+            painter.fillRect(0, 1, 100, 13, Qt.white)
+            painter.fillRect(0, 1, 100, 13, qgradient)
+            gradient_chooser.addItem(QIcon(pixmap), name, gradient)
+
+        # without this, we can crash python :)
+        del painter, pixmap
+        # select default gradient
+        gradient_chooser.setCurrentText(bg_gradient)
+        gradient_chooser.currentIndexChanged.connect(self.gradient_changed)
+        btn_layout.addWidget(gradient_chooser)
+        self.gradient_chooser = gradient_chooser
 
         # Set widget layout
         layout = QVBoxLayout()
@@ -625,10 +669,15 @@ class ArrayEditorWidget(QWidget):
         layout.addLayout(btn_layout)
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
-        self.set_data(data, bg_value=bg_value, bg_gradient=bg_gradient)
+        self.set_data(data, bg_value=bg_value)
+        self.model_data.set_bg_gradient(gradient_map[bg_gradient])
 
         # See http://doc.qt.io/qt-4.8/qt-draganddrop-fridgemagnets-dragwidget-cpp.html for an example
         self.setAcceptDrops(True)
+
+    def gradient_changed(self, index):
+        gradient = self.gradient_chooser.itemData(index) if index > 0 else None
+        self.model_data.set_bg_gradient(gradient)
 
     def mousePressEvent(self, event):
         self.dragLabel = self.childAt(event.pos()) if event.button() == Qt.LeftButton else None
@@ -692,7 +741,10 @@ class ArrayEditorWidget(QWidget):
                 new_axes = la_data.axes.copy()
                 new_axes.insert(new_index, new_axes.pop(new_axes[previous_index]))
                 la_data = la_data.transpose(new_axes)
-                self.set_data(la_data, self.model_data.bg_gradient, self.model_data.bg_value)
+                bg_value = self.data_adapter.bg_value
+                if bg_value is not None:
+                    bg_value = bg_value.transpose(new_axes)
+                self.set_data(la_data, bg_value)
 
                 event.setDropAction(Qt.MoveAction)
                 event.accept()
@@ -701,9 +753,9 @@ class ArrayEditorWidget(QWidget):
         else:
             event.ignore()
 
-    def set_data(self, data=None, bg_gradient=None, bg_value=None):
+    def set_data(self, data=None, bg_value=None):
         # update adapter
-        self.data_adapter.set_data(data, bg_gradient=bg_gradient, bg_value=bg_value)
+        self.data_adapter.set_data(data, bg_value=bg_value)
         la_data = self.data_adapter.get_data()
         axes = la_data.axes
         display_names = axes.display_names
@@ -756,8 +808,7 @@ class ArrayEditorWidget(QWidget):
         self.scientific_checkbox.setChecked(use_scientific)
         self.scientific_checkbox.setEnabled(is_number(dtype))
 
-        self.bgcolor_checkbox.setChecked(self.model_data.bgcolor_enabled)
-        self.bgcolor_checkbox.setEnabled(self.model_data.bgcolor_enabled)
+        self.gradient_chooser.setEnabled(self.model_data.bgcolor_possible)
 
     def choose_scientific(self, data):
         # max_digits = self.get_max_digits()

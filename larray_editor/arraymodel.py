@@ -1,12 +1,11 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
+from larray_editor.utils import (get_font, from_qvariant, to_qvariant, to_text_string,
+                                 is_float, is_number, LinearGradient, SUPPORTED_FORMATS, scale_to_01range)
 from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel
 from qtpy.QtGui import QColor
 from qtpy.QtWidgets import QMessageBox
-
-from larray_editor.utils import (get_font, from_qvariant, to_qvariant, to_text_string,
-                                 is_float, is_number, LinearGradient, SUPPORTED_FORMATS)
 
 LARGE_SIZE = 5e5
 LARGE_NROWS = 1e5
@@ -50,8 +49,8 @@ class AbstractArrayModel(QAbstractTableModel):
     def _set_data(self, data, changes=None):
         raise NotImplementedError()
 
-    def set_data(self, data, changes=None):
-        self._set_data(data, changes)
+    def set_data(self, data, changes=None, **kwargs):
+        self._set_data(data, changes, **kwargs)
         self.reset()
 
     def rowCount(self, parent=QModelIndex()):
@@ -216,15 +215,13 @@ class DataArrayModel(AbstractArrayModel):
         AbstractArrayModel.__init__(self, parent, data, readonly, font)
         self._format = format
 
-        # Backgroundcolor settings (HSV --> Hue, Saturation, Value, Alpha-channel)
-        self.hsv_min = [0.99, 0.7, 1.0, 0.6]
-        self.hsv_max = [0.66, 0.7, 1.0, 0.6]
-        self.bgcolor_enabled = True
-
         self.minvalue = minvalue
         self.maxvalue = maxvalue
-        self.set_data(data)
-        self.set_background(bg_gradient, bg_value)
+        self._set_data(data)
+        self._set_bg_gradient(bg_gradient)
+        self._set_bg_value(bg_value)
+        # XXX: unsure this is necessary at all in __init__
+        self.reset()
 
     def get_format(self):
         """Return current format"""
@@ -235,7 +232,7 @@ class DataArrayModel(AbstractArrayModel):
         """Return data"""
         return self._data
 
-    def _set_data(self, data, changes=None):
+    def _set_data(self, data, changes=None, reset_minmax=True):
         if changes is None:
             changes = {}
         self.changes = changes
@@ -260,62 +257,51 @@ class DataArrayModel(AbstractArrayModel):
         if dtype in (np.complex64, np.complex128):
             self.color_func = np.abs
         else:
-            # XXX: this is a no-op (it returns the array itself) for most types (I think all non complex types)
-            #      => use an explicit nop?
-            # def nop(v):
-            #     return v
-            # self.color_func = nop
-            self.color_func = np.real
+            self.color_func = None
         # --------------------------------------
         self.total_rows, self.total_cols = self._data.shape
-        self.reset_minmax()
+        if reset_minmax:
+            self.reset_minmax()
         self._compute_rows_cols_loaded()
 
     def reset_minmax(self):
-        # this will be awful to get right, because ideally, we should
-        # include self.changes.values() and ignore values corresponding to
-        # self.changes.keys()
         data = self.get_values()
         try:
-            color_value = self.color_func(data)
+            color_value = self.color_func(data) if self.color_func is not None else data
+            # ignore nan, -inf, inf (setting them to 0 or to very large numbers is not an option)
+            color_value = color_value[np.isfinite(color_value)]
             self.vmin = float(np.nanmin(color_value))
             self.vmax = float(np.nanmax(color_value))
-            if self.vmax == self.vmin:
-                self.vmin -= 1
-            self.bgcolor_enabled = True
-            self.bg_gradient = LinearGradient([(self.vmin, self.hsv_min), (self.vmax, self.hsv_max)])
-
-        # a) ValueError for empty arrays
-        # b) AssertionError for fail of LinearGradient.init
-        #    -> for very large float number (e.g. 1664780726569649730), doing self.vmin -= 1 does nothing.
-        #       Then, vman = vmin and LinearGradient.init fails
-        except (TypeError, ValueError, AssertionError):
+            self.bgcolor_possible = True
+        # ValueError for empty arrays, TypeError for object/string arrays
+        except (TypeError, ValueError):
             self.vmin = None
             self.vmax = None
-            self.bgcolor_enabled = False
-            self.bg_gradient = None
+            self.bgcolor_possible = False
 
     def set_format(self, format):
         """Change display format"""
         self._format = format
         self.reset()
 
-    def set_background(self, bg_gradient=None, bg_value=None):
+    def set_bg_gradient(self, bg_gradient):
+        self._set_bg_gradient(bg_gradient)
+        self.reset()
+
+    def _set_bg_gradient(self, bg_gradient):
         if bg_gradient is not None and not isinstance(bg_gradient, LinearGradient):
             raise ValueError("Expected None or LinearGradient instance for `bg_gradient` argument")
+        self.bg_gradient = bg_gradient
+
+    def set_bg_value(self, bg_value):
+        self._set_bg_value(bg_value)
+        self.reset()
+
+    def _set_bg_value(self, bg_value):
         if bg_value is not None and not (isinstance(bg_value, np.ndarray) and bg_value.shape == self._data.shape):
             raise ValueError("Expected None or 2D Numpy ndarray with shape {} for `bg_value` argument"
                              .format(self._data.shape))
-        # self.bg_gradient must never be None
-        if bg_gradient is not None:
-            self.bg_gradient = bg_gradient
         self.bg_value = bg_value
-        self.reset()
-
-    def bgcolor(self, state):
-        """Toggle backgroundcolor"""
-        self.bgcolor_enabled = state > 0
-        self.reset()
 
     def get_value(self, index):
         i, j = index.row(), index.column()
@@ -354,12 +340,14 @@ class DataArrayModel(AbstractArrayModel):
             else:
                 return to_qvariant(self._format % value)
         elif role == Qt.BackgroundColorRole:
-            if self.bgcolor_enabled and value is not np.ma.masked:
+            if self.bgcolor_possible and self.bg_gradient is not None and value is not np.ma.masked:
                 if self.bg_value is None:
-                    return self.bg_gradient[float(self.color_func(value))]
+                    v = float(self.color_func(value) if self.color_func is not None else value)
+                    v = scale_to_01range(v, self.vmin, self.vmax)
                 else:
                     i, j = index.row(), index.column()
-                    return self.bg_gradient[self.bg_value[i, j]]
+                    v = self.bg_value[i, j]
+                return self.bg_gradient[v]
         # elif role == Qt.ToolTipRole:
         #     return to_qvariant("{}\n{}".format(repr(value),self.get_labels(index)))
         return to_qvariant()
@@ -469,11 +457,13 @@ class DataArrayModel(AbstractArrayModel):
 
         # Update vmin/vmax if necessary
         if self.vmin is not None and self.vmax is not None:
-            colorval = self.color_func(values)
-            old_colorval = self.color_func(oldvalues)
+            colorval = self.color_func(values) if self.color_func is not None else values
+            old_colorval = self.color_func(oldvalues) if self.color_func is not None else oldvalues
             if np.any(((old_colorval == self.vmax) & (colorval < self.vmax)) |
                       ((old_colorval == self.vmin) & (colorval > self.vmin))):
                 self.reset_minmax()
+            # this is faster, when the condition is False (which should be most of the cases) than computing
+            # subset_max and checking if subset_max > self.vmax
             if np.any(colorval > self.vmax):
                 self.vmax = float(np.nanmax(colorval))
             if np.any(colorval < self.vmin):
