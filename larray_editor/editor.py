@@ -11,7 +11,7 @@ from qtpy.QtCore import Qt, QSettings, QUrl, Slot
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QListWidget, QListWidgetItem, QSplitter, QFileDialog,
                             QPushButton, QDialogButtonBox, QAction, QShortcut, QHBoxLayout, QGridLayout,
-                            QLineEdit, QMessageBox, QDialog)
+                            QLineEdit, QMessageBox, QDialog, QInputDialog)
 
 try:
     from qtconsole.rich_jupyter_widget import RichJupyterWidget
@@ -268,6 +268,9 @@ class MappingEditor(QMainWindow):
         self.update_recent_file_actions()
         recent_files_menu.addSeparator()
         recent_files_menu.addAction(create_action(self, _('&Clear List'), triggered=self._clear_recent_files))
+
+        file_menu.addSeparator()
+        file_menu.addAction(create_action(self, _('&Load Example'), triggered=self.load_example))
 
         file_menu.addSeparator()
         file_menu.addAction(create_action(self, _('&Quit'), shortcut="Ctrl+Q", triggered=self.close))
@@ -642,6 +645,16 @@ class MappingEditor(QMainWindow):
         if accepted:
             self._save_data(dialog.selectedFiles()[0])
         return accepted
+
+    def load_example(self):
+        if self._ask_to_save_if_unsaved_modifications():
+            from larray import EXAMPLE_FILES_DIR
+            dataset_names = ("demography",)
+            dataset_name, ok = QInputDialog.getItem(self, "load dataset example", "list of datasets examples",
+                                                    dataset_names, 0, False)
+            if ok and dataset_name:
+                filepath = os.path.join(EXAMPLE_FILES_DIR, 'data.h5')
+                self._open_file(filepath)
 
     def open_documentation(self):
         QDesktopServices.openUrl(QUrl("http://larray.readthedocs.io/en/stable/"))
