@@ -130,7 +130,7 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
         from larray_editor.editor import ArrayEditor
         dlg = ArrayEditor(parent)
 
-    if dlg.setup_and_check(obj, title=title, minvalue=minvalue, maxvalue=maxvalue, readonly=readonly):
+    if dlg.setup_and_check(obj, title=title, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue):
         if parent or isinstance(dlg, QMainWindow):
             dlg.show()
             _app.exec_()
