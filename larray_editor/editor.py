@@ -725,9 +725,7 @@ class ArrayEditor(QDialog):
         self.data = None
         self.arraywidget = None
 
-    def setup_and_check(self, data, title='', readonly=False,
-                        xlabels=None, ylabels=None,
-                        minvalue=None, maxvalue=None):
+    def setup_and_check(self, data, title='', readonly=False, minvalue=None, maxvalue=None):
         """
         Setup ArrayEditor:
         return False if data is not supported, True otherwise
@@ -756,8 +754,7 @@ class ArrayEditor(QDialog):
         self.resize(800, 600)
         self.setMinimumSize(400, 300)
 
-        self.arraywidget = ArrayEditorWidget(self, data, readonly, xlabels, ylabels,
-                                             minvalue=minvalue, maxvalue=maxvalue)
+        self.arraywidget = ArrayEditorWidget(self, data, readonly, minvalue=minvalue, maxvalue=maxvalue)
         layout.addWidget(self.arraywidget, 1, 0)
 
         # Buttons configuration

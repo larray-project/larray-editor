@@ -506,7 +506,8 @@ class ScrollBar(QScrollBar):
 
 
 class ArrayEditorWidget(QWidget):
-    def __init__(self, parent, data=None, readonly=False, bg_value=None, bg_gradient=None, minvalue=None, maxvalue=None):
+    def __init__(self, parent, data=None, readonly=False, bg_value=None, bg_gradient=None,
+                 minvalue=None, maxvalue=None):
         QWidget.__init__(self, parent)
         readonly = np.isscalar(data)
         self.readonly = readonly
