@@ -649,7 +649,7 @@ class MappingEditor(QMainWindow):
     def load_example(self):
         if self._ask_to_save_if_unsaved_modifications():
             from larray.example import AVAILABLE_EXAMPLE_DATA
-            dataset_names = AVAILABLE_EXAMPLE_DATA.keys()
+            dataset_names = sorted(AVAILABLE_EXAMPLE_DATA.keys())
             dataset_name, ok = QInputDialog.getItem(self, "load dataset example", "list of datasets examples",
                                                     dataset_names, 0, False)
             if ok and dataset_name:
