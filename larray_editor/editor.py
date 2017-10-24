@@ -648,12 +648,12 @@ class MappingEditor(QMainWindow):
 
     def load_example(self):
         if self._ask_to_save_if_unsaved_modifications():
-            from larray import EXAMPLE_FILES_DIR
-            dataset_names = ("demography",)
+            from larray.example import AVAILABLE_EXAMPLE_DATA
+            dataset_names = AVAILABLE_EXAMPLE_DATA.keys()
             dataset_name, ok = QInputDialog.getItem(self, "load dataset example", "list of datasets examples",
                                                     dataset_names, 0, False)
             if ok and dataset_name:
-                filepath = os.path.join(EXAMPLE_FILES_DIR, 'data.h5')
+                filepath = AVAILABLE_EXAMPLE_DATA[dataset_name]
                 self._open_file(filepath)
 
     def open_documentation(self):
