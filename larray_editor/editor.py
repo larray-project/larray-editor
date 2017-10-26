@@ -108,9 +108,7 @@ class MappingEditor(QMainWindow):
         widget.setLayout(layout)
 
         self._listwidget = QListWidget(self)
-        self._listwidget.currentItemChanged.connect(self.on_item_changed)
-        # this is a workaround for the fact that no currentItemChanged signal is emitted when no item was selected
-        # before
+        # this is a bit more reliable than currentItemChanged which is not emitted when no item was selected before
         self._listwidget.itemSelectionChanged.connect(self.on_selection_changed)
         self._listwidget.setMinimumWidth(45)
 
@@ -340,16 +338,14 @@ class MappingEditor(QMainWindow):
             # we need to update the array widget explicitly
             self.set_current_array(self.data[to_display], to_display)
         else:
-            # for some reason, on_item_changed is not triggered when no item was selected
-            if not prev_selected:
-                self.set_current_array(self.data[to_display], to_display)
             self._listwidget.setCurrentItem(changed_items[0])
 
     def update_mapping(self, value):
         # XXX: use ordered set so that the order is non-random if the underlying container is ordered?
         keys_before = set(self.data.keys())
         keys_after = set(value.keys())
-        # contains both new and updated keys (but not deleted keys)
+        # Contains both new and keys for which the object id changed (but not deleted keys nor inplace modified keys).
+        # Inplace modified arrays should be already handled in ipython_cell_executed by the setitem_pattern.
         changed_keys = [k for k in keys_after if value[k] is not self.data.get(k)]
 
         # when a key is re-assigned, it can switch from being displayable to non-displayable or vice versa
@@ -432,6 +428,8 @@ class MappingEditor(QMainWindow):
             # otherwise it should have failed at this point, but let us be sure
             if varname in clean_ns:
                 if self._display_in_grid(varname, clean_ns[varname]):
+                    # XXX: this completely refreshes the array, including detecting scientific & ndigits, which might
+                    # not be what we want in this case
                     self.select_list_item(varname)
         else:
             # not setitem => assume expr or normal assignment
@@ -442,6 +440,7 @@ class MappingEditor(QMainWindow):
                     self.select_list_item(last_input)
             else:
                 # any statement can contain a call to a function which updates globals
+                # this will select (or refresh) the "first" changed array
                 self.update_mapping(clean_ns)
 
                 # if the statement produced any output (probably because it is a simple expression), display it.
@@ -463,11 +462,7 @@ class MappingEditor(QMainWindow):
             assert len(selected) == 1
             selected_item = selected[0]
             assert isinstance(selected_item, QListWidgetItem)
-            self.on_item_changed(selected_item, None)
-
-    def on_item_changed(self, curr, prev):
-        if curr is not None:
-            name = str(curr.text())
+            name = str(selected_item.text())
             array = self.data[name]
             self.set_current_array(array, name)
             expr = self.expressions.get(name, name)
