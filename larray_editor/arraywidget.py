@@ -524,7 +524,6 @@ available_gradients = [
 gradient_map = dict(available_gradients)
 
 
-
 class ArrayEditorWidget(QWidget):
     def __init__(self, parent, data=None, readonly=False, bg_value=None, bg_gradient='blue-red',
                  minvalue=None, maxvalue=None):
@@ -756,19 +755,21 @@ class ArrayEditorWidget(QWidget):
 
     def set_data(self, data=None, bg_value=None):
         # update adapter
-        self.data_adapter.set_data(data, bg_value=bg_value)
-        la_data = self.data_adapter.get_data()
-        axes = la_data.axes
+        if data is None:
+            data = la.LArray([])
+        else:
+            data = la.aslarray(data)
+        axes = data.axes
         display_names = axes.display_names
 
-        # update data format and bgcolor
-        self._update_digits_scientific(la_data)
+        # update data format
+        self._update_digits_scientific(data)
 
         # update filters
         filters_layout = self.filters_layout
         clear_layout(filters_layout)
         # data.size > 0 to avoid arrays with length 0 axes and len(axes) > 0 to avoid scalars (scalar.size == 1)
-        if la_data.size > 0 and len(axes) > 0:
+        if data.size > 0 and len(axes) > 0:
             filters_layout.addWidget(QLabel(_("Filters")))
             for axis, display_name in zip(axes, display_names):
                 filters_layout.addWidget(QLabel(display_name))
@@ -779,7 +780,10 @@ class ArrayEditorWidget(QWidget):
                 else:
                     filters_layout.addWidget(QLabel("too big to be filtered"))
             filters_layout.addStretch()
-        self.data_adapter.update_filtered_data({})
+
+        self.gradient_chooser.setEnabled(self.model_data.bgcolor_possible)
+
+        self.data_adapter.set_data(data, bg_value=bg_value)
 
         # reset default size
         self.view_axes.set_default_size()
@@ -787,79 +791,85 @@ class ArrayEditorWidget(QWidget):
         self.view_xlabels.set_default_size()
         self.view_data.set_default_size()
 
-    def _update_digits_scientific(self, data):
+    # called by set_data and ArrayEditorWidget.accept_changes (this should not be the case IMO)
+    # two cases:
+    # * set_data should update both scientific and ndigits
+    # * toggling scientific checkbox should update only ndigits
+    def _update_digits_scientific(self, data, scientific=None):
         """
         data : LArray
         """
-        # TODO: Adapter must provide a method to return a data sample as a Numpy array
-        assert isinstance(data, la.LArray)
-        data = data.data
-        size, dtype = data.size, data.dtype
-        # this will yield a data sample of max 199
-        step = (size // 100) if size > 100 else 1
-        data_sample = data.flat[::step]
+        dtype = data.dtype
+        if dtype.type in (np.str, np.str_, np.bool_, np.bool, np.object_):
+            scientific = False
+            ndecimals = 0
+        else:
+            # XXX: move this to the adapter (return a data sample as a Numpy array)
+            data = self._get_sample(data)
 
-        # TODO: refactor so that the expensive format_helper is not called
-        # twice (or the values are cached)
-        use_scientific = self.choose_scientific(data_sample)
+            # max_digits = self.get_max_digits()
+            # default width can fit 8 chars
+            # FIXME: use max_digits?
+            avail_digits = 8
+            frac_zeros, int_digits, has_negative = self.format_helper(data)
 
-        # XXX: self.ndecimals vs self.digits
-        self.digits = self.choose_ndecimals(data_sample, use_scientific)
-        self.use_scientific = use_scientific
+            # choose whether or not to use scientific notation
+            # ================================================
+            if scientific is None:
+                # use scientific format if there are more integer digits than we can display or if we can display more
+                # information that way (scientific format "uses" 4 digits, so we have a net win if we have >= 4 zeros --
+                # *including the integer one*)
+                # TODO: only do so if we would actually display more information
+                # 0.00001 can be displayed with 8 chars
+                # 1e-05
+                # would
+                scientific = int_digits > avail_digits or frac_zeros >= 4
+
+            # determine best number of decimals to display
+            # ============================================
+            # TODO: ndecimals vs self.digits => rename self.digits to either frac_digits or ndecimals
+            data_frac_digits = self._data_digits(data)
+            if scientific:
+                int_digits = 2 if has_negative else 1
+                exp_digits = 4
+            else:
+                exp_digits = 0
+            # - 1 for the dot
+            ndecimals = avail_digits - 1 - int_digits - exp_digits
+
+            if ndecimals < 0:
+                ndecimals = 0
+
+            if data_frac_digits < ndecimals:
+                ndecimals = data_frac_digits
+
+        self.digits = ndecimals
+
+        self.use_scientific = scientific
+
+        self.digits_spinbox.blockSignals(True)
+        self.digits_spinbox.setValue(ndecimals)
+        self.digits_spinbox.setEnabled(is_number(dtype))
+        self.digits_spinbox.blockSignals(False)
+
+        self.scientific_checkbox.blockSignals(True)
+        self.scientific_checkbox.setChecked(scientific)
+        self.scientific_checkbox.setEnabled(is_number(dtype))
+        self.scientific_checkbox.blockSignals(False)
+
+        # setting the format explicitly instead of relying on digits_spinbox.digits_changed to set it because
+        # digits_changed is only triggered when digits actually changed, not when passing from scientific -> non
+        # scientific or number -> object
         self.model_data.set_format(self.cell_format)
 
-        self.digits_spinbox.setValue(self.digits)
-        self.digits_spinbox.setEnabled(is_number(dtype))
-
-        self.scientific_checkbox.setChecked(use_scientific)
-        self.scientific_checkbox.setEnabled(is_number(dtype))
-
-        self.gradient_chooser.setEnabled(self.model_data.bgcolor_possible)
-
-    def choose_scientific(self, data):
-        # max_digits = self.get_max_digits()
-        # default width can fit 8 chars
-        # FIXME: use max_digits?
-        avail_digits = 8
-        if data.dtype.type in (np.str, np.str_, np.bool_, np.bool, np.object_):
-            return False
-
-        frac_zeros, int_digits, _ = self.format_helper(data)
-
-        # if there are more integer digits than we can display or we can
-        # display more information by using scientific format, do so
-        # (scientific format "uses" 4 digits, so we win if have >= 4 zeros
-        #  -- *including the integer one*)
-        # TODO: only do so if we would actually display more information
-        # 0.00001 can be displayed with 8 chars
-        # 1e-05
-        # would
-        return int_digits > avail_digits or frac_zeros >= 4
-
-    def choose_ndecimals(self, data, scientific):
-        if data.dtype.type in (np.str, np.str_, np.bool_, np.bool, np.object_):
-            return 0
-
-        # max_digits = self.get_max_digits()
-        # default width can fit 8 chars
-        # FIXME: use max_digits?
-        avail_digits = 8
-        data_frac_digits = self._data_digits(data)
-        _, int_digits, negative = self.format_helper(data)
-        if scientific:
-            int_digits = 2 if negative else 1
-            exp_digits = 4
-        else:
-            exp_digits = 0
-        # - 1 for the dot
-        ndecimals = avail_digits - 1 - int_digits - exp_digits
-
-        if ndecimals < 0:
-            ndecimals = 0
-
-        if data_frac_digits < ndecimals:
-            ndecimals = data_frac_digits
-        return ndecimals
+    def _get_sample(self, data):
+        assert isinstance(data, la.LArray)
+        data = data.data
+        size = data.size
+        # this will yield a data sample of max 199
+        step = (size // 100) if size > 100 else 1
+        sample = data.flat[::step]
+        return sample[np.isfinite(sample)]
 
     def format_helper(self, data):
         if not data.size:
@@ -963,10 +973,7 @@ class ArrayEditorWidget(QWidget):
             return '%%.%d%s' % (self.digits, format_letter)
 
     def scientific_changed(self, value):
-        self.use_scientific = value
-        self.digits = self.choose_ndecimals(self.data_adapter.get_data(), value)
-        self.digits_spinbox.setValue(self.digits)
-        self.model_data.set_format(self.cell_format)
+        self._update_digits_scientific(self.data_adapter.get_data(), value)
 
     def digits_changed(self, value):
         self.digits = value
