@@ -252,14 +252,14 @@ class MappingEditor(QMainWindow):
         file_menu = menu_bar.addMenu('&File')
 
         file_menu.addAction(create_action(self, _('&New'), shortcut="Ctrl+N", triggered=self.new))
-        file_menu.addAction(create_action(self, _('&Open'), shortcut="Ctrl+O", triggered=self.open,
+        file_menu.addAction(create_action(self, _('&Open Data'), shortcut="Ctrl+O", triggered=self.open,
                                           statustip=_('Load session from file')))
-        file_menu.addAction(create_action(self, _('&Save'), shortcut="Ctrl+S", triggered=self.save,
+        file_menu.addAction(create_action(self, _('&Save Data'), shortcut="Ctrl+S", triggered=self.save,
                                           statustip=_('Save all arrays as a session in a file')))
-        file_menu.addAction(create_action(self, _('Save &As'), triggered=self.save_as,
+        file_menu.addAction(create_action(self, _('Save Data &As'), triggered=self.save_as,
                                           statustip=_('Save all arrays as a session in a file')))
 
-        recent_files_menu = file_menu.addMenu("Open &Recent")
+        recent_files_menu = file_menu.addMenu("Open &Recent Data")
         for action in self.recent_file_actions:
             action.setVisible(False)
             action.triggered.connect(self.open_recent_file)
