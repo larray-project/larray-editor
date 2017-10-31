@@ -363,6 +363,9 @@ if __name__ == "__main__":
     arr_obj = ndtest((2, 3)).astype(object)
     arr_str = ndtest((2, 3)).astype(str)
     big = ndtest((1000, 1000, 500))
+    big1d = ndrange(1000000)
+    # force big1d.axes[0]._mapping to be created so that we do not measure that delay in the editor
+    big1d[{}]
 
     # test autoresizing
     long_labels = zeros('a=a_long_label,another_long_label; b=this_is_a_label,this_is_another_one')
