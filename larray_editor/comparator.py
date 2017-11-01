@@ -1,7 +1,7 @@
 import numpy as np
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QDialogButtonBox, QHBoxLayout,
-                            QDialog, QLabel)
+                            QDialog, QLabel, QCheckBox)
 
 from larray import LArray, Session, Axis, X, stack, full_like, nan, zeros_like, isnan, larray_nan_equal, nan_equal
 from larray_editor.utils import ima, replace_inf, _
@@ -24,47 +24,63 @@ class ComparatorWidget(QWidget):
         layout.addLayout(maxdiff_layout)
 
         self.arraywidget = ArrayEditorWidget(self, np.array([]), readonly=True, bg_gradient='red-white-blue')
+
+        diff_checkbox = QCheckBox(_('Differences Only'))
+        diff_checkbox.stateChanged.connect(self.show_differences_only)
+        self.diff_checkbox = diff_checkbox
+        self.arraywidget.btn_layout.addWidget(diff_checkbox)
+
         layout.addWidget(self.arraywidget)
+
+        self.array = None
+        self.isequal = None
+        self.bg_value = None
+        self.stack_axis = None
 
     def set_data(self, arrays, stack_axis):
         assert all(np.isscalar(a) or isinstance(a, LArray) for a in arrays)
+        self.stack_axis = stack_axis
         try:
-            array = stack(arrays, stack_axis)
-            array0 = array[stack_axis.i[0]]
+            self.array = stack(arrays, stack_axis)
+            array0 = self.array[stack_axis.i[0]]
         except:
-            array = LArray([np.nan])
-            array0 = array
+            self.array = LArray([np.nan])
+            array0 = self.array
         try:
-            isequal = nan_equal(array, array0)
+            self.isequal = nan_equal(self.array, array0)
         except TypeError:
-            isequal = array == array0
+            self.isequal = self.array == array0
 
         try:
             with np.errstate(divide='ignore', invalid='ignore'):
-                diff = array - array0
+                diff = self.array - array0
                 reldiff = diff / array0
                 # this is necessary for nan, inf and -inf (because inf - inf = nan, not 0)
                 # this is more precise than divnot0, it only ignore 0 / 0, not x / 0
-                reldiff[isequal] = 0
+                reldiff[self.isequal] = 0
                 # replace -inf by min(reldiff), +inf by max(reldiff)
                 reldiff, relmin, relmax = replace_inf(reldiff)
                 maxabsreldiff = max(abs(relmin), abs(relmax))
             if maxabsreldiff:
                 # scale reldiff to range 0-1 with 0.5 for reldiff = 0
-                bg_value = (reldiff / maxabsreldiff) / 2 + 0.5
+                self.bg_value = (reldiff / maxabsreldiff) / 2 + 0.5
             else:
-                bg_value = full_like(array, 0.5)
+                self.bg_value = full_like(self.array, 0.5)
         except TypeError:
             # str/object array
             maxabsreldiff = np.nan
-            bg_value = full_like(array, 0.5)
+            self.bg_value = full_like(self.array, 0.5)
 
-        # only show rows with a difference. For some reason, this is abysmally slow though.
-        # row_filter = (~isequal).any('session')
-        # array = array[row_filter]
-        # bg_value = bg_value[row_filter]
         self.maxdiff_label.setText(str(maxabsreldiff))
-        self.arraywidget.set_data(array, bg_value=bg_value)
+        self.arraywidget.set_data(self.array, bg_value=self.bg_value)
+
+    def show_differences_only(self, yes):
+        if yes:
+            # only show rows with a difference. For some reason, this is abysmally slow though.
+            row_filter = (~self.isequal).any(self.stack_axis.name)
+            self.arraywidget.set_data(self.array[row_filter], bg_value=self.bg_value[row_filter])
+        else:
+            self.arraywidget.set_data(self.array, bg_value=self.bg_value)
 
 
 class ArrayComparator(QDialog):

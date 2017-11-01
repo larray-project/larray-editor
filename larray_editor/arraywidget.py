@@ -619,20 +619,20 @@ class ArrayEditorWidget(QWidget):
 
         # Set filters and buttons layout
         self.filters_layout = QHBoxLayout()
-        btn_layout = QHBoxLayout()
-        btn_layout.setAlignment(Qt.AlignLeft)
+        self.btn_layout = QHBoxLayout()
+        self.btn_layout.setAlignment(Qt.AlignLeft)
 
         label = QLabel("Digits")
-        btn_layout.addWidget(label)
+        self.btn_layout.addWidget(label)
         spin = QSpinBox(self)
         spin.valueChanged.connect(self.digits_changed)
         self.digits_spinbox = spin
-        btn_layout.addWidget(spin)
+        self.btn_layout.addWidget(spin)
 
         scientific = QCheckBox(_('Scientific'))
         scientific.stateChanged.connect(self.scientific_changed)
         self.scientific_checkbox = scientific
-        btn_layout.addWidget(scientific)
+        self.btn_layout.addWidget(scientific)
 
         gradient_chooser = QComboBox()
         gradient_chooser.setMaximumSize(120, 20)
@@ -659,14 +659,14 @@ class ArrayEditorWidget(QWidget):
         # select default gradient
         gradient_chooser.setCurrentText(bg_gradient)
         gradient_chooser.currentIndexChanged.connect(self.gradient_changed)
-        btn_layout.addWidget(gradient_chooser)
+        self.btn_layout.addWidget(gradient_chooser)
         self.gradient_chooser = gradient_chooser
 
         # Set widget layout
         layout = QVBoxLayout()
         layout.addLayout(self.filters_layout)
         layout.addWidget(array_frame)
-        layout.addLayout(btn_layout)
+        layout.addLayout(self.btn_layout)
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
         self.set_data(data, bg_value=bg_value)
