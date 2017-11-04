@@ -4,9 +4,9 @@ import matplotlib
 import numpy as np
 
 from larray import LArray, Session, zeros
-from larray_editor.utils import PYQT5, _, create_action, show_figure, ima, commonpath
+from larray_editor.utils import (PYQT5, _, create_action, show_figure, ima, commonpath, get_versions,
+                                 _project_website, _announce_group, _users_group)
 from larray_editor.arraywidget import ArrayEditorWidget
-
 from qtpy.QtCore import Qt, QSettings, QUrl, Slot
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QListWidget, QListWidgetItem, QSplitter, QFileDialog,
@@ -250,6 +250,10 @@ class MappingEditor(QMainWindow):
     def setup_menu_bar(self):
         """Setup menu bar"""
         menu_bar = self.menuBar()
+
+        ###############
+        #  File Menu  #
+        ###############
         file_menu = menu_bar.addMenu('&File')
 
         file_menu.addAction(create_action(self, _('&New'), shortcut="Ctrl+N", triggered=self.new))
@@ -275,12 +279,17 @@ class MappingEditor(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction(create_action(self, _('&Quit'), shortcut="Ctrl+Q", triggered=self.close))
 
+        ###############
+        #  Help Menu  #
+        ###############
         help_menu = menu_bar.addMenu('&Help')
         help_menu.addAction(create_action(self, _('Online &Documentation'), shortcut="Ctrl+H",
                                           triggered=self.open_documentation))
         help_menu.addAction(create_action(self, _('Online &Tutorial'), triggered=self.open_tutorial))
         help_menu.addAction(create_action(self, _('Online Objects and Functions (API) &Reference'),
                                           triggered=self.open_api_documentation))
+        help_menu.addSeparator()
+        help_menu.addAction(create_action(self, _('&About'), triggered=self.about))
 
     def data_changed(self):
         # We do not set self._unsaved_modifications to True because if users click on `Discard` button
@@ -664,6 +673,33 @@ class MappingEditor(QMainWindow):
 
     def open_api_documentation(self):
         QDesktopServices.openUrl(QUrl("http://larray.readthedocs.io/en/stable/api.html"))
+
+    def about(self):
+        """About Editor"""
+        versions = get_versions()
+        message = \
+            """<b>LArray Editor {editor}</b>
+            <br>The Graphical User Interface for LArray. This project aims to provide an intuitive tool to 
+            visualize and manipulate labelled N-dimensional arrays. Licensed under the terms of the 
+            GNU GENERAL PUBLIC LICENSE Version 3.
+            <p>Created by Gaëtan de Menten.
+            <br>Developed and maintained by the Federal Planning Bureau (Belgium). 
+            Many thanks to all LArray regular users.
+            <p>For bug reports and feature requests, please go to our <a href="{website}">Github website</a>. 
+            For discussions around the project, please go to our <a href="{users_group}">Google Users Group</a>.
+            To be informed of each new release, please subscribe to this <a href="{announce_group}">mailing list</a>.
+            <p>Python {python} {bitness:d}bits on {system}.
+            """
+        if versions.get('larray'):
+            message += "<p>larray {larray}.\n<p>numpy {numpy}.\n<p>pandas {pandas}.\n"
+        if versions.get('matplotib'):
+            message += "<p>Matplotlib {matplotib}.\n"
+        message += "<p>Qt {qt}, {qt_api} {qt_api_ver}."
+
+        QMessageBox.about(self, _("About Larray Editor"),
+                          message.format(website=_project_website, users_group=_users_group,
+                                         announce_group=_announce_group, **versions))
+
 
     def set_current_file(self, filepath):
         self.update_recent_files([filepath])

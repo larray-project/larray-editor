@@ -17,8 +17,12 @@ else:
     from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 
 
-PY2 = sys.version[0] == '2'
+_project_website = "https://github.com/larray-project/larray-editor"
+_announce_group = "https://groups.google.com/d/forum/larray-announce"
+_users_group = "https://groups.google.com/d/forum/larray-users"
 
+
+PY2 = sys.version[0] == '2'
 if PY2:
     def commonpath(paths):
         return os.path.dirname(os.path.commonprefix(paths))
