@@ -26,6 +26,46 @@ else:
     commonpath = os.path.commonpath
 
 
+def get_versions():
+    """Get version information for components used by the Editor"""
+    import platform
+    from qtpy import API_NAME, PYQT_VERSION
+    from qtpy.QtCore import __version__ as qtpy_version
+    from larray_editor import __version__ as editor_version
+
+    versions = {
+        'editor': editor_version,
+        'python': platform.python_version(),
+        'bitness': 64 if sys.maxsize > 2**32 else 32,
+        'qt': qtpy_version,
+        'qt_api': API_NAME,                             # PyQt5 or PyQt4
+        'qt_api_ver': PYQT_VERSION,
+    }
+
+    if not sys.platform == 'darwin':                    # To avoid a crash with our Mac app
+        versions['system'] = platform.system()          # Linux, Windows, ...
+    else:
+        versions['system'] = 'Darwin'
+
+    try:
+        from matplotlib import __version__ as mpl_version
+        versions['matplotlib'] = mpl_version
+    except ImportError:
+        pass
+
+    try:
+        from larray import __version__ as larray_version
+        from numpy import __version__ as np_version
+        from  pandas import __version__ as pd_version
+        versions['larray'] = larray_version
+        versions['numpy'] = np_version
+        versions['pandas'] = pd_version
+    except ImportError:
+        pass
+
+    return versions
+
+
 # Note: string and unicode data types will be formatted with '%s' (see below)
 SUPPORTED_FORMATS = {
     'object': '%s',
