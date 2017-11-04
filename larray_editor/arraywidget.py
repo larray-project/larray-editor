@@ -536,17 +536,17 @@ class ArrayEditorWidget(QWidget):
         self.model_axes = LabelsArrayModel(parent=self, readonly=readonly)
         self.view_axes = LabelsView(parent=self, model=self.model_axes, position=(TOP, LEFT))
 
-        self.model_xlabels = LabelsArrayModel(parent=self, readonly=readonly)
-        self.view_xlabels = LabelsView(parent=self, model=self.model_xlabels, position=(TOP, RIGHT))
+        self.model_hlabels = LabelsArrayModel(parent=self, readonly=readonly)
+        self.view_hlabels = LabelsView(parent=self, model=self.model_hlabels, position=(TOP, RIGHT))
 
-        self.model_ylabels = LabelsArrayModel(parent=self, readonly=readonly)
-        self.view_ylabels = LabelsView(parent=self, model=self.model_ylabels, position=(BOTTOM, LEFT))
+        self.model_vlabels = LabelsArrayModel(parent=self, readonly=readonly, orientation=Qt.Vertical)
+        self.view_vlabels = LabelsView(parent=self, model=self.model_vlabels, position=(BOTTOM, LEFT))
 
         self.model_data = DataArrayModel(parent=self, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
         self.view_data = DataView(parent=self, model=self.model_data, dtype=data.dtype, shape=data.shape)
 
-        self.data_adapter = LArrayDataAdapter(axes_model=self.model_axes, xlabels_model=self.model_xlabels,
-                                              ylabels_model=self.model_ylabels, data_model=self.model_data, data=data,
+        self.data_adapter = LArrayDataAdapter(axes_model=self.model_axes, hlabels_model=self.model_hlabels,
+                                              vlabels_model=self.model_vlabels, data_model=self.model_data, data=data,
                                               bg_value=bg_value, bg_gradient=bg_gradient)
 
         # Create vertical and horizontal scrollbars
@@ -554,15 +554,15 @@ class ArrayEditorWidget(QWidget):
         self.hscrollbar = ScrollBar(self, self.view_data.horizontalScrollBar())
 
         # Synchronize resizing
-        self.view_axes.horizontalHeader().sectionResized.connect(self.view_ylabels.updateSectionWidth)
-        self.view_axes.verticalHeader().sectionResized.connect(self.view_xlabels.updateSectionHeight)
-        self.view_xlabels.horizontalHeader().sectionResized.connect(self.view_data.updateSectionWidth)
-        self.view_ylabels.verticalHeader().sectionResized.connect(self.view_data.updateSectionHeight)
+        self.view_axes.horizontalHeader().sectionResized.connect(self.view_vlabels.updateSectionWidth)
+        self.view_axes.verticalHeader().sectionResized.connect(self.view_hlabels.updateSectionHeight)
+        self.view_hlabels.horizontalHeader().sectionResized.connect(self.view_data.updateSectionWidth)
+        self.view_vlabels.verticalHeader().sectionResized.connect(self.view_data.updateSectionHeight)
         # Synchronize auto-resizing
         self.view_axes.horizontalHeader().sectionHandleDoubleClicked.connect(self.resize_axes_column_to_contents)
-        self.view_xlabels.horizontalHeader().sectionHandleDoubleClicked.connect(self.resize_xlabels_column_to_contents)
+        self.view_hlabels.horizontalHeader().sectionHandleDoubleClicked.connect(self.resize_hlabels_column_to_contents)
         self.view_axes.verticalHeader().sectionHandleDoubleClicked.connect(self.resize_axes_row_to_contents)
-        self.view_ylabels.verticalHeader().sectionHandleDoubleClicked.connect(self.resize_ylabels_row_to_contents)
+        self.view_vlabels.verticalHeader().sectionHandleDoubleClicked.connect(self.resize_vlabels_row_to_contents)
 
         # synchronize specific methods
         self.view_axes.allSelected.connect(self.view_data.selectAll)
@@ -572,18 +572,18 @@ class ArrayEditorWidget(QWidget):
         self.view_data.signal_plot.connect(self.plot)
 
         # Synchronize scrolling
-        # data <--> xlabels
-        self.view_data.horizontalScrollBar().valueChanged.connect(self.view_xlabels.horizontalScrollBar().setValue)
-        self.view_xlabels.horizontalScrollBar().valueChanged.connect(self.view_data.horizontalScrollBar().setValue)
-        # data <--> ylabels
-        self.view_data.verticalScrollBar().valueChanged.connect(self.view_ylabels.verticalScrollBar().setValue)
-        self.view_ylabels.verticalScrollBar().valueChanged.connect(self.view_data.verticalScrollBar().setValue)
+        # data <--> hlabels
+        self.view_data.horizontalScrollBar().valueChanged.connect(self.view_hlabels.horizontalScrollBar().setValue)
+        self.view_hlabels.horizontalScrollBar().valueChanged.connect(self.view_data.horizontalScrollBar().setValue)
+        # data <--> vlabels
+        self.view_data.verticalScrollBar().valueChanged.connect(self.view_vlabels.verticalScrollBar().setValue)
+        self.view_vlabels.verticalScrollBar().valueChanged.connect(self.view_data.verticalScrollBar().setValue)
 
         # Synchronize selecting columns(rows) via hor.(vert.) header of x(y)labels view
-        self.view_xlabels.horizontalHeader().sectionPressed.connect(self.view_data.selectColumn)
-        self.view_xlabels.horizontalHeader().sectionEntered.connect(self.view_data.selectNewColumn)
-        self.view_ylabels.verticalHeader().sectionPressed.connect(self.view_data.selectRow)
-        self.view_ylabels.verticalHeader().sectionEntered.connect(self.view_data.selectNewRow)
+        self.view_hlabels.horizontalHeader().sectionPressed.connect(self.view_data.selectColumn)
+        self.view_hlabels.horizontalHeader().sectionEntered.connect(self.view_data.selectNewColumn)
+        self.view_vlabels.verticalHeader().sectionPressed.connect(self.view_data.selectRow)
+        self.view_vlabels.verticalHeader().sectionEntered.connect(self.view_data.selectNewRow)
 
         # following lines are required to keep usual selection color
         # when selecting rows/columns via headers of label views.
@@ -598,17 +598,17 @@ class ArrayEditorWidget(QWidget):
         array_frame.setFrameStyle(QFrame.StyledPanel)
         # remove borders of internal tables
         self.view_axes.setFrameStyle(QFrame.NoFrame)
-        self.view_xlabels.setFrameStyle(QFrame.NoFrame)
-        self.view_ylabels.setFrameStyle(QFrame.NoFrame)
+        self.view_hlabels.setFrameStyle(QFrame.NoFrame)
+        self.view_vlabels.setFrameStyle(QFrame.NoFrame)
         self.view_data.setFrameStyle(QFrame.NoFrame)
         # Set layout of table views:
-        # [ axes  ][xlabels]|V|
-        # [ylabels][ data  ]|s|
+        # [ axes  ][vlabels]|V|
+        # [hlabels][ data  ]|s|
         # |  H. scrollbar  |
         array_layout = QGridLayout()
         array_layout.addWidget(self.view_axes, 0, 0)
-        array_layout.addWidget(self.view_xlabels, 0, 1)
-        array_layout.addWidget(self.view_ylabels, 1, 0)
+        array_layout.addWidget(self.view_hlabels, 0, 1)
+        array_layout.addWidget(self.view_vlabels, 1, 0)
         self.view_data.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         array_layout.addWidget(self.view_data, 1, 1)
         array_layout.addWidget(self.vscrollbar, 0, 2, 2, 1)
@@ -662,6 +662,13 @@ class ArrayEditorWidget(QWidget):
         self.btn_layout.addWidget(gradient_chooser)
         self.gradient_chooser = gradient_chooser
 
+        label = QLabel("Horizontal Dimensions")
+        btn_layout.addWidget(label)
+        spin = QSpinBox(self)
+        spin.valueChanged.connect(self.nb_horizontal_dims_changed)
+        self.nb_horizontal_dims_spinbox = spin
+        btn_layout.addWidget(spin)
+
         # Set widget layout
         layout = QVBoxLayout()
         layout.addLayout(self.filters_layout)
@@ -674,6 +681,8 @@ class ArrayEditorWidget(QWidget):
 
         # See http://doc.qt.io/qt-4.8/qt-draganddrop-fridgemagnets-dragwidget-cpp.html for an example
         self.setAcceptDrops(True)
+
+        self._raw_data_selection = None
 
     def gradient_changed(self, index):
         gradient = self.gradient_chooser.itemData(index) if index > 0 else None
@@ -760,8 +769,9 @@ class ArrayEditorWidget(QWidget):
         axes = la_data.axes
         display_names = axes.display_names
 
-        # update data format and bgcolor
-        self._update_digits_scientific(la_data)
+        # update data format and bgcolor + dim spinbox
+        self._update_digits_scientific_dims(la_data)
+        self.nb_horizontal_dims_spinbox.setValue(1)
 
         # update filters
         filters_layout = self.filters_layout
@@ -777,11 +787,11 @@ class ArrayEditorWidget(QWidget):
 
         # reset default size
         self.view_axes.set_default_size()
-        self.view_ylabels.set_default_size()
-        self.view_xlabels.set_default_size()
+        self.view_hlabels.set_default_size()
+        self.view_vlabels.set_default_size()
         self.view_data.set_default_size()
 
-    def _update_digits_scientific(self, data):
+    def _update_digits_scientific_dims(self, data):
         """
         data : LArray
         """
@@ -809,6 +819,9 @@ class ArrayEditorWidget(QWidget):
         self.scientific_checkbox.setEnabled(is_number(dtype))
 
         self.gradient_chooser.setEnabled(self.model_data.bgcolor_possible)
+
+        self.nb_horizontal_dims_spinbox.setMinimum(1)
+        self.nb_horizontal_dims_spinbox.setMaximum(max(1, self.data_adapter.ndim - 1))
 
     def choose_scientific(self, data):
         # max_digits = self.get_max_digits()
@@ -902,37 +915,37 @@ class ArrayEditorWidget(QWidget):
         self.view_axes.autofit_columns()
         for column in range(self.model_axes.columnCount()):
             self.resize_axes_column_to_contents(column)
-        self.view_xlabels.autofit_columns()
-        for column in range(self.model_xlabels.columnCount()):
-            self.resize_xlabels_column_to_contents(column)
+        self.view_hlabels.autofit_columns()
+        for column in range(self.model_hlabels.columnCount()):
+            self.resize_hlabels_column_to_contents(column)
 
     def resize_axes_column_to_contents(self, column):
         # must be connected to view_axes.horizontalHeader().sectionHandleDoubleClicked signal
         width = max(self.view_axes.horizontalHeader().sectionSize(column),
-                    self.view_ylabels.sizeHintForColumn(column))
-        # no need to call resizeSection on view_ylabels (see synchronization lines in init)
+                    self.view_vlabels.sizeHintForColumn(column))
+        # no need to call resizeSection on view_vlabels (see synchronization lines in init)
         self.view_axes.horizontalHeader().resizeSection(column, width)
 
-    def resize_xlabels_column_to_contents(self, column):
+    def resize_hlabels_column_to_contents(self, column):
         # must be connected to view_labels.horizontalHeader().sectionHandleDoubleClicked signal
-        width = max(self.view_xlabels.horizontalHeader().sectionSize(column),
+        width = max(self.view_hlabels.horizontalHeader().sectionSize(column),
                     self.view_data.sizeHintForColumn(column))
         # no need to call resizeSection on view_data (see synchronization lines in init)
-        self.view_xlabels.horizontalHeader().resizeSection(column, width)
+        self.view_hlabels.horizontalHeader().resizeSection(column, width)
 
     def resize_axes_row_to_contents(self, row):
         # must be connected to view_axes.verticalHeader().sectionHandleDoubleClicked
         height = max(self.view_axes.verticalHeader().sectionSize(row),
-                     self.view_xlabels.sizeHintForRow(row))
-        # no need to call resizeSection on view_xlabels (see synchronization lines in init)
+                     self.view_hlabels.sizeHintForRow(row))
+        # no need to call resizeSection on view_hlabels (see synchronization lines in init)
         self.view_axes.verticalHeader().resizeSection(row, height)
 
-    def resize_ylabels_row_to_contents(self, row):
+    def resize_vlabels_row_to_contents(self, row):
         # must be connected to view_labels.verticalHeader().sectionHandleDoubleClicked
-        height = max(self.view_ylabels.verticalHeader().sectionSize(row),
+        height = max(self.view_vlabels.verticalHeader().sectionSize(row),
                      self.view_data.sizeHintForRow(row))
         # no need to call resizeSection on view_data (see synchronization lines in init)
-        self.view_ylabels.verticalHeader().resizeSection(row, height)
+        self.view_vlabels.verticalHeader().resizeSection(row, height)
 
     @property
     def dirty(self):
@@ -942,7 +955,7 @@ class ArrayEditorWidget(QWidget):
     def accept_changes(self):
         """Accept changes"""
         la_data = self.data_adapter.accept_changes()
-        self._update_digits_scientific(la_data)
+        self._update_digits_scientific_dims(la_data)
 
     def reject_changes(self):
         """Reject changes"""
@@ -966,6 +979,9 @@ class ArrayEditorWidget(QWidget):
     def digits_changed(self, value):
         self.digits = value
         self.model_data.set_format(self.cell_format)
+
+    def nb_horizontal_dims_changed(self, value):
+        self.data_adapter.update_nb_dims_hlabels(value)
 
     def create_filter_combo(self, axis):
         def filter_changed(checked_items):
@@ -1001,17 +1017,17 @@ class ArrayEditorWidget(QWidget):
             if not self.data_adapter.ndim:
                 return raw_data
             # FIXME: this is extremely ad-hoc.
-            # TODO: in the future (pandas-based branch) we should use to_string(data[self._selection_filter()])
+            # TODO: in the future (multi_index supported) we should use to_string(data[self._selection_filter()])
             dim_headers = self.model_axes.get_values()
-            xlabels = self.model_xlabels.get_values(top=col_min, bottom=col_max)
-            topheaders = [[dim_header[0] for dim_header in dim_headers] + [label[0] for label in xlabels]]
+            hlabels = self.model_hlabels.get_values(left=col_min, right=col_max)
+            topheaders = [dims + labels for dims, labels in zip(dim_headers, hlabels)]
             if self.data_adapter.ndim == 1:
                 return chain(topheaders, [chain([''], row) for row in raw_data])
             else:
                 assert self.data_adapter.ndim > 1
-                ylabels = self.model_ylabels.get_values(left=row_min, right=row_max)
+                vlabels = self.model_vlabels.get_values(top=row_min, bottom=row_max)
                 return chain(topheaders,
-                             [chain([ylabels[j][r] for j in range(len(ylabels))], row)
+                             [chain([vlabels[j][r] for j in range(len(vlabels))], row)
                               for r, row in enumerate(raw_data)])
         else:
             return raw_data
@@ -1033,6 +1049,8 @@ class ArrayEditorWidget(QWidget):
         clipboard = QApplication.clipboard()
         clipboard.setText(text)
 
+        self._raw_data_selection = self._selection_data(headers=False)
+
     def to_excel(self):
         """View selection in Excel"""
         if xw is None:
@@ -1052,22 +1070,25 @@ class ArrayEditorWidget(QWidget):
         if bounds is None:
             return
         row_min, row_max, col_min, col_max = bounds
-        clipboard = QApplication.clipboard()
-        text = str(clipboard.text())
-        list_data = [line.split('\t') for line in text.splitlines()]
-        try:
-            # take the first cell which contains '\'
-            pos_last = next(i for i, v in enumerate(list_data[0]) if '\\' in v)
-        except StopIteration:
-            # if there isn't any, assume 1d array
-            pos_last = 0
-        if pos_last:
-            # ndim > 1
-            list_data = [line[pos_last + 1:] for line in list_data[1:]]
-        elif len(list_data) == 2 and list_data[1][0] == '':
-            # ndim == 1
-            list_data = [list_data[1][1:]]
-        new_data = np.array(list_data)
+        # clipboard = QApplication.clipboard()
+        # text = str(clipboard.text())
+        # list_data = [line.split('\t') for line in text.splitlines()]
+        # try:
+        #     # take the first cell which contains '\'
+        #     pos_last = next(i for i, v in enumerate(list_data[0]) if '\\' in v)
+        # except StopIteration:
+        #     # if there isn't any, assume 1d array
+        #     pos_last = 0
+        # if pos_last:
+        #     # ndim > 1
+        #     list_data = [line[pos_last + 1:] for line in list_data[1:]]
+        # elif len(list_data) == 2 and list_data[1][0] == '':
+        #     # ndim == 1
+        #     list_data = [list_data[1][1:]]
+        # new_data = np.array(list_data)
+        if self._raw_data_selection is None:
+            return
+        new_data = np.array(self._raw_data_selection)
         if new_data.shape[0] > 1:
             row_max = row_min + new_data.shape[0]
         if new_data.shape[1] > 1:
@@ -1093,12 +1114,13 @@ class ArrayEditorWidget(QWidget):
         row_min, row_max, col_min, col_max = self.view_data._selection_bounds()
         dim_names = self.data_adapter.get_axes_names()
         # labels
-        xlabels = [label[0] for label in self.model_xlabels.get_values(top=col_min, bottom=col_max)]
-        ylabels = self.model_ylabels.get_values(left=row_min, right=row_max)
-        # transpose ylabels
-        ylabels = [[str(ylabels[i][j]) for i in range(len(ylabels))] for j in range(len(ylabels[0]))]
-        # if there is only one dimension, ylabels is empty
-        if not ylabels:
+        xlabels = self.model_hlabels.get_values(left=col_min, right=col_max, bottom=self.data_adapter.nb_dims_hlabels)
+        xlabels = [[str(xlabels[i][j]) for i in range(len(xlabels))] for j in range(len(xlabels[0]))]
+        if self.data_adapter.ndim > 1:
+            ylabels = self.model_vlabels.get_values(top=row_min, bottom=row_max)
+            # transpose ylabels
+            ylabels = [[str(ylabels[i][j]) for i in range(len(ylabels))] for j in range(len(ylabels[0]))]
+        else:
             ylabels = [[]]
 
         assert data.ndim == 2
@@ -1118,7 +1140,7 @@ class ArrayEditorWidget(QWidget):
         else:
             # plot each row as a line
             xlabel = dim_names[-1]
-            xticklabels = [str(label) for label in xlabels]
+            xticklabels = ['\n'.join(row) for row in xlabels]
             xdata = np.arange(col_max - col_min)
             for row in range(len(data)):
                 ax.plot(xdata, data[row], label=' '.join(ylabels[row]))
