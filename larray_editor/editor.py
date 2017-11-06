@@ -4,7 +4,7 @@ import matplotlib
 import numpy as np
 
 from larray import LArray, Session, zeros
-from larray_editor.utils import PYQT5, _, create_action, show_figure, ima, commonpath, get_versions, urls
+from larray_editor.utils import PY2, PYQT5, _, create_action, show_figure, ima, commonpath, get_versions, urls
 from larray_editor.arraywidget import ArrayEditorWidget
 from qtpy.QtCore import Qt, QSettings, QUrl, Slot
 from qtpy.QtGui import QDesktopServices, QKeySequence
@@ -288,7 +288,7 @@ class MappingEditor(QMainWindow):
         help_menu.addAction(create_action(self, _('Online Objects and Functions (API) &Reference'),
                                           triggered=self.open_api_documentation))
         help_menu.addSeparator()
-        help_menu.addAction(create_action(self, _('Report &Issue...'), triggered=self.open_issue_tracker))
+        help_menu.addAction(create_action(self, _('Report &Issue...'), triggered=self.report_issue))
         help_menu.addAction(create_action(self, _('&Support...'), triggered=self.open_support))
         help_menu.addAction(create_action(self, _('Releases &List...'), triggered=self.open_releases_list))
 
@@ -678,8 +678,49 @@ class MappingEditor(QMainWindow):
     def open_api_documentation(self):
         QDesktopServices.openUrl(QUrl(urls['doc_api']))
 
-    def open_issue_tracker(self):
-        QDesktopServices.openUrl(QUrl(urls['issue_tracker']))
+    def report_issue(self):
+        if PY2:
+            from urllib import quote
+        else:
+            from urllib.parse import quote
+
+        versions = get_versions()
+        issue_template = """\
+## Description
+**What steps will reproduce the problem?**
+1. 
+2. 
+3.
+ 
+**What is the expected output? What do you see instead?**
+
+
+**Please provide any additional information below**
+
+
+## Version and main components
+* Python {python} on {system} {bitness:d}bits
+* Qt {qt}, {qt_api} {qt_api_ver}
+"""
+        if versions.get('larray'):
+            issue_template += "* larray {larray}\n"
+        if versions.get('numpy'):
+            issue_template += "* numpy {numpy}\n"
+        if versions.get('pandas'):
+            issue_template += "* pandas {pandas}\n"
+        if versions.get('matplotib'):
+            issue_template += "* matplotlib {matplotib}\n"
+        issue_template = issue_template.format(**versions)
+
+        url = QUrl(urls['new_issue'])
+        if PYQT5:
+            from qtpy.QtCore import QUrlQuery
+            query = QUrlQuery()
+            query.addQueryItem("body", quote(issue_template))
+            url.setQuery(query)
+        else:
+            url.addEncodedQueryItem("body", quote(issue_template))
+        QDesktopServices.openUrl(url)
 
     def open_support(self):
         QDesktopServices.openUrl(QUrl(urls['users_group']))
