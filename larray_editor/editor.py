@@ -732,23 +732,23 @@ class MappingEditor(QMainWindow):
         """About Editor"""
         kwargs = get_versions()
         kwargs.update(urls)
-        message = \
-            """<b>LArray Editor {editor}</b>: The Graphical User Interface for LArray. 
-            <br>Licensed under the terms of the <a href="{GPL3}">GNU GENERAL PUBLIC LICENSE Version 3</a>.
-            <p>Developed and maintained by the <a href="{fpb}">Federal Planning Bureau</a> (Belgium). 
-            <p><b>Versions of underlying libraries</b> (please copy-paste this when reporting a bug):
-            <ul>
-            <li>Python {python} on {system} {bitness:d}bits.</li>
-            """
+        message = """\
+<b>LArray Editor {editor}</b>: The Graphical User Interface for LArray. 
+<br>Licensed under the terms of the <a href="{GPL3}">GNU GENERAL PUBLIC LICENSE Version 3</a>.
+<p>Developed and maintained by the <a href="{fpb}">Federal Planning Bureau</a> (Belgium). 
+<p><b>Versions of underlying libraries</b> (please copy-paste this when reporting a bug):
+<ul>
+<li>Python {python} on {system} {bitness:d}bits</li>
+<li>Qt {qt}, {qt_api} {qt_api_ver}</li>
+"""
         if kwargs.get('larray'):
-            message += "<li>larray {larray}.</li>"
+            message += "<li>larray {larray}</li>\n"
         if kwargs.get('numpy'):
-            message += "<li>numpy {numpy}.</li>"
+            message += "<li>numpy {numpy}</li>\n"
         if kwargs.get('pandas'):
-            message += "<li>pandas {pandas}.</li>"
+            message += "<li>pandas {pandas}</li>\n"
         if kwargs.get('matplotib'):
-            message += "<li>Matplotlib {matplotib}.</li>\n"
-        message += "<li>Qt {qt}, {qt_api} {qt_api_ver}.</li>"
+            message += "<li>matplotlib {matplotib}</li>\n"
         message += "</ul>"
         QMessageBox.about(self, _("About Larray Editor"), message.format(**kwargs))
 
