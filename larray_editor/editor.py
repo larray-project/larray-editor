@@ -4,8 +4,7 @@ import matplotlib
 import numpy as np
 
 from larray import LArray, Session, zeros
-from larray_editor.utils import (PYQT5, _, create_action, show_figure, ima, commonpath, get_versions,
-                                 _project_website, _announce_group, _users_group)
+from larray_editor.utils import PYQT5, _, create_action, show_figure, ima, commonpath, get_versions, urls
 from larray_editor.arraywidget import ArrayEditorWidget
 from qtpy.QtCore import Qt, QSettings, QUrl, Slot
 from qtpy.QtGui import QDesktopServices, QKeySequence
@@ -288,6 +287,11 @@ class MappingEditor(QMainWindow):
         help_menu.addAction(create_action(self, _('Online &Tutorial'), triggered=self.open_tutorial))
         help_menu.addAction(create_action(self, _('Online Objects and Functions (API) &Reference'),
                                           triggered=self.open_api_documentation))
+        help_menu.addSeparator()
+        help_menu.addAction(create_action(self, _('Report &Issue...'), triggered=self.open_issue_tracker))
+        help_menu.addAction(create_action(self, _('&Support...'), triggered=self.open_support))
+        help_menu.addAction(create_action(self, _('Releases &List...'), triggered=self.open_releases_list))
+
         help_menu.addSeparator()
         help_menu.addAction(create_action(self, _('&About'), triggered=self.about))
 
@@ -674,32 +678,37 @@ class MappingEditor(QMainWindow):
     def open_api_documentation(self):
         QDesktopServices.openUrl(QUrl("http://larray.readthedocs.io/en/stable/api.html"))
 
+    def open_issue_tracker(self):
+        QDesktopServices.openUrl(QUrl(urls['issue_tracker']))
+
+    def open_support(self):
+        QDesktopServices.openUrl(QUrl(urls['users_group']))
+
+    def open_releases_list(self):
+        QDesktopServices.openUrl(QUrl(urls['announce_group']))
+
     def about(self):
         """About Editor"""
         versions = get_versions()
         message = \
-            """<b>LArray Editor {editor}</b>
-            <br>The Graphical User Interface for LArray. This project aims to provide an intuitive tool to 
-            visualize and manipulate labelled N-dimensional arrays. Licensed under the terms of the 
-            GNU GENERAL PUBLIC LICENSE Version 3.
-            <p>Created by Gaëtan de Menten.
-            <br>Developed and maintained by the Federal Planning Bureau (Belgium). 
-            Many thanks to all LArray regular users.
-            <p>For bug reports and feature requests, please go to our <a href="{website}">Github website</a>. 
-            For discussions around the project, please go to our <a href="{users_group}">Google Users Group</a>.
-            To be informed of each new release, please subscribe to this <a href="{announce_group}">mailing list</a>.
-            <p>Python {python} {bitness:d}bits on {system}.
+            """<b>LArray Editor {editor}</b>: The Graphical User Interface for LArray. 
+            <br>Licensed under the terms of the <a href="{GPL3}">GNU GENERAL PUBLIC LICENSE Version 3</a>.
+            <p>Developed and maintained by the <a href="{fpb}">Federal Planning Bureau</a> (Belgium). 
+            <p><b>Versions of underlying libraries</b> (please copy-paste this when reporting a bug):
+            <ul>
+            <li>Python {python} on {system} {bitness:d}bits.</li>
             """
         if versions.get('larray'):
-            message += "<p>larray {larray}.\n<p>numpy {numpy}.\n<p>pandas {pandas}.\n"
+            message += "<li>larray {larray}.</li>"
+        if versions.get('numpy'):
+            message += "<li>numpy {numpy}.</li>"
+        if versions.get('pandas'):
+            message += "<li>pandas {pandas}.</li>"
         if versions.get('matplotib'):
-            message += "<p>Matplotlib {matplotib}.\n"
-        message += "<p>Qt {qt}, {qt_api} {qt_api_ver}."
-
-        QMessageBox.about(self, _("About Larray Editor"),
-                          message.format(website=_project_website, users_group=_users_group,
-                                         announce_group=_announce_group, **versions))
-
+            message += "<li>Matplotlib {matplotib}.</li>\n"
+        message += "<li>Qt {qt}, {qt_api} {qt_api_ver}.</li>"
+        message += "</ul>"
+        QMessageBox.about(self, _("About Larray Editor"), message.format(**urls, **versions))
 
     def set_current_file(self, filepath):
         self.update_recent_files([filepath])

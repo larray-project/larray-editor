@@ -17,10 +17,11 @@ else:
     from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 
 
-_project_website = "https://github.com/larray-project/larray-editor"
-_announce_group = "https://groups.google.com/d/forum/larray-announce"
-_users_group = "https://groups.google.com/d/forum/larray-users"
-
+urls = {"fpb": "http://www.plan.be/index.php?lang=en",
+        "GPL3": "https://www.gnu.org/licenses/gpl-3.0.html",
+        "issue_tracker": "https://github.com/liam2/larray/issues",
+        "announce_group": "https://groups.google.com/d/forum/larray-announce",
+        "users_group": "https://groups.google.com/d/forum/larray-users"}
 
 PY2 = sys.version[0] == '2'
 if PY2:
@@ -58,12 +59,20 @@ def get_versions():
         pass
 
     try:
-        from larray import __version__ as larray_version
         from numpy import __version__ as np_version
-        from  pandas import __version__ as pd_version
-        versions['larray'] = larray_version
         versions['numpy'] = np_version
+    except ImportError:
+        pass
+
+    try:
+        from  pandas import __version__ as pd_version
         versions['pandas'] = pd_version
+    except ImportError:
+        pass
+
+    try:
+        from larray import __version__ as larray_version
+        versions['larray'] = larray_version
     except ImportError:
         pass
 
