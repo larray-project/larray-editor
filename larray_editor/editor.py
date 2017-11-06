@@ -670,13 +670,13 @@ class MappingEditor(QMainWindow):
                 self._open_file(filepath)
 
     def open_documentation(self):
-        QDesktopServices.openUrl(QUrl("http://larray.readthedocs.io/en/stable/"))
+        QDesktopServices.openUrl(QUrl(urls['doc_stable']))
 
     def open_tutorial(self):
-        QDesktopServices.openUrl(QUrl("http://larray.readthedocs.io/en/stable/tutorial.html"))
+        QDesktopServices.openUrl(QUrl(urls['doc_tutorial']))
 
     def open_api_documentation(self):
-        QDesktopServices.openUrl(QUrl("http://larray.readthedocs.io/en/stable/api.html"))
+        QDesktopServices.openUrl(QUrl(urls['doc_api']))
 
     def open_issue_tracker(self):
         QDesktopServices.openUrl(QUrl(urls['issue_tracker']))

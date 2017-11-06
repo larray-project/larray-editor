@@ -19,6 +19,9 @@ else:
 
 urls = {"fpb": "http://www.plan.be/index.php?lang=en",
         "GPL3": "https://www.gnu.org/licenses/gpl-3.0.html",
+        "doc_stable": "http://larray.readthedocs.io/en/stable/",
+        "doc_tutorial": "http://larray.readthedocs.io/en/stable/tutorial.html",
+        "doc_api": "http://larray.readthedocs.io/en/stable/api.html",
         "issue_tracker": "https://github.com/liam2/larray/issues",
         "announce_group": "https://groups.google.com/d/forum/larray-announce",
         "users_group": "https://groups.google.com/d/forum/larray-users"}
