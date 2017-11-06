@@ -708,8 +708,8 @@ class MappingEditor(QMainWindow):
             issue_template += "* numpy {numpy}\n"
         if versions.get('pandas'):
             issue_template += "* pandas {pandas}\n"
-        if versions.get('matplotib'):
-            issue_template += "* matplotlib {matplotib}\n"
+        if versions.get('matplotlib'):
+            issue_template += "* matplotlib {matplotlib}\n"
         issue_template = issue_template.format(**versions)
 
         url = QUrl(urls['new_issue'])
@@ -747,8 +747,8 @@ class MappingEditor(QMainWindow):
             message += "<li>numpy {numpy}</li>\n"
         if kwargs.get('pandas'):
             message += "<li>pandas {pandas}</li>\n"
-        if kwargs.get('matplotib'):
-            message += "<li>matplotlib {matplotib}</li>\n"
+        if kwargs.get('matplotlib'):
+            message += "<li>matplotlib {matplotlib}</li>\n"
         message += "</ul>"
         QMessageBox.about(self, _("About Larray Editor"), message.format(**kwargs))
 

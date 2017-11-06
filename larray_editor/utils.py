@@ -37,8 +37,10 @@ else:
 def get_versions():
     """Get version information for components used by the Editor"""
     import platform
+    from importlib import import_module
     from qtpy import API_NAME, PYQT_VERSION
     from qtpy.QtCore import __version__ as qtpy_version
+    from matplotlib import __version__ as mpl_version
     from larray_editor import __version__ as editor_version
 
     versions = {
@@ -48,6 +50,7 @@ def get_versions():
         'qt': qtpy_version,
         'qt_api': API_NAME,                             # PyQt5 or PyQt4
         'qt_api_ver': PYQT_VERSION,
+        'matplotlib': mpl_version,
     }
 
     if not sys.platform == 'darwin':                    # To avoid a crash with our Mac app
@@ -55,29 +58,16 @@ def get_versions():
     else:
         versions['system'] = 'Darwin'
 
-    try:
-        from matplotlib import __version__ as mpl_version
-        versions['matplotlib'] = mpl_version
-    except ImportError:
-        pass
+    def add_package_version(package_name):
+        try:
+            package = import_module(package_name)
+            versions[package_name] = package.__version__
+        except ImportError:
+            pass
 
-    try:
-        from numpy import __version__ as np_version
-        versions['numpy'] = np_version
-    except ImportError:
-        pass
-
-    try:
-        from pandas import __version__ as pd_version
-        versions['pandas'] = pd_version
-    except ImportError:
-        pass
-
-    try:
-        from larray import __version__ as larray_version
-        versions['larray'] = larray_version
-    except ImportError:
-        pass
+    add_package_version('numpy')
+    add_package_version('pandas')
+    add_package_version('larray')
 
     return versions
 
