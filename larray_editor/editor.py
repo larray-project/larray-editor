@@ -689,7 +689,8 @@ class MappingEditor(QMainWindow):
 
     def about(self):
         """About Editor"""
-        versions = get_versions()
+        kwargs = get_versions()
+        kwargs.update(urls)
         message = \
             """<b>LArray Editor {editor}</b>: The Graphical User Interface for LArray. 
             <br>Licensed under the terms of the <a href="{GPL3}">GNU GENERAL PUBLIC LICENSE Version 3</a>.
@@ -698,17 +699,17 @@ class MappingEditor(QMainWindow):
             <ul>
             <li>Python {python} on {system} {bitness:d}bits.</li>
             """
-        if versions.get('larray'):
+        if kwargs.get('larray'):
             message += "<li>larray {larray}.</li>"
-        if versions.get('numpy'):
+        if kwargs.get('numpy'):
             message += "<li>numpy {numpy}.</li>"
-        if versions.get('pandas'):
+        if kwargs.get('pandas'):
             message += "<li>pandas {pandas}.</li>"
-        if versions.get('matplotib'):
+        if kwargs.get('matplotib'):
             message += "<li>Matplotlib {matplotib}.</li>\n"
         message += "<li>Qt {qt}, {qt_api} {qt_api_ver}.</li>"
         message += "</ul>"
-        QMessageBox.about(self, _("About Larray Editor"), message.format(**urls, **versions))
+        QMessageBox.about(self, _("About Larray Editor"), message.format(**kwargs))
 
     def set_current_file(self, filepath):
         self.update_recent_files([filepath])
