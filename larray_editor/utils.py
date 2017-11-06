@@ -68,7 +68,7 @@ def get_versions():
         pass
 
     try:
-        from  pandas import __version__ as pd_version
+        from pandas import __version__ as pd_version
         versions['pandas'] = pd_version
     except ImportError:
         pass
