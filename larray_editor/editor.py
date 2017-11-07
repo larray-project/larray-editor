@@ -732,7 +732,7 @@ class MappingEditor(QMainWindow):
 <b>LArray Editor {editor}</b>: The Graphical User Interface for LArray. 
 <br>Licensed under the terms of the <a href="{GPL3}">GNU GENERAL PUBLIC LICENSE Version 3</a>.
 <p>Developed and maintained by the <a href="{fpb}">Federal Planning Bureau</a> (Belgium). 
-<p><b>Versions of underlying libraries</b> (please copy-paste this when reporting a bug):
+<p><b>Versions of underlying libraries</b>:
 <ul>
 <li>Python {python} on {system} {bitness:d}bits</li>
 <li>Qt {qt}, {qt_api} {qt_api_ver}</li>
