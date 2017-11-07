@@ -290,9 +290,9 @@ class MappingEditor(QMainWindow):
                                           triggered=self.open_api_documentation))
         help_menu.addSeparator()
         help_menu.addAction(create_action(self, _('Report &Issue...'), triggered=self.report_issue))
-        help_menu.addAction(create_action(self, _('&Users Discussion...'), triggered=self.open_support))
+        help_menu.addAction(create_action(self, _('&Users Discussion...'), triggered=self.open_users_group))
         help_menu.addAction(create_action(self, _('New Releases And &Announces Mailing List...'),
-                                          triggered=self.open_releases_list))
+                                          triggered=self.open_announce_group))
 
         help_menu.addSeparator()
         help_menu.addAction(create_action(self, _('&About'), triggered=self.about))
@@ -718,10 +718,10 @@ class MappingEditor(QMainWindow):
             url.addEncodedQueryItem("body", quote(issue_template))
         QDesktopServices.openUrl(url)
 
-    def open_support(self):
+    def open_users_group(self):
         QDesktopServices.openUrl(QUrl(urls['users_group']))
 
-    def open_releases_list(self):
+    def open_announce_group(self):
         QDesktopServices.openUrl(QUrl(urls['announce_group']))
 
     def about(self):
