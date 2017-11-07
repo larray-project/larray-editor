@@ -17,6 +17,8 @@ else:
     from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 
 
+dependencies = ['numpy', 'pandas', 'matplotlib', 'larray']
+
 urls = {"fpb": "http://www.plan.be/index.php?lang=en",
         "GPL3": "https://www.gnu.org/licenses/gpl-3.0.html",
         "doc_stable": "http://larray.readthedocs.io/en/stable/",
@@ -34,10 +36,19 @@ else:
     commonpath = os.path.commonpath
 
 
+def get_package_version(package_name):
+    """Return the version of a package if installed, N/A otherwise"""
+    try:
+        from importlib import import_module
+        package = import_module(package_name)
+        return package.__version__
+    except ImportError:
+        return 'N/A'
+
+
 def get_versions():
     """Get version information for components used by the Editor"""
     import platform
-    from importlib import import_module
     from qtpy import API_NAME, PYQT_VERSION
     from qtpy.QtCore import __version__ as qtpy_version
     from larray_editor import __version__ as editor_version
@@ -56,17 +67,8 @@ def get_versions():
     else:
         versions['system'] = 'Darwin'
 
-    def add_package_version(package_name):
-        try:
-            package = import_module(package_name)
-            versions[package_name] = package.__version__
-        except ImportError:
-            pass
-
-    add_package_version('numpy')
-    add_package_version('pandas')
-    add_package_version('matplotlib')
-    add_package_version('larray')
+    for dep in dependencies:
+        versions[dep] = get_package_version(dep)
 
     return versions
 
