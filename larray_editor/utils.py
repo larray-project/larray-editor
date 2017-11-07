@@ -17,7 +17,8 @@ else:
     from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 
 
-dependencies = ['numpy', 'pandas', 'matplotlib', 'larray']
+dependencies = ['numpy', 'pandas', 'matplotlib', 'larray', 'larray_eurostat', 'pytables', 'xlwings', 'xlsxwriter',
+                'xlrd', 'openpyxl']
 
 urls = {"fpb": "http://www.plan.be/index.php?lang=en",
         "GPL3": "https://www.gnu.org/licenses/gpl-3.0.html",
@@ -41,7 +42,12 @@ def get_package_version(package_name):
     try:
         from importlib import import_module
         package = import_module(package_name)
-        return package.__version__
+        if '__version__' in dir(package):
+            return package.__version__
+        elif '__VERSION__' in dir(package):
+            return package.__VERSION__
+        else:
+            return 'N/A'
     except ImportError:
         return 'N/A'
 
