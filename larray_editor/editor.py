@@ -4,7 +4,8 @@ import matplotlib
 import numpy as np
 
 from larray import LArray, Session, zeros
-from larray_editor.utils import PY2, PYQT5, _, create_action, show_figure, ima, commonpath, get_versions, urls
+from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
+                                 get_versions, urls)
 from larray_editor.arraywidget import ArrayEditorWidget
 from qtpy.QtCore import Qt, QSettings, QUrl, Slot
 from qtpy.QtGui import QDesktopServices, QKeySequence
@@ -702,14 +703,8 @@ class MappingEditor(QMainWindow):
 * Python {python} on {system} {bitness:d}bits
 * Qt {qt}, {qt_api} {qt_api_ver}
 """
-        if versions.get('larray'):
-            issue_template += "* larray {larray}\n"
-        if versions.get('numpy'):
-            issue_template += "* numpy {numpy}\n"
-        if versions.get('pandas'):
-            issue_template += "* pandas {pandas}\n"
-        if versions.get('matplotlib'):
-            issue_template += "* matplotlib {matplotlib}\n"
+        for dep in dependencies:
+            issue_template += "* {dep} {{{dep}}}\n".format(dep=dep)
         issue_template = issue_template.format(**versions)
 
         url = QUrl(urls['new_issue'])
@@ -741,14 +736,9 @@ class MappingEditor(QMainWindow):
 <li>Python {python} on {system} {bitness:d}bits</li>
 <li>Qt {qt}, {qt_api} {qt_api_ver}</li>
 """
-        if kwargs.get('larray'):
-            message += "<li>larray {larray}</li>\n"
-        if kwargs.get('numpy'):
-            message += "<li>numpy {numpy}</li>\n"
-        if kwargs.get('pandas'):
-            message += "<li>pandas {pandas}</li>\n"
-        if kwargs.get('matplotlib'):
-            message += "<li>matplotlib {matplotlib}</li>\n"
+        for dep in dependencies:
+            if kwargs[dep] != 'N/A':
+                message += "<li>{dep} {{{dep}}}</li>\n".format(dep=dep)
         message += "</ul>"
         QMessageBox.about(self, _("About Larray Editor"), message.format(**kwargs))
 
