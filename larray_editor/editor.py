@@ -290,8 +290,9 @@ class MappingEditor(QMainWindow):
                                           triggered=self.open_api_documentation))
         help_menu.addSeparator()
         help_menu.addAction(create_action(self, _('Report &Issue...'), triggered=self.report_issue))
-        help_menu.addAction(create_action(self, _('&Support...'), triggered=self.open_support))
-        help_menu.addAction(create_action(self, _('Releases &List...'), triggered=self.open_releases_list))
+        help_menu.addAction(create_action(self, _('&Users Discussion...'), triggered=self.open_support))
+        help_menu.addAction(create_action(self, _('New Releases And &Announces Mailing List...'),
+                                          triggered=self.open_releases_list))
 
         help_menu.addSeparator()
         help_menu.addAction(create_action(self, _('&About'), triggered=self.about))
