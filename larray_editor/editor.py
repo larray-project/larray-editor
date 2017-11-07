@@ -4,9 +4,9 @@ import matplotlib
 import numpy as np
 
 from larray import LArray, Session, zeros
-from larray_editor.utils import PYQT5, _, create_action, show_figure, ima, commonpath
+from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
+                                 get_versions, urls)
 from larray_editor.arraywidget import ArrayEditorWidget
-
 from qtpy.QtCore import Qt, QSettings, QUrl, Slot
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QListWidget, QListWidgetItem, QSplitter, QFileDialog,
@@ -250,6 +250,10 @@ class MappingEditor(QMainWindow):
     def setup_menu_bar(self):
         """Setup menu bar"""
         menu_bar = self.menuBar()
+
+        ###############
+        #  File Menu  #
+        ###############
         file_menu = menu_bar.addMenu('&File')
 
         file_menu.addAction(create_action(self, _('&New'), shortcut="Ctrl+N", triggered=self.new))
@@ -275,12 +279,23 @@ class MappingEditor(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction(create_action(self, _('&Quit'), shortcut="Ctrl+Q", triggered=self.close))
 
+        ###############
+        #  Help Menu  #
+        ###############
         help_menu = menu_bar.addMenu('&Help')
         help_menu.addAction(create_action(self, _('Online &Documentation'), shortcut="Ctrl+H",
                                           triggered=self.open_documentation))
         help_menu.addAction(create_action(self, _('Online &Tutorial'), triggered=self.open_tutorial))
         help_menu.addAction(create_action(self, _('Online Objects and Functions (API) &Reference'),
                                           triggered=self.open_api_documentation))
+        help_menu.addSeparator()
+        help_menu.addAction(create_action(self, _('Report &Issue...'), triggered=self.report_issue))
+        help_menu.addAction(create_action(self, _('&Users Discussion...'), triggered=self.open_users_group))
+        help_menu.addAction(create_action(self, _('New Releases And &Announces Mailing List...'),
+                                          triggered=self.open_announce_group))
+
+        help_menu.addSeparator()
+        help_menu.addAction(create_action(self, _('&About'), triggered=self.about))
 
     def data_changed(self):
         # We do not set self._unsaved_modifications to True because if users click on `Discard` button
@@ -657,13 +672,76 @@ class MappingEditor(QMainWindow):
                 self._open_file(filepath)
 
     def open_documentation(self):
-        QDesktopServices.openUrl(QUrl("http://larray.readthedocs.io/en/stable/"))
+        QDesktopServices.openUrl(QUrl(urls['doc_stable']))
 
     def open_tutorial(self):
-        QDesktopServices.openUrl(QUrl("http://larray.readthedocs.io/en/stable/tutorial.html"))
+        QDesktopServices.openUrl(QUrl(urls['doc_tutorial']))
 
     def open_api_documentation(self):
-        QDesktopServices.openUrl(QUrl("http://larray.readthedocs.io/en/stable/api.html"))
+        QDesktopServices.openUrl(QUrl(urls['doc_api']))
+
+    def report_issue(self):
+        if PY2:
+            from urllib import quote
+        else:
+            from urllib.parse import quote
+
+        versions = get_versions()
+        issue_template = """\
+## Description
+**What steps will reproduce the problem?**
+1. 
+2. 
+3.
+ 
+**What is the expected output? What do you see instead?**
+
+
+**Please provide any additional information below**
+
+
+## Version and main components
+* Python {python} on {system} {bitness:d}bits
+* Qt {qt}, {qt_api} {qt_api_ver}
+"""
+        for dep in dependencies:
+            issue_template += "* {dep} {{{dep}}}\n".format(dep=dep)
+        issue_template = issue_template.format(**versions)
+
+        url = QUrl(urls['new_issue'])
+        if PYQT5:
+            from qtpy.QtCore import QUrlQuery
+            query = QUrlQuery()
+            query.addQueryItem("body", quote(issue_template))
+            url.setQuery(query)
+        else:
+            url.addEncodedQueryItem("body", quote(issue_template))
+        QDesktopServices.openUrl(url)
+
+    def open_users_group(self):
+        QDesktopServices.openUrl(QUrl(urls['users_group']))
+
+    def open_announce_group(self):
+        QDesktopServices.openUrl(QUrl(urls['announce_group']))
+
+    def about(self):
+        """About Editor"""
+        kwargs = get_versions()
+        kwargs.update(urls)
+        message = """\
+<b>LArray Editor {editor}</b>: The Graphical User Interface for LArray. 
+<br>Licensed under the terms of the <a href="{GPL3}">GNU GENERAL PUBLIC LICENSE Version 3</a>.
+<p>Developed and maintained by the <a href="{fpb}">Federal Planning Bureau</a> (Belgium). 
+<p><b>Versions of underlying libraries</b>:
+<ul>
+<li>Python {python} on {system} {bitness:d}bits</li>
+<li>Qt {qt}, {qt_api} {qt_api_ver}</li>
+"""
+        for dep in dependencies:
+            if kwargs[dep] != 'N/A':
+                message += "<li>{dep} {{{dep}}}</li>\n".format(dep=dep)
+        message += "</ul>"
+        QMessageBox.about(self, _("About Larray Editor"), message.format(**kwargs))
 
     def set_current_file(self, filepath):
         self.update_recent_files([filepath])

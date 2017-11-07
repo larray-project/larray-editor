@@ -17,13 +17,66 @@ else:
     from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 
 
-PY2 = sys.version[0] == '2'
+dependencies = ['numpy', 'pandas', 'matplotlib', 'larray', 'larray_eurostat', 'pytables', 'xlwings', 'xlsxwriter',
+                'xlrd', 'openpyxl']
 
+urls = {"fpb": "http://www.plan.be/index.php?lang=en",
+        "GPL3": "https://www.gnu.org/licenses/gpl-3.0.html",
+        "doc_stable": "http://larray.readthedocs.io/en/stable/",
+        "doc_tutorial": "http://larray.readthedocs.io/en/stable/tutorial.html",
+        "doc_api": "http://larray.readthedocs.io/en/stable/api.html",
+        "new_issue": "https://github.com/liam2/larray/issues/new",
+        "announce_group": "https://groups.google.com/d/forum/larray-announce",
+        "users_group": "https://groups.google.com/d/forum/larray-users"}
+
+PY2 = sys.version[0] == '2'
 if PY2:
     def commonpath(paths):
         return os.path.dirname(os.path.commonprefix(paths))
 else:
     commonpath = os.path.commonpath
+
+
+def get_package_version(package_name):
+    """Return the version of a package if installed, N/A otherwise"""
+    try:
+        from importlib import import_module
+        package = import_module(package_name)
+        if '__version__' in dir(package):
+            return package.__version__
+        elif '__VERSION__' in dir(package):
+            return package.__VERSION__
+        else:
+            return 'N/A'
+    except ImportError:
+        return 'N/A'
+
+
+def get_versions():
+    """Get version information for components used by the Editor"""
+    import platform
+    from qtpy import API_NAME, PYQT_VERSION
+    from qtpy.QtCore import __version__ as qtpy_version
+    from larray_editor import __version__ as editor_version
+
+    versions = {
+        'editor': editor_version,
+        'python': platform.python_version(),
+        'bitness': 64 if sys.maxsize > 2**32 else 32,
+        'qt': qtpy_version,
+        'qt_api': API_NAME,                             # PyQt5 or PyQt4
+        'qt_api_ver': PYQT_VERSION,
+    }
+
+    if not sys.platform == 'darwin':                    # To avoid a crash with our Mac app
+        versions['system'] = platform.system()          # Linux, Windows, ...
+    else:
+        versions['system'] = 'Darwin'
+
+    for dep in dependencies:
+        versions[dep] = get_package_version(dep)
+
+    return versions
 
 
 # Note: string and unicode data types will be formatted with '%s' (see below)
