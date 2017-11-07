@@ -40,7 +40,6 @@ def get_versions():
     from importlib import import_module
     from qtpy import API_NAME, PYQT_VERSION
     from qtpy.QtCore import __version__ as qtpy_version
-    from matplotlib import __version__ as mpl_version
     from larray_editor import __version__ as editor_version
 
     versions = {
@@ -50,7 +49,6 @@ def get_versions():
         'qt': qtpy_version,
         'qt_api': API_NAME,                             # PyQt5 or PyQt4
         'qt_api_ver': PYQT_VERSION,
-        'matplotlib': mpl_version,
     }
 
     if not sys.platform == 'darwin':                    # To avoid a crash with our Mac app
@@ -67,6 +65,7 @@ def get_versions():
 
     add_package_version('numpy')
     add_package_version('pandas')
+    add_package_version('matplotlib')
     add_package_version('larray')
 
     return versions
