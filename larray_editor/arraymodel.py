@@ -272,8 +272,8 @@ class DataArrayModel(AbstractArrayModel):
             color_value = self.color_func(data) if self.color_func is not None else data
             # ignore nan, -inf, inf (setting them to 0 or to very large numbers is not an option)
             color_value = color_value[np.isfinite(color_value)]
-            self.vmin = float(np.nanmin(color_value))
-            self.vmax = float(np.nanmax(color_value))
+            self.vmin = float(np.min(color_value))
+            self.vmax = float(np.max(color_value))
             self.bgcolor_possible = True
         # ValueError for empty arrays, TypeError for object/string arrays
         except (TypeError, ValueError):

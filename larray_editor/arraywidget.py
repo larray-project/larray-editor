@@ -864,7 +864,7 @@ class ArrayEditorWidget(QWidget):
         if not data.size:
             return 0, 0, False
         data = np.where(np.isfinite(data), data, 0)
-        vmin, vmax = np.nanmin(data), np.nanmax(data)
+        vmin, vmax = np.min(data), np.max(data)
         absmax = max(abs(vmin), abs(vmax))
         logabsmax = math.log10(absmax) if absmax else 0
         # minimum number of zeros before meaningful fractional part
