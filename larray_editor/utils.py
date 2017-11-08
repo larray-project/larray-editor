@@ -282,10 +282,8 @@ class LinearGradient(object):
         -------
         QColor
         """
-        if np.isnan(key):
+        if np.isnan(key) or key < 0 or key > 1:
             return self.nan_color
-        # this is enough to also avoid nan, inf & -inf
-        assert 0 <= key <= 1
         pos_idx = np.searchsorted(self.positions, key, side='right') - 1
         # if we are exactly on one of the bounds
         if pos_idx > 0 and key in self.positions:
