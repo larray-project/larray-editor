@@ -3,7 +3,8 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QDialogButtonBox, QHBoxLayout,
                             QDialog, QLabel, QCheckBox)
 
-from larray import LArray, Session, Axis, X, stack, full_like, nan, zeros_like, isnan, larray_nan_equal, nan_equal
+from larray import (LArray, Session, Axis, X, stack, full, full_like, zeros_like,
+                    nan, isnan, larray_nan_equal, nan_equal)
 from larray_editor.utils import ima, replace_inf, _
 from larray_editor.arraywidget import ArrayEditorWidget
 
@@ -43,8 +44,8 @@ class ComparatorWidget(QWidget):
         try:
             self.array = stack(arrays, stack_axis)
             array0 = self.array[stack_axis.i[0]]
-        except:
-            self.array = LArray([np.nan])
+        except Exception as e:
+            self.array = LArray(str(e))
             array0 = self.array
         try:
             self.isequal = nan_equal(self.array, array0)
@@ -68,18 +69,20 @@ class ComparatorWidget(QWidget):
                 self.bg_value = full_like(self.array, 0.5)
         except TypeError:
             # str/object array
-            maxabsreldiff = np.nan
+            maxabsreldiff = nan
             self.bg_value = full_like(self.array, 0.5)
 
         self.maxdiff_label.setText(str(maxabsreldiff))
         self.display(self.diff_checkbox.isChecked())
 
     def display(self, diff_only):
-        if diff_only:
-            row_filter = (~self.isequal).any(self.stack_axis.name)
-            self.arraywidget.set_data(self.array[row_filter], bg_value=self.bg_value[row_filter])
-        else:
-            self.arraywidget.set_data(self.array, bg_value=self.bg_value)
+        array = self.array
+        bg_value = self.bg_value
+        if diff_only and self.isequal.ndim > 0:
+            row_filter = (~self.isequal).any(self.stack_axis)
+            array = array[row_filter]
+            bg_value = bg_value[row_filter]
+        self.arraywidget.set_data(array, bg_value=bg_value)
 
 
 class ArrayComparator(QDialog):
