@@ -771,7 +771,12 @@ class ArrayEditorWidget(QWidget):
             filters_layout.addWidget(QLabel(_("Filters")))
             for axis, display_name in zip(axes, display_names):
                 filters_layout.addWidget(QLabel(display_name))
-                filters_layout.addWidget(self.create_filter_combo(axis))
+                # FIXME: on very large axes, this is getting too slow. Ideally the combobox should use a model which
+                # only fetch labels when they are needed to be displayed
+                if len(axis) < 10000:
+                    filters_layout.addWidget(self.create_filter_combo(axis))
+                else:
+                    filters_layout.addWidget(QLabel("too big to be filtered"))
             filters_layout.addStretch()
         self.data_adapter.update_filtered_data({})
 
