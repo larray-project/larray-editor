@@ -2,7 +2,8 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from larray_editor.utils import (get_font, from_qvariant, to_qvariant, to_text_string,
-                                 is_float, is_number, LinearGradient, SUPPORTED_FORMATS, scale_to_01range)
+                                 is_float, is_number, LinearGradient, SUPPORTED_FORMATS, scale_to_01range,
+                                 Product)
 from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel
 from qtpy.QtGui import QColor
 from qtpy.QtWidgets import QMessageBox
@@ -132,8 +133,9 @@ class LabelsArrayModel(AbstractArrayModel):
     def _set_data(self, data, changes=None):
         if data is None:
             data = [[]]
-        if not isinstance(data, (list, tuple)):
-            QMessageBox.critical(self.dialog, "Error", "Expected list or tuple.")
+        # TODO: use sequence instead
+        if not isinstance(data, (list, tuple, Product)):
+            QMessageBox.critical(self.dialog, "Error", "Expected list, tuple or Product")
             data = [[]]
         self._data = data
         self.total_rows = len(data[0])

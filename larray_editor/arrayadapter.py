@@ -51,7 +51,9 @@ class LArrayDataAdapter(object):
         if self.filtered_data.size == 0 or len(axes) == 0:
             return None
         else:
-            return [[label] for label in axes.labels[-1]]
+            # this is a lazy equivalent of:
+            # return [(label,) for label in axes.labels[-1]]
+            return Product([axes.labels[-1]])
 
     def get_ylabels(self):
         axes = self.filtered_data.axes
