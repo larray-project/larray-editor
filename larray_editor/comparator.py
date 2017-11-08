@@ -183,7 +183,6 @@ class SessionComparator(QDialog):
         self.listwidget = listwidget
 
         comparatorwidget = ComparatorWidget(self)
-        comparatorwidget.set_data(self.get_arrays(array_names[0]), self.stack_axis)
         self.comparatorwidget = comparatorwidget
 
         main_splitter = QSplitter(Qt.Horizontal)
@@ -209,6 +208,7 @@ class SessionComparator(QDialog):
 
         # Make the dialog act as a window
         self.setWindowFlags(Qt.Window)
+        self.listwidget.setCurrentRow(0)
         return True
 
     def get_arrays(self, name):
