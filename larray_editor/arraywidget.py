@@ -947,8 +947,7 @@ class ArrayEditorWidget(QWidget):
 
     def accept_changes(self):
         """Accept changes"""
-        la_data = self.data_adapter.accept_changes()
-        self._update_digits_scientific(la_data)
+        self.data_adapter.accept_changes()
 
     def reject_changes(self):
         """Reject changes"""
