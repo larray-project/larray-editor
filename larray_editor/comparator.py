@@ -23,10 +23,10 @@ class ComparatorWidget(QWidget):
         maxdiff_layout.addStretch()
         layout.addLayout(maxdiff_layout)
 
-        self.arraywidget = ArrayEditorWidget(self, np.array([]), readonly=True, bg_gradient='red-white-blue')
+        self.arraywidget = ArrayEditorWidget(self, data=None, readonly=True, bg_gradient='red-white-blue')
 
         diff_checkbox = QCheckBox(_('Differences Only'))
-        diff_checkbox.stateChanged.connect(self.show_differences_only)
+        diff_checkbox.stateChanged.connect(self.display)
         self.diff_checkbox = diff_checkbox
         self.arraywidget.btn_layout.addWidget(diff_checkbox)
 
@@ -72,11 +72,10 @@ class ComparatorWidget(QWidget):
             self.bg_value = full_like(self.array, 0.5)
 
         self.maxdiff_label.setText(str(maxabsreldiff))
-        self.arraywidget.set_data(self.array, bg_value=self.bg_value)
+        self.display(self.diff_checkbox.isChecked())
 
-    def show_differences_only(self, yes):
-        if yes:
-            # only show rows with a difference. For some reason, this is abysmally slow though.
+    def display(self, diff_only):
+        if diff_only:
             row_filter = (~self.isequal).any(self.stack_axis.name)
             self.arraywidget.set_data(self.array[row_filter], bg_value=self.bg_value[row_filter])
         else:
