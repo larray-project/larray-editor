@@ -530,7 +530,8 @@ class ArrayEditorWidget(QWidget):
                  minvalue=None, maxvalue=None):
         QWidget.__init__(self, parent)
         assert bg_gradient in gradient_map
-        readonly = np.isscalar(data)
+        if data is not None and np.isscalar(data):
+            readonly = True
         self.readonly = readonly
 
         self.model_axes = LabelsArrayModel(parent=self, readonly=readonly)
