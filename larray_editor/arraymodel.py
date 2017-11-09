@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 from larray_editor.utils import (get_font, from_qvariant, to_qvariant, to_text_string,
                                  is_float, is_number, LinearGradient, SUPPORTED_FORMATS, scale_to_01range,
-                                 Product)
+                                 Product, is_number_value, get_sample, get_sample_indices)
 from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel
 from qtpy.QtGui import QColor
 from qtpy.QtWidgets import QMessageBox
@@ -256,8 +256,8 @@ class DataArrayModel(AbstractArrayModel):
         self._compute_rows_cols_loaded()
 
     def reset_minmax(self):
-        data = self.get_values()
         try:
+            data = self.get_values(sample=True)
             color_value = self.color_func(data) if self.color_func is not None else data
             # ignore nan, -inf, inf (setting them to 0 or to very large numbers is not an option)
             color_value = color_value[np.isfinite(color_value)]
@@ -336,8 +336,21 @@ class DataArrayModel(AbstractArrayModel):
         elif role == Qt.BackgroundColorRole:
             if self.bgcolor_possible and self.bg_gradient is not None and value is not np.ma.masked:
                 if self.bg_value is None:
-                    v = float(self.color_func(value) if self.color_func is not None else value)
-                    v = scale_to_01range(v, self.vmin, self.vmax)
+                    try:
+                        v = self.color_func(value) if self.color_func is not None else value
+                        if -np.inf < v < self.vmin:
+                            # TODO: this is suboptimal, as it can reset many times (though in practice, it is usually
+                            #       ok). When we get buffering, we will need to compute vmin/vmax on the whole buffer
+                            #       at once, eliminating this problem (and we could even compute final colors directly
+                            #       all at once)
+                            self.vmin = v
+                            self.reset()
+                        elif self.vmax < v < np.inf:
+                            self.vmax = v
+                            self.reset()
+                        v = scale_to_01range(v, self.vmin, self.vmax)
+                    except TypeError:
+                        v = np.nan
                 else:
                     i, j = index.row(), index.column()
                     v = self.bg_value[i, j]
@@ -346,26 +359,45 @@ class DataArrayModel(AbstractArrayModel):
         #     return to_qvariant("{}\n{}".format(repr(value),self.get_labels(index)))
         return to_qvariant()
 
-    def get_values(self, left=0, top=0, right=None, bottom=None):
+    def get_values(self, left=0, top=0, right=None, bottom=None, sample=False):
         width, height = self.total_rows, self.total_cols
         if right is None:
             right = width
         if bottom is None:
             bottom = height
-        values = self._data[left:right, top:bottom].copy()
-        # both versions get the same result, but depending on inputs, the
-        # speed difference can be large.
+        # this whole bullshit will disappear when we implement undo/redo
+        values = self._data[left:right, top:bottom]
+        # both versions get the same result, but depending on inputs, the speed difference can be large.
         if values.size < len(self.changes):
+            # changes are supposedly relatively small so this case should not be too slow even if we just want a sample
+            values = values.copy()
             for i in range(left, right):
                 for j in range(top, bottom):
                     pos = i, j
                     if pos in self.changes:
                         values[i - left, j - top] = self.changes[pos]
+            if sample:
+                return get_sample(values, 500)
+            else:
+                return values
         else:
-            for (i, j), value in self.changes.items():
-                if left <= i < right and top <= j < bottom:
-                    values[i - left, j - top] = value
-        return values
+            if sample:
+                sample_indices = get_sample_indices(values, 500)
+                changes = self.changes
+
+                def get_val(idx):
+                    i, j = idx
+                    changes_idx = (i + left, j + top)
+                    return changes[changes_idx] if changes_idx in changes else values[idx]
+
+                # we need to keep the dtype, otherwise numpy might convert mixed object arrays to strings
+                return np.array([get_val(idx) for idx in zip(*sample_indices)], dtype=values.dtype)
+            else:
+                values = values.copy()
+                for (i, j), value in self.changes.items():
+                    if left <= i < right and top <= j < bottom:
+                        values[i - left, j - top] = value
+                return values
 
     def convert_value(self, value):
         """
