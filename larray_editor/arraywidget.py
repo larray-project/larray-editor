@@ -874,6 +874,7 @@ class ArrayEditorWidget(QWidget):
     def _get_sample(self, data):
         assert isinstance(data, la.LArray)
         data = data.data
+        # TODO: use utils.get_sample instead
         size = data.size
         # this will yield a data sample of max 199
         step = (size // 100) if size > 100 else 1

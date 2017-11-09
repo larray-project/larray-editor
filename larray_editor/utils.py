@@ -2,6 +2,8 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import sys
+import math
+
 import numpy as np
 
 from qtpy import PYQT5
@@ -547,3 +549,41 @@ def scale_to_01range(value, vmin, vmax):
         else:
             assert vmin < vmax
             return (value - vmin) / (vmax - vmin)
+
+
+is_number_value = np.vectorize(lambda x: isinstance(x, (int, float, np.number)))
+
+
+def get_sample_step(data, maxsize):
+    size = data.size
+    if not size:
+        return None
+    return math.ceil(size / maxsize)
+
+
+def get_sample(data, maxsize):
+    """return sample. View in all cases.
+
+    if data.size < maxsize:
+        sample_size == data.size
+    else:
+        (maxsize // 2) < sample_size <= maxsize
+
+    Parameters
+    ----------
+    data
+    maxsize
+
+    Returns
+    -------
+    view
+    """
+    size = data.size
+    if not size:
+        return data
+    return data.flat[::get_sample_step(data, maxsize)]
+
+
+def get_sample_indices(data, maxsize):
+    flat_indices = np.arange(0, data.size, get_sample_step(data, maxsize))
+    return np.unravel_index(flat_indices, data.shape)
