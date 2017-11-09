@@ -3,7 +3,7 @@ import re
 import matplotlib
 import numpy as np
 
-from larray import LArray, Session, zeros
+from larray import LArray, Session, zeros, empty
 from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
                                  get_versions, urls)
 from larray_editor.arraywidget import ArrayEditorWidget
@@ -116,7 +116,8 @@ class MappingEditor(QMainWindow):
         del_item_shortcut.activated.connect(self.delete_current_item)
 
         self.data = Session()
-        self.arraywidget = ArrayEditorWidget(self, zeros(0), readonly)
+        self.arraywidget = ArrayEditorWidget(self, readonly=readonly)
+        self.arraywidget.model_data.dataChanged.connect(self.data_changed)
 
         if qtconsole_available:
             # Create an in-process kernel
@@ -226,10 +227,6 @@ class MappingEditor(QMainWindow):
             arrays = [k for k, v in self.data.items() if self._display_in_grid(k, v)]
             self.add_list_items(arrays)
         self._listwidget.setCurrentRow(0)
-
-        # tracking data changes
-        self.arraywidget.model_data.dataChanged.connect(self.data_changed)
-
         return True
 
     def _reset(self):
@@ -456,7 +453,7 @@ class MappingEditor(QMainWindow):
                     if isinstance(cur_output, matplotlib.axes.Subplot) and 'inline' not in matplotlib.get_backend():
                         show_figure(self, cur_output.figure)
 
-    def on_selection_changed(self, *args, **kwargs):
+    def on_selection_changed(self):
         selected = self._listwidget.selectedItems()
         if selected:
             assert len(selected) == 1
@@ -559,7 +556,7 @@ class MappingEditor(QMainWindow):
     def new(self):
         if self._ask_to_save_if_unsaved_modifications():
             self._reset()
-            self.arraywidget.set_data()
+            self.arraywidget.set_data(empty(0))
             self.set_current_file(None)
             self.unsaved_modifications = False
             self.statusBar().showMessage("Viewer has been reset", 4000)

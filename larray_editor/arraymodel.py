@@ -20,8 +20,6 @@ class AbstractArrayModel(QAbstractTableModel):
     ----------
     parent : QWidget, optional
         Parent Widget.
-    data : array-like, optional
-        Input data.
     readonly : bool, optional
         If True, data cannot be changed. False by default.
     font : QFont, optional
@@ -30,7 +28,7 @@ class AbstractArrayModel(QAbstractTableModel):
     ROWS_TO_LOAD = 500
     COLS_TO_LOAD = 40
 
-    def __init__(self, parent=None, data=None, readonly=False, font=None):
+    def __init__(self, parent=None, readonly=False, font=None):
         QAbstractTableModel.__init__(self)
 
         self.dialog = parent
@@ -45,13 +43,12 @@ class AbstractArrayModel(QAbstractTableModel):
         self.cols_loaded = 0
         self.total_rows = 0
         self.total_cols = 0
-        self.set_data(data)
 
-    def _set_data(self, data, changes=None):
+    def _set_data(self, data):
         raise NotImplementedError()
 
-    def set_data(self, data, changes=None, **kwargs):
-        self._set_data(data, changes, **kwargs)
+    def set_data(self, data):
+        self._set_data(data)
         self.reset()
 
     def rowCount(self, parent=QModelIndex()):
@@ -119,20 +116,16 @@ class LabelsArrayModel(AbstractArrayModel):
     ----------
     parent : QWidget, optional
         Parent Widget.
-    data : nested list or tuple, optional
-        Input data.
     readonly : bool, optional
         If True, data cannot be changed. False by default.
     font : QFont, optional
         Font. Default is `Calibri` with size 11.
     """
-    def __init__(self, parent=None, data=None, readonly=False, font=None):
-        AbstractArrayModel.__init__(self, parent, data, readonly, font)
+    def __init__(self, parent=None, readonly=False, font=None):
+        AbstractArrayModel.__init__(self, parent, readonly, font)
         self.font.setBold(True)
 
-    def _set_data(self, data, changes=None):
-        if data is None:
-            data = [[]]
+    def _set_data(self, data):
         # TODO: use sequence instead
         if not isinstance(data, (list, tuple, Product)):
             QMessageBox.critical(self.dialog, "Error", "Expected list, tuple or Product")
@@ -188,42 +181,44 @@ class DataArrayModel(AbstractArrayModel):
 
     Parameters
     ----------
-    data : Numpy ndarray, optional
-        Input 2D array.
-    format : str, optional
-        Indicates how data are represented in cells.
-        By default, they are represented as floats with 3 decimal points.
-    readonly : bool, optional
-        If True, data cannot be changed. False by default.
-    font : QFont, optional
-        Font. Default is `Calibri` with size 11.
     parent : QWidget, optional
         Parent Widget.
+    readonly : bool, optional
+        If True, data cannot be changed. False by default.
+    format : str, optional
+        Indicates how data is represented in cells.
+        By default, they are represented as floats with 3 decimal points.
+    font : QFont, optional
+        Font. Default is `Calibri` with size 11.
     bg_gradient : LinearGradient, optional
         Background color gradient
     bg_value : Numpy ndarray, optional
         Background color value. Must have the shape as data
-    minvalue : scalar
+    minvalue : scalar, optional
         Minimum value allowed.
-    maxvalue : scalar
+    maxvalue : scalar, optional
         Maximum value allowed.
     """
 
     ROWS_TO_LOAD = 500
     COLS_TO_LOAD = 40
 
-    def __init__(self, parent=None, data=None, readonly=False, format="%.3f", font=None,
-                 bg_gradient=None, bg_value=None, minvalue=None, maxvalue=None):
-        AbstractArrayModel.__init__(self, parent, data, readonly, font)
+    def __init__(self, parent=None, readonly=False, format="%.3f", font=None, minvalue=None, maxvalue=None):
+        AbstractArrayModel.__init__(self, parent, readonly, font)
         self._format = format
 
         self.minvalue = minvalue
         self.maxvalue = maxvalue
-        self._set_data(data)
-        self._set_bg_gradient(bg_gradient)
-        self._set_bg_value(bg_value)
-        # XXX: unsure this is necessary at all in __init__
-        self.reset()
+
+        self.changes = None
+        self.color_func = None
+
+        self.vmin = None
+        self.vmax = None
+        self.bgcolor_possible = False
+
+        self.bg_value = None
+        self.bg_gradient = None
 
     def get_format(self):
         """Return current format"""
@@ -234,16 +229,12 @@ class DataArrayModel(AbstractArrayModel):
         """Return data"""
         return self._data
 
-    def _set_data(self, data, changes=None, reset_minmax=True):
-        if changes is None:
-            changes = {}
+    def _set_changes(self, changes):
         self.changes = changes
 
+    def _set_data(self, data):
         # TODO: check that data respects minvalue/maxvalue
-        if data is None:
-            data = np.empty((0, 0), dtype=np.int8)
-        if not (isinstance(data, np.ndarray) and data.ndim == 2):
-            QMessageBox.critical(self.dialog, "Error", "Expect Numpy ndarray of 2 dimensions")
+        assert isinstance(data, np.ndarray) and data.ndim == 2
         self._data = data
 
         dtype = data.dtype
@@ -262,8 +253,6 @@ class DataArrayModel(AbstractArrayModel):
             self.color_func = None
         # --------------------------------------
         self.total_rows, self.total_cols = self._data.shape
-        if reset_minmax:
-            self.reset_minmax()
         self._compute_rows_cols_loaded()
 
     def reset_minmax(self):
@@ -283,8 +272,11 @@ class DataArrayModel(AbstractArrayModel):
 
     def set_format(self, format):
         """Change display format"""
-        self._format = format
+        self._set_format(format)
         self.reset()
+
+    def _set_format(self, format):
+        self._format = format
 
     def set_bg_gradient(self, bg_gradient):
         self._set_bg_gradient(bg_gradient)
@@ -459,17 +451,22 @@ class DataArrayModel(AbstractArrayModel):
 
         # Update vmin/vmax if necessary
         if self.vmin is not None and self.vmax is not None:
+            # FIXME: -inf/+inf and non-number values should be ignored here too
             colorval = self.color_func(values) if self.color_func is not None else values
             old_colorval = self.color_func(oldvalues) if self.color_func is not None else oldvalues
+            # we need to lower vmax or increase vmin
             if np.any(((old_colorval == self.vmax) & (colorval < self.vmax)) |
                       ((old_colorval == self.vmin) & (colorval > self.vmin))):
                 self.reset_minmax()
+                self.reset()
             # this is faster, when the condition is False (which should be most of the cases) than computing
             # subset_max and checking if subset_max > self.vmax
             if np.any(colorval > self.vmax):
                 self.vmax = float(np.nanmax(colorval))
+                self.reset()
             if np.any(colorval < self.vmin):
                 self.vmin = float(np.nanmin(colorval))
+                self.reset()
 
         top_left = self.index(left, top)
         # -1 because Qt index end bounds are inclusive
