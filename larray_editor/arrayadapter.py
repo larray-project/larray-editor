@@ -2,34 +2,24 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 import larray as la
-from larray_editor.utils import Product, _LazyNone, _LazyDimLabels
+
+from larray_editor.utils import Product, _LazyDimLabels
 
 
 class LArrayDataAdapter(object):
-    def __init__(self, axes_model, xlabels_model, ylabels_model, data_model,
-                 data=None, changes=None, current_filter=None, bg_gradient=None, bg_value=None):
+    def __init__(self, axes_model, xlabels_model, ylabels_model, data_model):
         # set models
         self.axes_model = axes_model
         self.xlabels_model = xlabels_model
         self.ylabels_model = ylabels_model
         self.data_model = data_model
-        # set current filter
-        if current_filter is None:
-            current_filter = {}
-        assert isinstance(current_filter, dict)
-        self.current_filter = current_filter
-        # set changes
-        if changes is None:
-            changes = {}
-        self.set_changes(changes)
-        # set data
-        if data is None:
-            data = np.empty((0, 0), dtype=np.int8)
-        self.set_data(data, bg_value, current_filter)
 
-    def set_changes(self, changes=None):
-        assert isinstance(changes, dict)
-        self.changes = changes
+        # these are not valid values, but should overwritten by set_data which must be called before the adapter is used
+        self.current_filter = None
+        self.changes = None
+        self.la_data = None
+        self.bg_value = None
+        self.filtered_data = None
 
     def get_axes_names(self):
         return self.filtered_data.axes.display_names
@@ -39,7 +29,7 @@ class LArrayDataAdapter(object):
         # test self.filtered_data.size == 0 is required in case an instance built as LArray([]) is passed
         # test len(axes) == 0 is required when a user filters until to get a scalar
         if self.filtered_data.size == 0 or len(axes) == 0:
-            return None
+            return [[]]
         else:
             axes_names = axes.display_names
             if len(axes_names) >= 2:
@@ -49,7 +39,7 @@ class LArrayDataAdapter(object):
     def get_xlabels(self):
         axes = self.filtered_data.axes
         if self.filtered_data.size == 0 or len(axes) == 0:
-            return None
+            return [[]]
         else:
             # this is a lazy equivalent of:
             # return [(label,) for label in axes.labels[-1]]
@@ -58,7 +48,7 @@ class LArrayDataAdapter(object):
     def get_ylabels(self):
         axes = self.filtered_data.axes
         if self.filtered_data.size == 0 or len(axes) == 0:
-            return None
+            return [[]]
         elif len(axes) == 1:
             return [['']]
         else:
@@ -101,34 +91,37 @@ class LArrayDataAdapter(object):
     # XXX: or create two methods?:
     # - set_data (which reset the current filter)
     # - update_data (which sets new data but keeps current filter unchanged)
-    def set_data(self, data, bg_value=None, current_filter=None):
-        if data is None:
-            data = la.LArray([])
-        if current_filter is None:
-            self.current_filter = {}
+    def set_data(self, data, bg_value=None):
+        assert isinstance(data, la.LArray)
+        self.current_filter = {}
         self.changes = {}
         self.la_data = la.aslarray(data)
         self.bg_value = la.aslarray(bg_value) if bg_value is not None else None
-        self.update_filtered_data(current_filter, reset_minmax=True)
+        self.update_filtered_data()
+        self.data_model.reset_minmax()
+        self.data_model.reset()
 
-    def update_filtered_data(self, current_filter=None, reset_minmax=False):
-        if current_filter is not None:
-            assert isinstance(current_filter, dict)
-            self.current_filter = current_filter
+    def update_filtered_data(self):
+        assert isinstance(self.la_data, la.LArray)
         self.filtered_data = self.la_data[self.current_filter]
+
         if np.isscalar(self.filtered_data):
             self.filtered_data = la.aslarray(self.filtered_data)
+
         axes = self.get_axes()
         xlabels = self.get_xlabels()
         ylabels = self.get_ylabels()
         data_2D = self.get_2D_data()
         changes_2D = self.get_changes_2D()
         bg_value_2D = self.get_bg_value_2D(data_2D.shape)
+
         self.axes_model.set_data(axes)
         self.xlabels_model.set_data(xlabels)
         self.ylabels_model.set_data(ylabels)
-        self.data_model.set_data(data_2D, changes_2D, reset_minmax=reset_minmax)
-        self.data_model.set_bg_value(bg_value_2D)
+        # using the protected version of the method to avoid calling reset() several times
+        self.data_model._set_data(data_2D)
+        self.data_model._set_changes(changes_2D)
+        self.data_model._set_bg_value(bg_value_2D)
 
     def get_data(self):
         return self.la_data
@@ -223,6 +216,7 @@ class LArrayDataAdapter(object):
             else:
                 self.current_filter[axis_id] = axis.labels[indices]
         self.update_filtered_data()
+        self.data_model.reset()
 
     def clear_changes(self):
         self.changes.clear()
@@ -238,6 +232,7 @@ class LArrayDataAdapter(object):
             self.la_data.i[axes.translate_full_key(k)] = v
         # update models
         self.update_filtered_data()
+        self.data_model.reset()
         # clear changes
         self.clear_changes()
         # return modified data
