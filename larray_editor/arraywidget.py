@@ -93,9 +93,11 @@ from larray_editor.arraymodel import LabelsArrayModel, DataArrayModel
 from larray_editor.combo import FilterComboBox, FilterMenu
 import larray as la
 
+
 # XXX: define Enum instead ?
 TOP, BOTTOM = 0, 1
 LEFT, RIGHT = 0, 1
+
 
 class LabelsView(QTableView):
     """"Labels view class"""
@@ -208,6 +210,7 @@ class ArrayDelegate(QItemDelegate):
     def createEditor(self, parent, option, index):
         """Create editor widget"""
         model = index.model()
+        # TODO: dtype should be taken from the model instead (or even from the actual value?)
         value = model.get_value(index)
         if self.dtype.name == "bool":
             # toggle value
@@ -271,20 +274,16 @@ class DataView(QTableView):
     signal_paste = Signal()
     signal_plot = Signal()
 
-    def __init__(self, parent, model, dtype, shape):
+    def __init__(self, parent, model):
         QTableView.__init__(self, parent)
         # set model
         if not isinstance(model, DataArrayModel):
             raise TypeError("Expected model of type {}. Received {} instead"
                             .format(DataArrayModel.__name__, type(model).__name__))
         self.setModel(model)
-        # set array delegate
-        delegate = ArrayDelegate(dtype, self, minvalue=model.minvalue, maxvalue=model.maxvalue)
-        self.setItemDelegate(delegate)
 
         self.setSelectionMode(QTableView.ContiguousSelection)
 
-        self.shape = shape
         self.context_menu = self.setup_context_menu()
 
         # TODO: find a cleaner way to do this
@@ -319,6 +318,11 @@ class DataView(QTableView):
         self.verticalScrollBar().valueChanged.connect(self.on_vertical_scroll_changed)
 
         # self.horizontalHeader().sectionClicked.connect(self.on_horizontal_header_clicked)
+
+    def set_dtype(self, dtype):
+        model = self.model()
+        delegate = ArrayDelegate(dtype, self, minvalue=model.minvalue, maxvalue=model.maxvalue)
+        self.setItemDelegate(delegate)
 
     def set_default_size(self):
         # make the grid a bit more compact
@@ -543,11 +547,10 @@ class ArrayEditorWidget(QWidget):
         self.view_ylabels = LabelsView(parent=self, model=self.model_ylabels, position=(BOTTOM, LEFT))
 
         self.model_data = DataArrayModel(parent=self, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
-        self.view_data = DataView(parent=self, model=self.model_data, dtype=data.dtype, shape=data.shape)
+        self.view_data = DataView(parent=self, model=self.model_data)
 
         self.data_adapter = LArrayDataAdapter(axes_model=self.model_axes, xlabels_model=self.model_xlabels,
-                                              ylabels_model=self.model_ylabels, data_model=self.model_data, data=data,
-                                              bg_value=bg_value, bg_gradient=bg_gradient)
+                                              ylabels_model=self.model_ylabels, data_model=self.model_data)
 
         # Create vertical and horizontal scrollbars
         self.vscrollbar = ScrollBar(self, self.view_data.verticalScrollBar())
@@ -628,11 +631,13 @@ class ArrayEditorWidget(QWidget):
         spin.valueChanged.connect(self.digits_changed)
         self.digits_spinbox = spin
         self.btn_layout.addWidget(spin)
+        self.digits = 0
 
         scientific = QCheckBox(_('Scientific'))
         scientific.stateChanged.connect(self.scientific_changed)
         self.scientific_checkbox = scientific
         self.btn_layout.addWidget(scientific)
+        self.use_scientific = False
 
         gradient_chooser = QComboBox()
         gradient_chooser.setMaximumSize(120, 20)
@@ -669,8 +674,10 @@ class ArrayEditorWidget(QWidget):
         layout.addLayout(self.btn_layout)
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
-        self.set_data(data, bg_value=bg_value)
+
         self.model_data.set_bg_gradient(gradient_map[bg_gradient])
+        if data is not None:
+            self.set_data(data, bg_value=bg_value)
 
         # See http://doc.qt.io/qt-4.8/qt-draganddrop-fridgemagnets-dragwidget-cpp.html for an example
         self.setAcceptDrops(True)
@@ -753,12 +760,12 @@ class ArrayEditorWidget(QWidget):
         else:
             event.ignore()
 
-    def set_data(self, data=None, bg_value=None):
-        # update adapter
-        if data is None:
-            data = la.LArray([])
-        else:
-            data = la.aslarray(data)
+    def set_data(self, data, bg_value=None):
+        # TODO: in the future, data should either be an adapter directly or we should instantiate one here depending
+        # on the type of data it received. Having a single adapter instance and using set_data on it like we do now
+        # cannot work because we will need a different adapter class for different data types.
+        data = la.aslarray(data)
+
         axes = data.axes
         display_names = axes.display_names
 
@@ -781,15 +788,16 @@ class ArrayEditorWidget(QWidget):
                     filters_layout.addWidget(QLabel("too big to be filtered"))
             filters_layout.addStretch()
 
-        self.gradient_chooser.setEnabled(self.model_data.bgcolor_possible)
-
         self.data_adapter.set_data(data, bg_value=bg_value)
+        self.gradient_chooser.setEnabled(self.model_data.bgcolor_possible)
 
         # reset default size
         self.view_axes.set_default_size()
         self.view_ylabels.set_default_size()
         self.view_xlabels.set_default_size()
         self.view_data.set_default_size()
+
+        self.view_data.set_dtype(data.dtype)
 
     # called by set_data and ArrayEditorWidget.accept_changes (this should not be the case IMO)
     # two cases:
@@ -844,23 +852,24 @@ class ArrayEditorWidget(QWidget):
                 ndecimals = data_frac_digits
 
         self.digits = ndecimals
-
         self.use_scientific = scientific
 
+        # avoid triggering digits_changed which would cause a useless redraw
         self.digits_spinbox.blockSignals(True)
         self.digits_spinbox.setValue(ndecimals)
         self.digits_spinbox.setEnabled(is_number(dtype))
         self.digits_spinbox.blockSignals(False)
 
+        # avoid triggering scientific_changed which would call this function a second time
         self.scientific_checkbox.blockSignals(True)
         self.scientific_checkbox.setChecked(scientific)
         self.scientific_checkbox.setEnabled(is_number(dtype))
         self.scientific_checkbox.blockSignals(False)
 
         # setting the format explicitly instead of relying on digits_spinbox.digits_changed to set it because
-        # digits_changed is only triggered when digits actually changed, not when passing from scientific -> non
-        # scientific or number -> object
-        self.model_data.set_format(self.cell_format)
+        # digits_changed is only triggered when digits actually changed, not when passing from
+        # scientific -> non scientific or number -> object
+        self.set_format(data, ndecimals, scientific)
 
     def _get_sample(self, data):
         assert isinstance(data, la.LArray)
@@ -963,21 +972,27 @@ class ArrayEditorWidget(QWidget):
         """Reject changes"""
         self.data_adapter.reject_changes()
 
-    @property
-    def cell_format(self):
-        type = self.data_adapter.dtype.type
-        if type in (np.str, np.str_, np.bool_, np.bool, np.object_):
-            return '%s'
-        else:
-            format_letter = 'e' if self.use_scientific else 'f'
-            return '%%.%d%s' % (self.digits, format_letter)
-
     def scientific_changed(self, value):
-        self._update_digits_scientific(self.data_adapter.get_data(), value)
+        self._update_digits_scientific(self.data_adapter.get_data(), scientific=value)
+        self.model_data.reset()
 
     def digits_changed(self, value):
         self.digits = value
-        self.model_data.set_format(self.cell_format)
+        self.set_format(self.data_adapter, value, self.use_scientific)
+        self.model_data.reset()
+
+    def set_format(self, data, digits, scientific):
+        """data: object with a dtype attribute"""
+        type = data.dtype.type
+        if type in (np.str, np.str_, np.bool_, np.bool, np.object_):
+            fmt = '%s'
+        else:
+            # XXX: use self.digits_spinbox.getValue() and instead?
+            # XXX: use self.digits_spinbox.getValue() instead?
+            format_letter = 'e' if scientific else 'f'
+            fmt = '%%.%d%s' % (digits, format_letter)
+        # this does not call model_data.reset() so it should be called by the caller
+        self.model_data._set_format(fmt)
 
     def create_filter_combo(self, axis):
         def filter_changed(checked_items):
