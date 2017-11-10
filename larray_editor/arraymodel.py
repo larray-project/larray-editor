@@ -259,6 +259,11 @@ class DataArrayModel(AbstractArrayModel):
         try:
             data = self.get_values(sample=True)
             color_value = self.color_func(data) if self.color_func is not None else data
+            if color_value.dtype.type == np.object_:
+                color_value = color_value[is_number_value(color_value)]
+                # this is probably broken if we have complex numbers stored as objects but I don't foresee
+                # this case happening anytime soon.
+                color_value = color_value.astype(float)
             # ignore nan, -inf, inf (setting them to 0 or to very large numbers is not an option)
             color_value = color_value[np.isfinite(color_value)]
             self.vmin = float(np.min(color_value))
