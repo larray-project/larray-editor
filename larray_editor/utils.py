@@ -74,7 +74,7 @@ def get_versions():
         versions['system'] = 'Darwin'
 
     for dep in dependencies:
-        versions[dep] = get_package_version(dep)
+        versions[dep] = get_package_version(dep) if dep != 'pytables' else get_package_version('tables')
 
     return versions
 
