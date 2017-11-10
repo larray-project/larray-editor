@@ -721,10 +721,12 @@ class MappingEditor(QMainWindow):
         kwargs = get_versions()
         kwargs.update(urls)
         message = """\
-<b>LArray Editor {editor}</b>: The Graphical User Interface for LArray. 
-<br>Licensed under the terms of the <a href="{GPL3}">GNU GENERAL PUBLIC LICENSE Version 3</a>.
-<p>Developed and maintained by the <a href="{fpb}">Federal Planning Bureau</a> (Belgium). 
-<p><b>Versions of underlying libraries</b>:
+<p><b>LArray Editor</b> {editor}
+<br>The Graphical User Interface for LArray
+<p>Licensed under the terms of the <a href="{GPL3}">GNU General Public License Version 3</a>.
+<p>Developed and maintained by the <a href="{fpb}">Federal Planning Bureau</a> (Belgium).
+<p>&nbsp;
+<p><b>Versions of underlying libraries</b>
 <ul>
 <li>Python {python} on {system} {bitness:d}bits</li>
 <li>Qt {qt}, {qt_api} {qt_api_ver}</li>
@@ -733,7 +735,7 @@ class MappingEditor(QMainWindow):
             if kwargs[dep] != 'N/A':
                 message += "<li>{dep} {{{dep}}}</li>\n".format(dep=dep)
         message += "</ul>"
-        QMessageBox.about(self, _("About Larray Editor"), message.format(**kwargs))
+        QMessageBox.about(self, _("About LArray Editor"), message.format(**kwargs))
 
     def set_current_file(self, filepath):
         self.update_recent_files([filepath])
