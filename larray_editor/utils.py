@@ -39,8 +39,8 @@ else:
     commonpath = os.path.commonpath
 
 
-def get_package_version(package_name):
-    """Return the version of a package if installed, N/A otherwise"""
+def get_module_version(package_name):
+    """Return the version of a module if installed, N/A otherwise"""
     try:
         from importlib import import_module
         package = import_module(package_name)
@@ -75,8 +75,9 @@ def get_versions():
     else:
         versions['system'] = 'Darwin'
 
+    modules = {'pytables': 'tables'}
     for dep in dependencies:
-        versions[dep] = get_package_version(dep) if dep != 'pytables' else get_package_version('tables')
+        versions[dep] = get_module_version(modules.get(dep, dep))
 
     return versions
 
