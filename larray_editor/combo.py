@@ -115,14 +115,14 @@ class FilterMenu(QtWidgets.QMenu):
         else:
             model[0].checked = 'partial'
         model.blockSignals(False)
-        is_checked = [i for i, item in enumerate(model[1:]) if item.checked]
-        self.checkedItemsChanged.emit(is_checked)
+        checked_indices = [i for i, item in enumerate(model[1:]) if item.checked]
+        self.checkedItemsChanged.emit(checked_indices)
 
     def select_offset(self, offset):
         """offset: 1 for next, -1 for previous"""
 
         model = self._model
-        # model.blockSignals(True)
+        model.blockSignals(True)
         indices_checked = [i for i, item in enumerate(model) if item.checked]
         first_checked = indices_checked[0]
         # check first_checked + offset, uncheck the rest
@@ -135,6 +135,8 @@ class FilterMenu(QtWidgets.QMenu):
         is_checked = ["partial"] + [i == to_check for i in range(1, len(model))]
         for checked, item in zip(is_checked, model):
             item.checked = checked
+        model.blockSignals(False)
+        self.checkedItemsChanged.emit([to_check - 1])
 
     def addItem(self, text):
         item = StandardItem(text)
