@@ -289,7 +289,13 @@ class MappingEditor(QMainWindow):
         help_menu.addAction(create_action(self, _('Online Objects and Functions (API) &Reference'),
                                           triggered=self.open_api_documentation))
         help_menu.addSeparator()
-        help_menu.addAction(create_action(self, _('Report &Issue...'), triggered=self.report_issue))
+        report_issue_menu = help_menu.addMenu("Report &Issue...")
+        report_issue_menu.addAction(create_action(self, _('Report &Editor Issue...'),
+                                                  triggered=self.report_issue('editor')))
+        report_issue_menu.addAction(create_action(self, _('Report &LArray Issue...'),
+                                                  triggered=self.report_issue('larray')))
+        report_issue_menu.addAction(create_action(self, _('Report &LArray Eurostat Issue...'),
+                                                  triggered=self.report_issue('larray_eurostat')))
         help_menu.addAction(create_action(self, _('&Users Discussion...'), triggered=self.open_users_group))
         help_menu.addAction(create_action(self, _('New Releases And &Announces Mailing List...'),
                                           triggered=self.open_announce_group))
@@ -680,14 +686,19 @@ class MappingEditor(QMainWindow):
     def open_api_documentation(self):
         QDesktopServices.openUrl(QUrl(urls['doc_api']))
 
-    def report_issue(self):
-        if PY2:
-            from urllib import quote
+    def report_issue(self, package):
+        if package == 'editor':
+            _dependencies = ['qt'] + dependencies
         else:
-            from urllib.parse import quote
+            _dependencies = [dep for dep in dependencies if dep != package]
+        def _report_issue(*args, **kwargs):
+            if PY2:
+                from urllib import quote
+            else:
+                from urllib.parse import quote
 
-        versions = get_versions()
-        issue_template = """\
+            versions = get_versions()
+            issue_template = """\
 ## Description
 **What steps will reproduce the problem?**
 1. 
@@ -702,21 +713,27 @@ class MappingEditor(QMainWindow):
 
 ## Version and main components
 * Python {python} on {system} {bitness:d}bits
-* Qt {qt}, {qt_api} {qt_api_ver}
 """
-        for dep in dependencies:
-            issue_template += "* {dep} {{{dep}}}\n".format(dep=dep)
-        issue_template = issue_template.format(**versions)
+            issue_template += "* {package} {{{package}}}\n".format(package=package)
+            for dep in _dependencies:
+                if dep == 'qt':
+                    issue_template += "* Qt {qt}, {qt_api} {qt_api_ver}\n"
+                else:
+                    issue_template += "* {dep} {{{dep}}}\n".format(dep=dep)
+            print(versions)
+            issue_template = issue_template.format(**versions)
 
-        url = QUrl(urls['new_issue'])
-        if PYQT5:
-            from qtpy.QtCore import QUrlQuery
-            query = QUrlQuery()
-            query.addQueryItem("body", quote(issue_template))
-            url.setQuery(query)
-        else:
-            url.addEncodedQueryItem("body", quote(issue_template))
-        QDesktopServices.openUrl(url)
+            url = QUrl(urls['new_issue_{}'.format(package)])
+            if PYQT5:
+                from qtpy.QtCore import QUrlQuery
+                query = QUrlQuery()
+                query.addQueryItem("body", quote(issue_template))
+                url.setQuery(query)
+            else:
+                url.addEncodedQueryItem("body", quote(issue_template))
+            QDesktopServices.openUrl(url)
+
+        return _report_issue
 
     def open_users_group(self):
         QDesktopServices.openUrl(QUrl(urls['users_group']))
