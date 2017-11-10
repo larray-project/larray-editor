@@ -125,8 +125,8 @@ class MappingEditor(QMainWindow):
             kernel_manager.start_kernel(show_banner=False)
             kernel = kernel_manager.kernel
 
+            # TODO: use self._reset() instead
             kernel.shell.run_cell('from larray import *')
-            kernel.shell.run_cell('from larray_editor import *')
             text_formatter = kernel.shell.display_formatter.formatters['text/plain']
 
             def void_formatter(array, *args, **kwargs):
