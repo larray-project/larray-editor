@@ -17,8 +17,11 @@ else:
     from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 
 
-dependencies = ['larray', 'larray_eurostat', 'numpy', 'pandas', 'matplotlib', 'pytables', 'xlwings', 'xlsxwriter',
-                'xlrd', 'openpyxl']
+dependencies = {'editor': ['larray', 'larray_eurostat', 'qt', 'numpy', 'pandas', 'matplotlib', 'pytables', 'xlwings',
+                           'xlsxwriter', 'xlrd', 'openpyxl'],
+                'larray': ['numpy', 'pandas', 'matplotlib', 'pytables', 'xlwings', 'xlsxwriter', 'xlrd', 'openpyxl'],
+                'larray_eurostat': ['larray']
+                }
 
 urls = {"fpb": "http://www.plan.be/index.php?lang=en",
         "GPL3": "https://www.gnu.org/licenses/gpl-3.0.html",
@@ -54,29 +57,24 @@ def get_module_version(package_name):
         return 'N/A'
 
 
-def get_versions():
-    """Get version information for components used by the Editor"""
+def get_versions(package='editor'):
+    """Get version information of dependencies of a package"""
     import platform
-    from qtpy import API_NAME, PYQT_VERSION
-    from qtpy.QtCore import __version__ as qtpy_version
-    from larray_editor import __version__ as editor_version
+    modules = {'editor': 'larray_editor', 'qt': 'qtpy.QtCore', 'pytables': 'tables'}
 
     versions = {
-        'editor': editor_version,
+        'system': platform.system() if sys.platform != 'darwin' else 'Darwin',
         'python': platform.python_version(),
         'bitness': 64 if sys.maxsize > 2**32 else 32,
-        'qt': qtpy_version,
-        'qt_api': API_NAME,                             # PyQt5 or PyQt4
-        'qt_api_ver': PYQT_VERSION,
     }
 
-    if not sys.platform == 'darwin':                    # To avoid a crash with our Mac app
-        versions['system'] = platform.system()          # Linux, Windows, ...
-    else:
-        versions['system'] = 'Darwin'
+    if package == 'editor':
+        from qtpy import API_NAME, PYQT_VERSION      # API_NAME --> PyQt5 or PyQt4
+        qt_version = get_module_version(modules['qt'])
+        versions['qt'] = '{}, {} {}'.format(qt_version, API_NAME, PYQT_VERSION)
 
-    modules = {'pytables': 'tables'}
-    for dep in dependencies:
+    versions[package] = get_module_version(modules.get(package, package))
+    for dep in dependencies[package]:
         versions[dep] = get_module_version(modules.get(dep, dep))
 
     return versions

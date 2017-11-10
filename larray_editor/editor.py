@@ -687,17 +687,13 @@ class MappingEditor(QMainWindow):
         QDesktopServices.openUrl(QUrl(urls['doc_api']))
 
     def report_issue(self, package):
-        if package == 'editor':
-            _dependencies = ['qt'] + dependencies
-        else:
-            _dependencies = [dep for dep in dependencies if dep != package]
         def _report_issue(*args, **kwargs):
             if PY2:
                 from urllib import quote
             else:
                 from urllib.parse import quote
 
-            versions = get_versions()
+            versions = get_versions(package)
             issue_template = """\
 ## Description
 **What steps will reproduce the problem?**
@@ -715,12 +711,8 @@ class MappingEditor(QMainWindow):
 * Python {python} on {system} {bitness:d}bits
 """
             issue_template += "* {package} {{{package}}}\n".format(package=package)
-            for dep in _dependencies:
-                if dep == 'qt':
-                    issue_template += "* Qt {qt}, {qt_api} {qt_api_ver}\n"
-                else:
-                    issue_template += "* {dep} {{{dep}}}\n".format(dep=dep)
-            print(versions)
+            for dep in dependencies[package]:
+                issue_template += "* {dep} {{{dep}}}\n".format(dep=dep)
             issue_template = issue_template.format(**versions)
 
             url = QUrl(urls['new_issue_{}'.format(package)])
@@ -752,9 +744,8 @@ class MappingEditor(QMainWindow):
 <p><b>Versions of underlying libraries</b>:
 <ul>
 <li>Python {python} on {system} {bitness:d}bits</li>
-<li>Qt {qt}, {qt_api} {qt_api_ver}</li>
 """
-        for dep in dependencies:
+        for dep in dependencies['editor']:
             if kwargs[dep] != 'N/A':
                 message += "<li>{dep} {{{dep}}}</li>\n".format(dep=dep)
         message += "</ul>"
