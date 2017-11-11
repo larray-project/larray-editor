@@ -17,11 +17,11 @@ else:
     from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 
 
-dependencies = {'editor': ['larray', 'larray_eurostat', 'qt', 'numpy', 'pandas', 'matplotlib', 'pytables', 'xlwings',
-                           'xlsxwriter', 'xlrd', 'openpyxl'],
-                'larray': ['numpy', 'pandas', 'matplotlib', 'pytables', 'xlwings', 'xlsxwriter', 'xlrd', 'openpyxl'],
-                'larray_eurostat': ['larray']
-                }
+core_dependencies = ['numpy', 'pandas', 'matplotlib', 'pytables', 'xlwings', 'xlsxwriter', 'xlrd', 'openpyxl']
+editor_dependencies = ['larray', 'larray_eurostat', 'qt'] + core_dependencies
+eurostat_dependencies = ['larray']
+dependencies = {'editor': editor_dependencies, 'larray': core_dependencies, 'larray_eurostat': eurostat_dependencies}
+
 
 urls = {"fpb": "http://www.plan.be/index.php?lang=en",
         "GPL3": "https://www.gnu.org/licenses/gpl-3.0.html",
@@ -42,22 +42,26 @@ else:
     commonpath = os.path.commonpath
 
 
-def get_module_version(package_name):
+def get_module_version(module_name):
     """Return the version of a module if installed, N/A otherwise"""
     try:
         from importlib import import_module
-        package = import_module(package_name)
-        if '__version__' in dir(package):
-            return package.__version__
-        elif '__VERSION__' in dir(package):
-            return package.__VERSION__
+        module = import_module(module_name)
+        if 'qtpy' in module_name:
+            from qtpy import API_NAME, PYQT_VERSION  # API_NAME --> PyQt5 or PyQt4
+            qt_version = module.__version__
+            return '{}, {} {}'.format(qt_version, API_NAME, PYQT_VERSION)
+        elif '__version__' in dir(module):
+            return module.__version__
+        elif '__VERSION__' in dir(module):
+            return module.__VERSION__
         else:
             return 'N/A'
     except ImportError:
         return 'N/A'
 
 
-def get_versions(package='editor'):
+def get_versions(package):
     """Get version information of dependencies of a package"""
     import platform
     modules = {'editor': 'larray_editor', 'qt': 'qtpy.QtCore', 'pytables': 'tables'}
@@ -67,11 +71,6 @@ def get_versions(package='editor'):
         'python': platform.python_version(),
         'bitness': 64 if sys.maxsize > 2**32 else 32,
     }
-
-    if package == 'editor':
-        from qtpy import API_NAME, PYQT_VERSION      # API_NAME --> PyQt5 or PyQt4
-        qt_version = get_module_version(modules['qt'])
-        versions['qt'] = '{}, {} {}'.format(qt_version, API_NAME, PYQT_VERSION)
 
     versions[package] = get_module_version(modules.get(package, package))
     for dep in dependencies[package]:

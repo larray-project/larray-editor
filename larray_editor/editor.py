@@ -735,7 +735,7 @@ class MappingEditor(QMainWindow):
 
     def about(self):
         """About Editor"""
-        kwargs = get_versions()
+        kwargs = get_versions('editor')
         kwargs.update(urls)
         message = """\
 <b>LArray Editor {editor}</b>: The Graphical User Interface for LArray. 
