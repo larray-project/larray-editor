@@ -17,15 +17,20 @@ else:
     from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 
 
-dependencies = ['numpy', 'pandas', 'matplotlib', 'larray', 'larray_eurostat', 'pytables', 'xlwings', 'xlsxwriter',
-                'xlrd', 'openpyxl']
+core_dependencies = ['numpy', 'pandas', 'matplotlib', 'pytables', 'xlwings', 'xlsxwriter', 'xlrd', 'openpyxl']
+editor_dependencies = ['larray', 'larray_eurostat', 'qt'] + core_dependencies
+eurostat_dependencies = ['larray']
+dependencies = {'editor': editor_dependencies, 'larray': core_dependencies, 'larray_eurostat': eurostat_dependencies}
+
 
 urls = {"fpb": "http://www.plan.be/index.php?lang=en",
         "GPL3": "https://www.gnu.org/licenses/gpl-3.0.html",
         "doc_stable": "http://larray.readthedocs.io/en/stable/",
         "doc_tutorial": "http://larray.readthedocs.io/en/stable/tutorial.html",
         "doc_api": "http://larray.readthedocs.io/en/stable/api.html",
-        "new_issue": "https://github.com/liam2/larray/issues/new",
+        "new_issue_editor": "https://github.com/larray-project/larray-editor/issues/new",
+        "new_issue_larray": "https://github.com/liam2/larray/issues/new",
+        "new_issue_larray_eurostat": "https://github.com/larray-project/larray_eurostat/issues/new",
         "announce_group": "https://groups.google.com/d/forum/larray-announce",
         "users_group": "https://groups.google.com/d/forum/larray-users"}
 
@@ -37,44 +42,39 @@ else:
     commonpath = os.path.commonpath
 
 
-def get_package_version(package_name):
-    """Return the version of a package if installed, N/A otherwise"""
+def get_module_version(module_name):
+    """Return the version of a module if installed, N/A otherwise"""
     try:
         from importlib import import_module
-        package = import_module(package_name)
-        if '__version__' in dir(package):
-            return package.__version__
-        elif '__VERSION__' in dir(package):
-            return package.__VERSION__
+        module = import_module(module_name)
+        if 'qtpy' in module_name:
+            from qtpy import API_NAME, PYQT_VERSION  # API_NAME --> PyQt5 or PyQt4
+            qt_version = module.__version__
+            return '{}, {} {}'.format(qt_version, API_NAME, PYQT_VERSION)
+        elif '__version__' in dir(module):
+            return module.__version__
+        elif '__VERSION__' in dir(module):
+            return module.__VERSION__
         else:
             return 'N/A'
     except ImportError:
         return 'N/A'
 
 
-def get_versions():
-    """Get version information for components used by the Editor"""
+def get_versions(package):
+    """Get version information of dependencies of a package"""
     import platform
-    from qtpy import API_NAME, PYQT_VERSION
-    from qtpy.QtCore import __version__ as qtpy_version
-    from larray_editor import __version__ as editor_version
+    modules = {'editor': 'larray_editor', 'qt': 'qtpy.QtCore', 'pytables': 'tables'}
 
     versions = {
-        'editor': editor_version,
+        'system': platform.system() if sys.platform != 'darwin' else 'Darwin',
         'python': platform.python_version(),
         'bitness': 64 if sys.maxsize > 2**32 else 32,
-        'qt': qtpy_version,
-        'qt_api': API_NAME,                             # PyQt5 or PyQt4
-        'qt_api_ver': PYQT_VERSION,
     }
 
-    if not sys.platform == 'darwin':                    # To avoid a crash with our Mac app
-        versions['system'] = platform.system()          # Linux, Windows, ...
-    else:
-        versions['system'] = 'Darwin'
-
-    for dep in dependencies:
-        versions[dep] = get_package_version(dep)
+    versions[package] = get_module_version(modules.get(package, package))
+    for dep in dependencies[package]:
+        versions[dep] = get_module_version(modules.get(dep, dep))
 
     return versions
 
