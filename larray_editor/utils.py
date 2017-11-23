@@ -25,11 +25,12 @@ eurostat_dependencies = ['larray']
 dependencies = {'editor': editor_dependencies, 'larray': core_dependencies, 'larray_eurostat': eurostat_dependencies}
 
 
+doc = "http://larray.readthedocs.io/en/{version}"
 urls = {"fpb": "http://www.plan.be/index.php?lang=en",
         "GPL3": "https://www.gnu.org/licenses/gpl-3.0.html",
-        "doc_stable": "http://larray.readthedocs.io/en/stable/",
-        "doc_tutorial": "http://larray.readthedocs.io/en/stable/tutorial.html",
-        "doc_api": "http://larray.readthedocs.io/en/stable/api.html",
+        "doc_index": "{}/index.html".format(doc),
+        "doc_tutorial": "{}/tutorial.html".format(doc),
+        "doc_api": "{}/api.html".format(doc),
         "new_issue_editor": "https://github.com/larray-project/larray-editor/issues/new",
         "new_issue_larray": "https://github.com/liam2/larray/issues/new",
         "new_issue_larray_eurostat": "https://github.com/larray-project/larray_eurostat/issues/new",
@@ -79,6 +80,13 @@ def get_versions(package):
         versions[dep] = get_module_version(modules.get(dep, dep))
 
     return versions
+
+
+def get_documentation_url(key):
+    version = get_module_version('larray')
+    if version == 'N/A':
+        version = 'stable'
+    return urls[key].format(version=version)
 
 
 # Note: string and unicode data types will be formatted with '%s' (see below)
