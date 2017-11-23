@@ -5,7 +5,7 @@ import numpy as np
 
 from larray import LArray, Session, zeros, empty
 from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
-                                 get_versions, urls)
+                                 get_versions, get_documentation_url, urls)
 from larray_editor.arraywidget import ArrayEditorWidget
 from qtpy.QtCore import Qt, QSettings, QUrl, Slot
 from qtpy.QtGui import QDesktopServices, QKeySequence
@@ -670,13 +670,13 @@ class MappingEditor(QMainWindow):
                 self._open_file(filepath)
 
     def open_documentation(self):
-        QDesktopServices.openUrl(QUrl(urls['doc_stable']))
+        QDesktopServices.openUrl(QUrl(get_documentation_url('doc_index')))
 
     def open_tutorial(self):
-        QDesktopServices.openUrl(QUrl(urls['doc_tutorial']))
+        QDesktopServices.openUrl(QUrl(get_documentation_url('doc_tutorial')))
 
     def open_api_documentation(self):
-        QDesktopServices.openUrl(QUrl(urls['doc_api']))
+        QDesktopServices.openUrl(QUrl(get_documentation_url('doc_api')))
 
     def report_issue(self, package):
         def _report_issue(*args, **kwargs):
