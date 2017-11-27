@@ -210,7 +210,7 @@ class DataArrayModel(AbstractArrayModel):
         self.minvalue = minvalue
         self.maxvalue = maxvalue
 
-        self.changes = None
+        self.changes = {}
         self.color_func = None
 
         self.vmin = None
