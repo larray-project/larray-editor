@@ -14,9 +14,8 @@ class LArrayDataAdapter(object):
         self.ylabels_model = ylabels_model
         self.data_model = data_model
 
-        # these are not valid values, but should overwritten by set_data which must be called before the adapter is used
-        self.current_filter = None
-        self.changes = None
+        self.current_filter = {}
+        self.changes = {}
         self.la_data = None
         self.bg_value = None
         self.filtered_data = None
