@@ -1,9 +1,9 @@
 package:
   name: larray-editor
-  version: 0.26.1
+  version: 0.27
 
 source:
-  git_tag: 0.26.1
+  git_tag: 0.27
   git_url: https://github.com/larray-project/larray-editor.git
 #  git_tag: devel
 #  git_url: file://c:/Users/ald/Projects/larray-editor/.git
