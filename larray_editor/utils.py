@@ -7,7 +7,7 @@ import math
 import numpy as np
 
 from qtpy import PYQT5
-from qtpy.QtCore import Qt, QVariant
+from qtpy.QtCore import Qt, QVariant, QSettings
 from qtpy.QtGui import QIcon, QColor, QFont, QKeySequence, QLinearGradient
 from qtpy.QtWidgets import QAction, QDialog, QVBoxLayout
 
@@ -595,3 +595,51 @@ def get_sample(data, maxsize):
 def get_sample_indices(data, maxsize):
     flat_indices = np.arange(0, data.size, get_sample_step(data, maxsize))
     return np.unravel_index(flat_indices, data.shape)
+
+
+class RecentFileList(object):
+    MAX_RECENT_FILES = 10
+
+    def __init__(self, list_name, actions=False, parent=None):
+        self.settings = QSettings()
+        self.list_name = list_name
+        if self.settings.value(list_name) is None:
+            self.settings.setValue(list_name, [])
+        self.actions = [QAction(parent) for _ in range(self.MAX_RECENT_FILES)] if actions else None
+
+    @property
+    def recent_files(self):
+        return self.settings.value(self.list_name)
+
+    @recent_files.setter
+    def recent_files(self, files):
+        self.settings.setValue(self.list_name, files[:self.MAX_RECENT_FILES])
+        self.update_actions()
+
+    def add(self, filepath):
+        if filepath is not None:
+            recent_files = self.recent_files
+            if filepath in recent_files:
+                recent_files.remove(filepath)
+            recent_files = [filepath] + recent_files
+            self.recent_files = recent_files
+            self.update_actions()
+
+    def clear(self):
+        self.recent_files = []
+
+    def update_actions(self):
+        if self.actions is not None:
+            recent_files = self.recent_files
+            if recent_files is None:
+                recent_files = []
+
+            # zip will iterate up to the shortest of the two
+            for filepath, action in zip(recent_files, self.actions):
+                action.setText(os.path.basename(filepath))
+                action.setStatusTip(filepath)
+                action.setData(filepath)
+                action.setVisible(True)
+            # if we have less recent recent files than actions, hide the remaining actions
+            for action in self.actions[len(recent_files):]:
+                action.setVisible(False)

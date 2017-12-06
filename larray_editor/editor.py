@@ -5,12 +5,12 @@ import numpy as np
 
 from larray import LArray, Session, zeros, empty
 from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
-                                 get_versions, get_documentation_url, urls)
+                                 get_versions, get_documentation_url, urls, RecentFileList)
 from larray_editor.arraywidget import ArrayEditorWidget
 from qtpy.QtCore import Qt, QSettings, QUrl, Slot
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
-                            QDialogButtonBox, QAction, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit,
+                            QDialogButtonBox, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit,
                             QCheckBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton)
 
 try:
@@ -39,7 +39,6 @@ except ImportError:
 
 REOPEN_LAST_FILE = object()
 
-
 assignment_pattern = re.compile('[^\[\]]+[^=]=[^=].+')
 setitem_pattern = re.compile('(.+)\[.+\][^=]=[^=].+')
 history_vars_pattern = re.compile('_i?\d+')
@@ -52,17 +51,13 @@ DISPLAY_IN_GRID = (LArray, np.ndarray)
 class MappingEditor(QMainWindow):
     """Session Editor Dialog"""
 
-    MAX_RECENT_FILES = 10
-
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
 
         # to handle recently opened data/script files
-        settings = QSettings()
-        # data files
-        if settings.value("recentFileList") is None:
-            settings.setValue("recentFileList", [])
-        self.recent_file_actions = [QAction(self) for _ in range(self.MAX_RECENT_FILES)]
+        self.recent_data_files = RecentFileList("recentFileList", actions=True, parent=self)
+        self.recent_saved_scripts = RecentFileList("recentSavedScriptList")
+        self.recent_loaded_scripts = RecentFileList("recentLoadedScriptList")
 
         self.current_file = None
         self.current_array = None
@@ -208,8 +203,8 @@ class MappingEditor(QMainWindow):
 
         # check if reopen last opened file
         if data is REOPEN_LAST_FILE:
-            if len(QSettings().value("recentFileList")) > 0:
-                data = self.recent_file_actions[0].data()
+            if len(self.recent_data_files.recent_files) > 0:
+                data = self.recent_data_file_actions[0].data()
             else:
                 data = Session()
 
@@ -268,13 +263,13 @@ class MappingEditor(QMainWindow):
         file_menu.addAction(create_action(self, _('Save Data &As'), triggered=self.save_data_as,
                                           statustip=_('Save all arrays as a session in a file')))
         recent_files_menu = file_menu.addMenu("Open &Recent Data")
-        for action in self.recent_file_actions:
+        for action in self.recent_data_files.actions:
             action.setVisible(False)
             action.triggered.connect(self.open_recent_file)
             recent_files_menu.addAction(action)
-        self.update_recent_file_actions()
+        self.recent_data_files.update_actions()
         recent_files_menu.addSeparator()
-        recent_files_menu.addAction(create_action(self, _('&Clear List'), triggered=self._clear_recent_files))
+        recent_files_menu.addAction(create_action(self, _('&Clear List'), triggered=self.recent_data_files.clear))
         #===============#
         #    EXAMPLES   #
         #===============#
@@ -557,7 +552,7 @@ class MappingEditor(QMainWindow):
         self.update_title()
 
     def set_current_file(self, filepath):
-        self.update_recent_files([filepath])
+        self.recent_data_files.add(filepath)
         self.current_file = filepath
         self.update_title()
 
@@ -653,7 +648,7 @@ class MappingEditor(QMainWindow):
                                          'to run them'
             self.kernel.shell.run_line_magic('load', ' '.join(cmd))
             self.ipython_cell_executed()
-            self.update_recent_script_list(filepath)
+            self.recent_loaded_scripts.add(filepath)
         except Exception as e:
             QMessageBox.critical(self, "Error", "Cannot load script file {}:\n{}"
                                  .format(os.path.basename(filepath), e))
@@ -733,46 +728,6 @@ class MappingEditor(QMainWindow):
                 self._reset()
             self._load_script(filepath, lines, symbols)
 
-    def open_recent_script(self):
-        if self._ask_to_save_if_unsaved_modifications():
-            action = self.sender()
-            if action:
-                filepath = action.data()
-                if os.path.exists(filepath):
-                    self.load_script(filepath)
-                else:
-                    QMessageBox.warning(self, "Warning", "File {} could not be found".format(filepath))
-
-    def update_recent_script_list(self, filepath):
-        settings = QSettings()
-        scripts = settings.value("recentScriptList")
-        if filepath is not None and filepath in scripts:
-            scripts.remove(filepath)
-        scripts = [filepath] + scripts
-        settings.setValue("recentScriptList", scripts[:self.MAX_RECENT_FILES])
-        self.update_recent_script_actions()
-
-    def _clear_recent_scripts(self):
-        settings = QSettings()
-        settings.setValue("recentScriptList", [])
-        self.update_recent_script_actions()
-
-    def update_recent_script_actions(self):
-        settings = QSettings()
-        recent_scripts = settings.value("recentScriptList")
-        if recent_scripts is None:
-            recent_scripts = []
-
-        # zip will iterate up to the shortest of the two
-        for filepath, action in zip(recent_scripts, self.recent_script_actions):
-            action.setText(os.path.basename(filepath))
-            action.setStatusTip(filepath)
-            action.setData(filepath)
-            action.setVisible(True)
-        # if we have less recent recent files than actions, hide the remaining actions
-        for action in self.recent_script_actions[len(recent_scripts):]:
-            action.setVisible(False)
-
     def _save_script(self, filepath, lines, overwrite):
         # IPython/core/magics/code.py -> CodeMagics -> save
         assert qtconsole_available
@@ -785,6 +740,7 @@ class MappingEditor(QMainWindow):
             else:
                 lines = '1-{}'.format(self.kernel.shell.execution_count)
             self.kernel.shell.run_line_magic('save', '{} {} {}'.format(overwrite, filepath, lines))
+            self.recent_saved_scripts.add(filepath)
         except Exception as e:
             QMessageBox.critical(self, "Error", "Cannot save history as {}:\n{}"
                                  .format(os.path.basename(filepath), e))
@@ -799,13 +755,13 @@ class MappingEditor(QMainWindow):
 
         # filepath
         browse_label = QLabel("Filepath")
-        browse_edit = QLineEdit()
+        browse_combobox = QLineEdit()
         browse_button = QPushButton("Browse")
         browse_filedialog = QFileDialog(self, filter="Python Script (*.py)")
         browse_button.clicked.connect(browse_filedialog.open)
-        browse_filedialog.fileSelected.connect(browse_edit.setText)
+        browse_filedialog.fileSelected.connect(browse_combobox.setText)
         layout.addWidget(browse_label, 0, 0)
-        layout.addWidget(browse_edit, 0, 1)
+        layout.addWidget(browse_combobox, 0, 1)
         layout.addWidget(browse_button, 0, 2)
 
         # lines
@@ -853,7 +809,7 @@ class MappingEditor(QMainWindow):
         # open dialog
         ret = dialog.exec_()
         if ret == QDialog.Accepted:
-            filepath = browse_edit.text()
+            filepath = browse_combobox.text()
             if filepath == '':
                 QMessageBox.warning(self, "Warning", "No file provided")
             else:
@@ -933,38 +889,6 @@ class MappingEditor(QMainWindow):
                     self._open_file(filepath)
                 else:
                     QMessageBox.warning(self, "Warning", "File {} could not be found".format(filepath))
-
-    def update_recent_files(self, filepaths):
-        settings = QSettings()
-        files = settings.value("recentFileList")
-        for filepath in filepaths:
-            if filepath is not None:
-                if filepath in files:
-                    files.remove(filepath)
-                files = [filepath] + files
-        settings.setValue("recentFileList", files[:self.MAX_RECENT_FILES])
-        self.update_recent_file_actions()
-
-    def _clear_recent_files(self):
-        settings = QSettings()
-        settings.setValue("recentFileList", [])
-        self.update_recent_file_actions()
-
-    def update_recent_file_actions(self):
-        settings = QSettings()
-        recent_files = settings.value("recentFileList")
-        if recent_files is None:
-            recent_files = []
-
-        # zip will iterate up to the shortest of the two
-        for filepath, action in zip(recent_files, self.recent_file_actions):
-            action.setText(os.path.basename(filepath))
-            action.setStatusTip(filepath)
-            action.setData(filepath)
-            action.setVisible(True)
-        # if we have less recent recent files than actions, hide the remaining actions
-        for action in self.recent_file_actions[len(recent_files):]:
-            action.setVisible(False)
 
     def _save_data(self, filepath):
         try:
