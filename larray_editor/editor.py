@@ -1,6 +1,7 @@
 import io
 import os
 import re
+from datetime import datetime
 import sys
 from collections.abc import Sequence
 from contextlib import redirect_stdout
@@ -26,6 +27,7 @@ if sys.platform.startswith("win") and sys.version_info >= (3, 8):
 import matplotlib
 import matplotlib.axes
 import numpy as np
+import pandas as pd
 
 import larray as la
 
@@ -34,12 +36,14 @@ from larray_editor.utils import (_, create_action, show_figure, ima, commonpath,
                                  get_versions, get_documentation_url, urls, RecentlyUsedList)
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayCommand
+from larray_editor.treemodel import SimpleTreeNode, SimpleLazyTreeModel
 
 from qtpy.QtCore import Qt, QUrl, QSettings
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
                             QDialogButtonBox, QShortcut, QVBoxLayout, QGridLayout, QLineEdit,
-                            QCheckBox, QComboBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton)
+                            QCheckBox, QComboBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton,
+                            QTreeView)
 
 try:
     from qtpy.QtWidgets import QUndoStack
@@ -81,6 +85,87 @@ history_vars_pattern = re.compile(r'_i?\d+')
 # (long) strings are not handled correctly so should NOT be in this list
 # tuple, list
 DISPLAY_IN_GRID = (la.Array, np.ndarray)
+
+
+def num_leading_spaces(s):
+    i = 0
+    while s[i] == ' ':
+        i += 1
+    return i
+
+
+def indented_df_to_treenode(df, indent=4, indented_col=0, colnames=None, header=None):
+    if colnames is None:
+        colnames = df.columns.tolist()
+    if header is None:
+        header = [name.capitalize() for name in colnames]
+
+    root = SimpleTreeNode(None, header)
+    df = df[colnames]
+    parent_per_level = {0: root}
+    # iterating on the df rows directly (via df.iterrows()) is too slow
+    for row in df.values:
+        row_data = row.tolist()
+        indented_col_value = row_data[indented_col]
+        level = num_leading_spaces(indented_col_value) // indent
+        # remove indentation
+        row_data[indented_col] = indented_col_value.strip()
+
+        parent_node = parent_per_level[level]
+        node = SimpleTreeNode(parent_node, row_data)
+        parent_node.children.append(node)
+        parent_per_level[level + 1] = node
+    return root
+
+
+class EurostatBrowserDialog(QDialog):
+    def __init__(self, index, parent=None):
+        super(EurostatBrowserDialog, self).__init__(parent)
+
+        assert isinstance(index, pd.DataFrame)
+
+        # drop unused/redundant "type" column
+        index = index.drop('type', axis=1)
+
+        # display dates using locale
+        # import locale
+        # locale.setlocale(locale.LC_ALL, '')
+        # datetime.date.strftime('%x')
+
+        # CHECK: this builds the whole (model) tree in memory eagerly, so it is not lazy despite using a
+        #        Simple*Lazy*TreeModel, but it is fast enough for now. *If* it ever becomes a problem,
+        #        we could make this lazy pretty easily (see treemodel.LazyDictTreeNode for an example).
+        root = indented_df_to_treenode(index)
+        model = SimpleLazyTreeModel(root)
+        tree = QTreeView()
+        tree.setModel(model)
+        tree.setUniformRowHeights(True)
+        tree.selectionModel().currentChanged.connect(self.view_eurostat_indicator)
+        tree.setColumnWidth(0, 320)
+
+        self.resize(450, 600)
+        self.setWindowTitle("Select dataset")
+
+        # set the layout
+        layout = QVBoxLayout()
+        # layout.addWidget(toolbar)
+        layout.addWidget(tree)
+        self.setLayout(layout)
+
+    def view_eurostat_indicator(self, index):
+        from larray_eurostat import eurostat_get
+
+        node = index.internalPointer()
+        title, code, last_update_of_data, last_table_structure_change, data_start, data_end = node.data
+        if not node.children:
+            last_update_of_data = datetime.strptime(last_update_of_data, "%d.%m.%Y")
+            last_table_structure_change = datetime.strptime(last_table_structure_change, "%d.%m.%Y")
+            last_change = max(last_update_of_data, last_table_structure_change)
+            try:
+                arr = eurostat_get(code, maxage=last_change, cache_dir='__array_cache__')
+            except Exception:
+                QMessageBox.critical(self, "Error", "Failed to load {}".format(code))
+            self.parent().view_expr(arr, expr=code)
 
 
 class AbstractEditor(QMainWindow):
@@ -553,6 +638,7 @@ class MappingEditor(AbstractEditor):
         # ============= #
         file_menu.addSeparator()
         file_menu.addAction(create_action(self, _('&Load Example Dataset'), triggered=self.load_example))
+        file_menu.addAction(create_action(self, _('&Browse Eurostat Datasets'), triggered=self.browse_eurostat))
         # ============= #
         #    SCRIPTS    #
         # ============= #
@@ -675,7 +761,7 @@ class MappingEditor(AbstractEditor):
 
     def view_expr(self, array, expr):
         self._listwidget.clearSelection()
-        self.set_current_array(array, expr)
+        self.set_current_array(array, name=expr)
 
     def _display_in_grid(self, k, v):
         return not k.startswith('__') and isinstance(v, DISPLAY_IN_GRID)
@@ -1152,6 +1238,16 @@ class MappingEditor(AbstractEditor):
             if ok and dataset_name:
                 filepath = AVAILABLE_EXAMPLE_DATA[dataset_name]
                 self._open_file(filepath)
+
+    def browse_eurostat(self):
+        from larray_eurostat import get_index
+        try:
+            df = get_index(cache_dir='__array_cache__', maxage=None)
+        except:
+            QMessageBox.critical(self, "Error", "Failed to fetch Eurostat dataset index")
+            return
+        dialog = EurostatBrowserDialog(df, parent=self)
+        dialog.show()
 
 
 class ArrayEditor(AbstractEditor):
