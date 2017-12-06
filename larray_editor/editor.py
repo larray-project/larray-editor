@@ -63,10 +63,6 @@ class MappingEditor(QMainWindow):
         if settings.value("recentFileList") is None:
             settings.setValue("recentFileList", [])
         self.recent_file_actions = [QAction(self) for _ in range(self.MAX_RECENT_FILES)]
-        # script files
-        if settings.value("recentScriptList") is None:
-            settings.setValue("recentScriptList", [])
-        self.recent_script_actions = [QAction(self) for _ in range(self.MAX_RECENT_FILES)]
 
         self.current_file = None
         self.current_array = None
@@ -289,18 +285,10 @@ class MappingEditor(QMainWindow):
         #===============#
         file_menu.addSeparator()
         if qtconsole_available:
-            # file_menu.addAction(create_action(self, _('&Load Script'), shortcut="Ctrl+Shift+O",
-            #                                   triggered=self.load_script, statustip=_('Load script from file')))
+            file_menu.addAction(create_action(self, _('&Load from Script'), shortcut="Ctrl+Shift+O",
+                                              triggered=self.load_script, statustip=_('Load script from file')))
             file_menu.addAction(create_action(self, _('&Save Command History To Script'), shortcut="Ctrl+Shift+S",
                                               triggered=self.save_script, statustip=_('Save command history in a file')))
-            # recent_files_menu = file_menu.addMenu("Open &Recent Scripts")
-            # for action in self.recent_script_actions:
-            #     action.setVisible(False)
-            #     action.triggered.connect(self.open_recent_script)
-            #     recent_files_menu.addAction(action)
-            # self.update_recent_file_actions()
-            # recent_files_menu.addSeparator()
-            # recent_files_menu.addAction(create_action(self, _('&Clear List'), triggered=self._clear_recent_scripts))
         #===============#
         #     QUIT      #
         #===============#
