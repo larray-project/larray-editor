@@ -857,12 +857,19 @@ class MappingEditor(QMainWindow):
             if filepath == '':
                 QMessageBox.warning(self, "Warning", "No file provided")
             else:
-                if radio_button_specific_lines.isChecked():
-                    lines = lines_edit.text()
-                else:
-                    lines = ''
+                specific_lines = radio_button_specific_lines.isChecked()
+                lines = lines_edit.text() if specific_lines else ''
+
                 overwrite = radio_button_overwrite.isChecked()
-                self._save_script(filepath, lines, overwrite)
+                if overwrite and os.path.isfile(filepath):
+                    ret = QMessageBox.warning(self, "Warning",
+                                              "File `{}` exists. Are you sure to overwrite it?".format(filepath),
+                                              QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
+                    if ret == QMessageBox.Save:
+                        self._save_script(filepath, lines, overwrite)
+                else:
+                    self._save_script(filepath, lines, overwrite)
+
 
     #=============================#
     #  METHODS TO SAVE/LOAD DATA  #
