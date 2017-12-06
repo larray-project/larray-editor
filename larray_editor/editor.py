@@ -568,6 +568,11 @@ class MappingEditor(QMainWindow):
         self.current_array_name = name
         self.update_title()
 
+    def set_current_file(self, filepath):
+        self.update_recent_files([filepath])
+        self.current_file = filepath
+        self.update_title()
+
     def _add_arrays(self, arrays):
         for k, v in arrays.items():
             self.data[k] = v
@@ -601,9 +606,30 @@ class MappingEditor(QMainWindow):
         else:
             return True
 
+    def closeEvent(self, event):
+        if self._ask_to_save_if_unsaved_modifications():
+            event.accept()
+        else:
+            event.ignore()
+
+    def apply_changes(self):
+        # update unsaved_modifications (and thus title) only if at least 1 change has been applied
+        if self.arraywidget.dirty:
+            self.unsaved_modifications = True
+        self.arraywidget.accept_changes()
+
+    def discard_changes(self):
+        self.arraywidget.reject_changes()
+        self.update_title()
+
+    def get_value(self):
+        """Return modified array -- this is *not* a copy"""
+        # It is import to avoid accessing Qt C++ object as it has probably
+        # already been destroyed, due to the Qt.WA_DeleteOnClose attribute
+        return self.data
 
     #########################################
-    #  METHODS TO SAVE/LOAD DATA & SCRIPTS  #
+    #               FILE MENU               #
     #########################################
 
     def new(self):
@@ -614,9 +640,9 @@ class MappingEditor(QMainWindow):
             self.unsaved_modifications = False
             self.statusBar().showMessage("Viewer has been reset", 4000)
 
-    ##################################
+    #================================#
     #  METHODS TO SAVE/LOAD SCRIPTS  #
-    ##################################
+    #================================#
 
     # See http://ipython.readthedocs.io/en/stable/interactive/magics.html#magic-load
     # for more details
@@ -846,9 +872,9 @@ class MappingEditor(QMainWindow):
                 overwrite = radio_button_overwrite.isChecked()
                 self._save_script(filepath, lines, overwrite)
 
-    ###############################
+    #=============================#
     #  METHODS TO SAVE/LOAD DATA  #
-    ###############################
+    #=============================#
 
     def _open_file(self, filepath):
         session = Session()
@@ -909,6 +935,38 @@ class MappingEditor(QMainWindow):
                 else:
                     QMessageBox.warning(self, "Warning", "File {} could not be found".format(filepath))
 
+    def update_recent_files(self, filepaths):
+        settings = QSettings()
+        files = settings.value("recentFileList")
+        for filepath in filepaths:
+            if filepath is not None:
+                if filepath in files:
+                    files.remove(filepath)
+                files = [filepath] + files
+        settings.setValue("recentFileList", files[:self.MAX_RECENT_FILES])
+        self.update_recent_file_actions()
+
+    def _clear_recent_files(self):
+        settings = QSettings()
+        settings.setValue("recentFileList", [])
+        self.update_recent_file_actions()
+
+    def update_recent_file_actions(self):
+        settings = QSettings()
+        recent_files = settings.value("recentFileList")
+        if recent_files is None:
+            recent_files = []
+
+        # zip will iterate up to the shortest of the two
+        for filepath, action in zip(recent_files, self.recent_file_actions):
+            action.setText(os.path.basename(filepath))
+            action.setStatusTip(filepath)
+            action.setData(filepath)
+            action.setVisible(True)
+        # if we have less recent recent files than actions, hide the remaining actions
+        for action in self.recent_file_actions[len(recent_files):]:
+            action.setVisible(False)
+
     def _save_data(self, filepath):
         try:
             session = Session({k: v for k, v in self.data.items() if self._display_in_grid(k, v)})
@@ -951,6 +1009,10 @@ class MappingEditor(QMainWindow):
             if ok and dataset_name:
                 filepath = AVAILABLE_EXAMPLE_DATA[dataset_name]
                 self._open_file(filepath)
+
+    #########################################
+    #               HELP MENU               #
+    #########################################
 
     def open_documentation(self):
         QDesktopServices.openUrl(QUrl(get_documentation_url('doc_index')))
@@ -1027,65 +1089,6 @@ class MappingEditor(QMainWindow):
                 message += "<li>{dep} {{{dep}}}</li>\n".format(dep=dep)
         message += "</ul>"
         QMessageBox.about(self, _("About LArray Editor"), message.format(**kwargs))
-
-    def set_current_file(self, filepath):
-        self.update_recent_files([filepath])
-        self.current_file = filepath
-        self.update_title()
-
-    def update_recent_files(self, filepaths):
-        settings = QSettings()
-        files = settings.value("recentFileList")
-        for filepath in filepaths:
-            if filepath is not None:
-                if filepath in files:
-                    files.remove(filepath)
-                files = [filepath] + files
-        settings.setValue("recentFileList", files[:self.MAX_RECENT_FILES])
-        self.update_recent_file_actions()
-
-    def _clear_recent_files(self):
-        settings = QSettings()
-        settings.setValue("recentFileList", [])
-        self.update_recent_file_actions()
-
-    def update_recent_file_actions(self):
-        settings = QSettings()
-        recent_files = settings.value("recentFileList")
-        if recent_files is None:
-            recent_files = []
-
-        # zip will iterate up to the shortest of the two
-        for filepath, action in zip(recent_files, self.recent_file_actions):
-            action.setText(os.path.basename(filepath))
-            action.setStatusTip(filepath)
-            action.setData(filepath)
-            action.setVisible(True)
-        # if we have less recent recent files than actions, hide the remaining actions
-        for action in self.recent_file_actions[len(recent_files):]:
-            action.setVisible(False)
-
-    def closeEvent(self, event):
-        if self._ask_to_save_if_unsaved_modifications():
-            event.accept()
-        else:
-            event.ignore()
-
-    def apply_changes(self):
-        # update unsaved_modifications (and thus title) only if at least 1 change has been applied
-        if self.arraywidget.dirty:
-            self.unsaved_modifications = True
-        self.arraywidget.accept_changes()
-
-    def discard_changes(self):
-        self.arraywidget.reject_changes()
-        self.update_title()
-
-    def get_value(self):
-        """Return modified array -- this is *not* a copy"""
-        # It is import to avoid accessing Qt C++ object as it has probably
-        # already been destroyed, due to the Qt.WA_DeleteOnClose attribute
-        return self.data
 
 
 class ArrayEditor(QDialog):
