@@ -11,7 +11,7 @@ from qtpy.QtCore import Qt, QSettings, QUrl, Slot
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
                             QDialogButtonBox, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit,
-                            QCheckBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton)
+                            QCheckBox, QComboBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton)
 
 try:
     from qtconsole.rich_jupyter_widget import RichJupyterWidget
@@ -654,24 +654,26 @@ class MappingEditor(QMainWindow):
                                  .format(os.path.basename(filepath), e))
 
     def load_script(self, filepath=None):
-        # %save add automatically the extension .py if not present in passed filename
+        # %load add automatically the extension .py if not present in passed filename
         dialog = QDialog(self)
         layout = QGridLayout()
         dialog.setLayout(layout)
 
         # filepath
         browse_label = QLabel("Source")
-        browse_edit = QLineEdit()
-        browse_edit.setPlaceholderText("filepath to or URL containing the python source")
+        browse_combobox = QComboBox()
+        browse_combobox.setEditable(True)
+        browse_combobox.addItems(self.recent_loaded_scripts.recent_files)
+        browse_combobox.lineEdit().setPlaceholderText("filepath to or URL containing the python source")
         browse_button = QPushButton("Browse")
         if isinstance(filepath, str):
-            browse_edit.setText(filepath)
+            browse_combobox.setText(filepath)
         browse_filedialog = QFileDialog(self, filter="Python Script (*.py)")
         browse_filedialog.setFileMode(QFileDialog.ExistingFile)
         browse_button.clicked.connect(browse_filedialog.open)
-        browse_filedialog.fileSelected.connect(browse_edit.setText)
+        browse_filedialog.fileSelected.connect(browse_combobox.lineEdit().setText)
         layout.addWidget(browse_label, 0, 0)
-        layout.addWidget(browse_edit, 0, 1)
+        layout.addWidget(browse_combobox, 0, 1)
         layout.addWidget(browse_button, 0, 2)
 
         # lines / symbols
@@ -717,7 +719,7 @@ class MappingEditor(QMainWindow):
         # open dialog
         ret = dialog.exec_()
         if ret == QDialog.Accepted:
-            filepath = browse_edit.text()
+            filepath = browse_combobox.currentText()
             if radio_button_specific_lines.isChecked():
                 lines, symbols = lines_edit.text(), ''
             elif radio_button_symbols.isChecked():
@@ -755,11 +757,14 @@ class MappingEditor(QMainWindow):
 
         # filepath
         browse_label = QLabel("Filepath")
-        browse_combobox = QLineEdit()
+        browse_combobox = QComboBox()
+        browse_combobox.setEditable(True)
+        browse_combobox.addItems(self.recent_saved_scripts.recent_files)
+        browse_combobox.lineEdit().setPlaceholderText("destination file")
         browse_button = QPushButton("Browse")
         browse_filedialog = QFileDialog(self, filter="Python Script (*.py)")
         browse_button.clicked.connect(browse_filedialog.open)
-        browse_filedialog.fileSelected.connect(browse_combobox.setText)
+        browse_filedialog.fileSelected.connect(browse_combobox.lineEdit().setText)
         layout.addWidget(browse_label, 0, 0)
         layout.addWidget(browse_combobox, 0, 1)
         layout.addWidget(browse_button, 0, 2)
@@ -809,7 +814,7 @@ class MappingEditor(QMainWindow):
         # open dialog
         ret = dialog.exec_()
         if ret == QDialog.Accepted:
-            filepath = browse_combobox.text()
+            filepath = browse_combobox.currentText()
             if filepath == '':
                 QMessageBox.warning(self, "Warning", "No file provided")
             else:
