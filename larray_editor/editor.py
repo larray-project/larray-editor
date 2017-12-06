@@ -635,6 +635,7 @@ class MappingEditor(QMainWindow):
     # See http://ipython.readthedocs.io/en/stable/interactive/magics.html#magic-load
     # for more details
     def _load_script(self, filepath, lines, symbols):
+        # IPython/core/magics/code.py -> CodeMagics -> load
         assert qtconsole_available
         try:
             cmd = []
@@ -648,6 +649,8 @@ class MappingEditor(QMainWindow):
                 # -s <symbols>: Specify function or classes to load from python source.
                 cmd += ['-s {}'.format(symbols)]
             cmd += [filepath]
+            self.eval_box.input_buffer = '# Press Enter to display the command lines to be loaded and Enter again ' \
+                                         'to run them'
             self.kernel.shell.run_line_magic('load', ' '.join(cmd))
             self.ipython_cell_executed()
             self.update_recent_script_list(filepath)
@@ -771,6 +774,7 @@ class MappingEditor(QMainWindow):
             action.setVisible(False)
 
     def _save_script(self, filepath, lines, overwrite):
+        # IPython/core/magics/code.py -> CodeMagics -> save
         assert qtconsole_available
         try:
             # -f: force overwrite. If file exists, %save will prompt for overwrite unless -f is given.
