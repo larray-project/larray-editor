@@ -540,32 +540,32 @@ class ArrayEditorWidget(QWidget):
         self.model_axes = LabelsArrayModel(parent=self, readonly=readonly)
         self.view_axes = LabelsView(parent=self, model=self.model_axes, position=(TOP, LEFT))
 
-        self.model_xlabels = LabelsArrayModel(parent=self, readonly=readonly)
-        self.view_xlabels = LabelsView(parent=self, model=self.model_xlabels, position=(TOP, RIGHT))
+        self.model_hlabels = LabelsArrayModel(parent=self, readonly=readonly)
+        self.view_hlabels = LabelsView(parent=self, model=self.model_hlabels, position=(TOP, RIGHT))
 
-        self.model_ylabels = LabelsArrayModel(parent=self, readonly=readonly)
-        self.view_ylabels = LabelsView(parent=self, model=self.model_ylabels, position=(BOTTOM, LEFT))
+        self.model_vlabels = LabelsArrayModel(parent=self, readonly=readonly)
+        self.view_vlabels = LabelsView(parent=self, model=self.model_vlabels, position=(BOTTOM, LEFT))
 
         self.model_data = DataArrayModel(parent=self, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
         self.view_data = DataView(parent=self, model=self.model_data)
 
-        self.data_adapter = LArrayDataAdapter(axes_model=self.model_axes, xlabels_model=self.model_xlabels,
-                                              ylabels_model=self.model_ylabels, data_model=self.model_data)
+        self.data_adapter = LArrayDataAdapter(axes_model=self.model_axes, hlabels_model=self.model_hlabels,
+                                              vlabels_model=self.model_vlabels, data_model=self.model_data)
 
         # Create vertical and horizontal scrollbars
         self.vscrollbar = ScrollBar(self, self.view_data.verticalScrollBar())
         self.hscrollbar = ScrollBar(self, self.view_data.horizontalScrollBar())
 
         # Synchronize resizing
-        self.view_axes.horizontalHeader().sectionResized.connect(self.view_ylabels.updateSectionWidth)
-        self.view_axes.verticalHeader().sectionResized.connect(self.view_xlabels.updateSectionHeight)
-        self.view_xlabels.horizontalHeader().sectionResized.connect(self.view_data.updateSectionWidth)
-        self.view_ylabels.verticalHeader().sectionResized.connect(self.view_data.updateSectionHeight)
+        self.view_axes.horizontalHeader().sectionResized.connect(self.view_vlabels.updateSectionWidth)
+        self.view_axes.verticalHeader().sectionResized.connect(self.view_hlabels.updateSectionHeight)
+        self.view_hlabels.horizontalHeader().sectionResized.connect(self.view_data.updateSectionWidth)
+        self.view_vlabels.verticalHeader().sectionResized.connect(self.view_data.updateSectionHeight)
         # Synchronize auto-resizing
         self.view_axes.horizontalHeader().sectionHandleDoubleClicked.connect(self.resize_axes_column_to_contents)
-        self.view_xlabels.horizontalHeader().sectionHandleDoubleClicked.connect(self.resize_xlabels_column_to_contents)
+        self.view_hlabels.horizontalHeader().sectionHandleDoubleClicked.connect(self.resize_hlabels_column_to_contents)
         self.view_axes.verticalHeader().sectionHandleDoubleClicked.connect(self.resize_axes_row_to_contents)
-        self.view_ylabels.verticalHeader().sectionHandleDoubleClicked.connect(self.resize_ylabels_row_to_contents)
+        self.view_vlabels.verticalHeader().sectionHandleDoubleClicked.connect(self.resize_vlabels_row_to_contents)
 
         # synchronize specific methods
         self.view_axes.allSelected.connect(self.view_data.selectAll)
@@ -575,18 +575,18 @@ class ArrayEditorWidget(QWidget):
         self.view_data.signal_plot.connect(self.plot)
 
         # Synchronize scrolling
-        # data <--> xlabels
-        self.view_data.horizontalScrollBar().valueChanged.connect(self.view_xlabels.horizontalScrollBar().setValue)
-        self.view_xlabels.horizontalScrollBar().valueChanged.connect(self.view_data.horizontalScrollBar().setValue)
-        # data <--> ylabels
-        self.view_data.verticalScrollBar().valueChanged.connect(self.view_ylabels.verticalScrollBar().setValue)
-        self.view_ylabels.verticalScrollBar().valueChanged.connect(self.view_data.verticalScrollBar().setValue)
+        # data <--> hlabels
+        self.view_data.horizontalScrollBar().valueChanged.connect(self.view_hlabels.horizontalScrollBar().setValue)
+        self.view_hlabels.horizontalScrollBar().valueChanged.connect(self.view_data.horizontalScrollBar().setValue)
+        # data <--> vlabels
+        self.view_data.verticalScrollBar().valueChanged.connect(self.view_vlabels.verticalScrollBar().setValue)
+        self.view_vlabels.verticalScrollBar().valueChanged.connect(self.view_data.verticalScrollBar().setValue)
 
         # Synchronize selecting columns(rows) via hor.(vert.) header of x(y)labels view
-        self.view_xlabels.horizontalHeader().sectionPressed.connect(self.view_data.selectColumn)
-        self.view_xlabels.horizontalHeader().sectionEntered.connect(self.view_data.selectNewColumn)
-        self.view_ylabels.verticalHeader().sectionPressed.connect(self.view_data.selectRow)
-        self.view_ylabels.verticalHeader().sectionEntered.connect(self.view_data.selectNewRow)
+        self.view_hlabels.horizontalHeader().sectionPressed.connect(self.view_data.selectColumn)
+        self.view_hlabels.horizontalHeader().sectionEntered.connect(self.view_data.selectNewColumn)
+        self.view_vlabels.verticalHeader().sectionPressed.connect(self.view_data.selectRow)
+        self.view_vlabels.verticalHeader().sectionEntered.connect(self.view_data.selectNewRow)
 
         # following lines are required to keep usual selection color
         # when selecting rows/columns via headers of label views.
@@ -601,17 +601,17 @@ class ArrayEditorWidget(QWidget):
         array_frame.setFrameStyle(QFrame.StyledPanel)
         # remove borders of internal tables
         self.view_axes.setFrameStyle(QFrame.NoFrame)
-        self.view_xlabels.setFrameStyle(QFrame.NoFrame)
-        self.view_ylabels.setFrameStyle(QFrame.NoFrame)
+        self.view_hlabels.setFrameStyle(QFrame.NoFrame)
+        self.view_vlabels.setFrameStyle(QFrame.NoFrame)
         self.view_data.setFrameStyle(QFrame.NoFrame)
         # Set layout of table views:
-        # [ axes  ][xlabels]|V|
-        # [ylabels][ data  ]|s|
+        # [ axes  ][hlabels]|V|
+        # [vlabels][ data  ]|s|
         # |  H. scrollbar  |
         array_layout = QGridLayout()
         array_layout.addWidget(self.view_axes, 0, 0)
-        array_layout.addWidget(self.view_xlabels, 0, 1)
-        array_layout.addWidget(self.view_ylabels, 1, 0)
+        array_layout.addWidget(self.view_hlabels, 0, 1)
+        array_layout.addWidget(self.view_vlabels, 1, 0)
         self.view_data.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         array_layout.addWidget(self.view_data, 1, 1)
         array_layout.addWidget(self.vscrollbar, 0, 2, 2, 1)
@@ -793,8 +793,8 @@ class ArrayEditorWidget(QWidget):
 
         # reset default size
         self.view_axes.set_default_size()
-        self.view_ylabels.set_default_size()
-        self.view_xlabels.set_default_size()
+        self.view_vlabels.set_default_size()
+        self.view_hlabels.set_default_size()
         self.view_data.set_default_size()
 
         self.view_data.set_dtype(data.dtype)
@@ -928,37 +928,37 @@ class ArrayEditorWidget(QWidget):
         self.view_axes.autofit_columns()
         for column in range(self.model_axes.columnCount()):
             self.resize_axes_column_to_contents(column)
-        self.view_xlabels.autofit_columns()
-        for column in range(self.model_xlabels.columnCount()):
-            self.resize_xlabels_column_to_contents(column)
+        self.view_hlabels.autofit_columns()
+        for column in range(self.model_hlabels.columnCount()):
+            self.resize_hlabels_column_to_contents(column)
 
     def resize_axes_column_to_contents(self, column):
         # must be connected to view_axes.horizontalHeader().sectionHandleDoubleClicked signal
         width = max(self.view_axes.horizontalHeader().sectionSize(column),
-                    self.view_ylabels.sizeHintForColumn(column))
-        # no need to call resizeSection on view_ylabels (see synchronization lines in init)
+                    self.view_vlabels.sizeHintForColumn(column))
+        # no need to call resizeSection on view_vlabels (see synchronization lines in init)
         self.view_axes.horizontalHeader().resizeSection(column, width)
 
-    def resize_xlabels_column_to_contents(self, column):
+    def resize_hlabels_column_to_contents(self, column):
         # must be connected to view_labels.horizontalHeader().sectionHandleDoubleClicked signal
-        width = max(self.view_xlabels.horizontalHeader().sectionSize(column),
+        width = max(self.view_hlabels.horizontalHeader().sectionSize(column),
                     self.view_data.sizeHintForColumn(column))
         # no need to call resizeSection on view_data (see synchronization lines in init)
-        self.view_xlabels.horizontalHeader().resizeSection(column, width)
+        self.view_hlabels.horizontalHeader().resizeSection(column, width)
 
     def resize_axes_row_to_contents(self, row):
         # must be connected to view_axes.verticalHeader().sectionHandleDoubleClicked
         height = max(self.view_axes.verticalHeader().sectionSize(row),
-                     self.view_xlabels.sizeHintForRow(row))
-        # no need to call resizeSection on view_xlabels (see synchronization lines in init)
+                     self.view_hlabels.sizeHintForRow(row))
+        # no need to call resizeSection on view_hlabels (see synchronization lines in init)
         self.view_axes.verticalHeader().resizeSection(row, height)
 
-    def resize_ylabels_row_to_contents(self, row):
+    def resize_vlabels_row_to_contents(self, row):
         # must be connected to view_labels.verticalHeader().sectionHandleDoubleClicked
-        height = max(self.view_ylabels.verticalHeader().sectionSize(row),
+        height = max(self.view_vlabels.verticalHeader().sectionSize(row),
                      self.view_data.sizeHintForRow(row))
         # no need to call resizeSection on view_data (see synchronization lines in init)
-        self.view_ylabels.verticalHeader().resizeSection(row, height)
+        self.view_vlabels.verticalHeader().resizeSection(row, height)
 
     @property
     def dirty(self):
@@ -1031,15 +1031,15 @@ class ArrayEditorWidget(QWidget):
             # FIXME: this is extremely ad-hoc.
             # TODO: in the future (pandas-based branch) we should use to_string(data[self._selection_filter()])
             dim_headers = self.model_axes.get_values()
-            xlabels = self.model_xlabels.get_values(top=col_min, bottom=col_max)
-            topheaders = [[dim_header[0] for dim_header in dim_headers] + [label[0] for label in xlabels]]
+            hlabels = self.model_hlabels.get_values(top=col_min, bottom=col_max)
+            topheaders = [[dim_header[0] for dim_header in dim_headers] + [label[0] for label in hlabels]]
             if self.data_adapter.ndim == 1:
                 return chain(topheaders, [chain([''], row) for row in raw_data])
             else:
                 assert self.data_adapter.ndim > 1
-                ylabels = self.model_ylabels.get_values(left=row_min, right=row_max)
+                vlabels = self.model_vlabels.get_values(left=row_min, right=row_max)
                 return chain(topheaders,
-                             [chain([ylabels[j][r] for j in range(len(ylabels))], row)
+                             [chain([vlabels[j][r] for j in range(len(vlabels))], row)
                               for r, row in enumerate(raw_data)])
         else:
             return raw_data
@@ -1121,8 +1121,8 @@ class ArrayEditorWidget(QWidget):
         row_min, row_max, col_min, col_max = self.view_data._selection_bounds()
         dim_names = self.data_adapter.get_axes_names()
         # labels
-        xlabels = [label[0] for label in self.model_xlabels.get_values(top=col_min, bottom=col_max)]
-        ylabels = self.model_ylabels.get_values(left=row_min, right=row_max)
+        xlabels = [label[0] for label in self.model_hlabels.get_values(top=col_min, bottom=col_max)]
+        ylabels = self.model_vlabels.get_values(left=row_min, right=row_max)
         # transpose ylabels
         ylabels = [[str(ylabels[i][j]) for i in range(len(ylabels))] for j in range(len(ylabels[0]))]
         # if there is only one dimension, ylabels is empty

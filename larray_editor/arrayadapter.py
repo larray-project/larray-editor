@@ -7,11 +7,11 @@ from larray_editor.utils import Product, _LazyDimLabels
 
 
 class LArrayDataAdapter(object):
-    def __init__(self, axes_model, xlabels_model, ylabels_model, data_model):
+    def __init__(self, axes_model, hlabels_model, vlabels_model, data_model):
         # set models
         self.axes_model = axes_model
-        self.xlabels_model = xlabels_model
-        self.ylabels_model = ylabels_model
+        self.hlabels_model = hlabels_model
+        self.vlabels_model = vlabels_model
         self.data_model = data_model
 
         self.current_filter = {}
@@ -35,7 +35,7 @@ class LArrayDataAdapter(object):
                 axes_names = axes_names[:-2] + [axes_names[-2] + '\\' + axes_names[-1]]
             return [[axis_name] for axis_name in axes_names]
 
-    def get_xlabels(self):
+    def get_hlabels(self):
         axes = self.filtered_data.axes
         if self.filtered_data.size == 0 or len(axes) == 0:
             return [[]]
@@ -44,7 +44,7 @@ class LArrayDataAdapter(object):
             # return [(label,) for label in axes.labels[-1]]
             return Product([axes.labels[-1]])
 
-    def get_ylabels(self):
+    def get_vlabels(self):
         axes = self.filtered_data.axes
         if self.filtered_data.size == 0 or len(axes) == 0:
             return [[]]
@@ -108,15 +108,15 @@ class LArrayDataAdapter(object):
             self.filtered_data = la.aslarray(self.filtered_data)
 
         axes = self.get_axes()
-        xlabels = self.get_xlabels()
-        ylabels = self.get_ylabels()
+        hlabels = self.get_hlabels()
+        vlabels = self.get_vlabels()
         data_2D = self.get_2D_data()
         changes_2D = self.get_changes_2D()
         bg_value_2D = self.get_bg_value_2D(data_2D.shape)
 
         self.axes_model.set_data(axes)
-        self.xlabels_model.set_data(xlabels)
-        self.ylabels_model.set_data(ylabels)
+        self.hlabels_model.set_data(hlabels)
+        self.vlabels_model.set_data(vlabels)
         # using the protected version of the method to avoid calling reset() several times
         self.data_model._set_data(data_2D)
         self.data_model._set_changes(changes_2D)
