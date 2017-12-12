@@ -764,22 +764,19 @@ class ArrayEditorWidget(QWidget):
         # TODO: in the future, data should either be an adapter directly or we should instantiate one here depending
         # on the type of data it received. Having a single adapter instance and using set_data on it like we do now
         # cannot work because we will need a different adapter class for different data types.
-        data = la.aslarray(data)
 
-        axes = data.axes
-        display_names = axes.display_names
-
-        # update data format
-        self._update_digits_scientific(data)
+        # set data
+        self.data_adapter.set_data(data, bg_value=bg_value)
 
         # update filters
         filters_layout = self.filters_layout
         clear_layout(filters_layout)
-        # data.size > 0 to avoid arrays with length 0 axes and len(axes) > 0 to avoid scalars (scalar.size == 1)
-        if data.size > 0 and len(axes) > 0:
+        axes = self.data_adapter._get_axes()
+        # size > 0 to avoid arrays with length 0 axes and len(axes) > 0 to avoid scalars (scalar.size == 1)
+        if self.data_adapter.size > 0 and len(axes) > 0:
             filters_layout.addWidget(QLabel(_("Filters")))
-            for axis, display_name in zip(axes, display_names):
-                filters_layout.addWidget(QLabel(display_name))
+            for axis in axes:
+                filters_layout.addWidget(QLabel(axis.name))
                 # FIXME: on very large axes, this is getting too slow. Ideally the combobox should use a model which
                 # only fetch labels when they are needed to be displayed
                 if len(axis) < 10000:
@@ -788,8 +785,11 @@ class ArrayEditorWidget(QWidget):
                     filters_layout.addWidget(QLabel("too big to be filtered"))
             filters_layout.addStretch()
 
-        self.data_adapter.set_data(data, bg_value=bg_value)
-        self.gradient_chooser.setEnabled(self.model_data.bgcolor_possible)
+        # update data format
+        self._update_digits_scientific(self.data_adapter.get_data())
+
+        # update gradient_chooser
+        self.gradient_chooser.setEnabled(self.data_adapter.bgcolor_possible)
 
         # reset default size
         self.view_axes.set_default_size()
@@ -869,7 +869,7 @@ class ArrayEditorWidget(QWidget):
         # setting the format explicitly instead of relying on digits_spinbox.digits_changed to set it because
         # digits_changed is only triggered when digits actually changed, not when passing from
         # scientific -> non scientific or number -> object
-        self.set_format(data, ndecimals, scientific)
+        self.set_format(data.dtype, ndecimals, scientific)
 
     def _get_sample(self, data):
         assert isinstance(data, la.LArray)
@@ -979,12 +979,12 @@ class ArrayEditorWidget(QWidget):
 
     def digits_changed(self, value):
         self.digits = value
-        self.set_format(self.data_adapter, value, self.use_scientific)
+        self.set_format(self.data_adapter.dtype, value, self.use_scientific)
         self.model_data.reset()
 
-    def set_format(self, data, digits, scientific):
+    def set_format(self, dtype, digits, scientific):
         """data: object with a dtype attribute"""
-        type = data.dtype.type
+        type = dtype.type
         if type in (np.str, np.str_, np.bool_, np.bool, np.object_):
             fmt = '%s'
         else:
@@ -993,11 +993,11 @@ class ArrayEditorWidget(QWidget):
             format_letter = 'e' if scientific else 'f'
             fmt = '%%.%d%s' % (digits, format_letter)
         # this does not call model_data.reset() so it should be called by the caller
-        self.model_data._set_format(fmt)
+        self.model_data.set_format(fmt, reset=False)
 
     def create_filter_combo(self, axis):
         def filter_changed(checked_items):
-            self.data_adapter.change_filter(axis, checked_items)
+            self.data_adapter._change_filter(axis, checked_items)
         combo = FilterComboBox(self)
         combo.addItems([str(l) for l in axis.labels])
         combo.checkedItemsChanged.connect(filter_changed)
@@ -1119,7 +1119,7 @@ class ArrayEditorWidget(QWidget):
             return
 
         row_min, row_max, col_min, col_max = self.view_data._selection_bounds()
-        dim_names = self.data_adapter.get_axes_names()
+        dim_names = self.data_adapter._get_axes_names()
         # labels
         xlabels = [label[0] for label in self.model_hlabels.get_values(top=col_min, bottom=col_max)]
         ylabels = self.model_vlabels.get_values(left=row_min, right=row_max)

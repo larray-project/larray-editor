@@ -3,176 +3,71 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 import larray as la
 
-from larray_editor.utils import Product, _LazyDimLabels
+from larray_editor.utils import Product, _LazyDimLabels, Axis
 
 
-class LArrayDataAdapter(object):
+class AbstractAdapter(object):
     def __init__(self, axes_model, hlabels_model, vlabels_model, data_model):
-        # set models
+        self.current_filter = {}
+        self.changes = {}
+        self.original_data = None
+        self.bg_value = None
+        self.filtered_data = None
+
+        self.set_models(axes_model=axes_model, hlabels_model=hlabels_model, vlabels_model=vlabels_model,
+                        data_model=data_model)
+
+    def set_models(self, axes_model, hlabels_model, vlabels_model, data_model):
+        """Set models"""
         self.axes_model = axes_model
         self.hlabels_model = hlabels_model
         self.vlabels_model = vlabels_model
         self.data_model = data_model
 
-        self.current_filter = {}
-        self.changes = {}
-        self.la_data = None
-        self.bg_value = None
-        self.filtered_data = None
-
-    def get_axes_names(self):
-        return self.filtered_data.axes.display_names
-
-    def get_axes(self):
-        axes = self.filtered_data.axes
-        # test self.filtered_data.size == 0 is required in case an instance built as LArray([]) is passed
-        # test len(axes) == 0 is required when a user filters until to get a scalar
-        if self.filtered_data.size == 0 or len(axes) == 0:
-            return [[]]
-        else:
-            axes_names = axes.display_names
-            if len(axes_names) >= 2:
-                axes_names = axes_names[:-2] + [axes_names[-2] + '\\' + axes_names[-1]]
-            return [[axis_name] for axis_name in axes_names]
-
-    def get_hlabels(self):
-        axes = self.filtered_data.axes
-        if self.filtered_data.size == 0 or len(axes) == 0:
-            return [[]]
-        else:
-            # this is a lazy equivalent of:
-            # return [(label,) for label in axes.labels[-1]]
-            return Product([axes.labels[-1]])
-
-    def get_vlabels(self):
-        axes = self.filtered_data.axes
-        if self.filtered_data.size == 0 or len(axes) == 0:
-            return [[]]
-        elif len(axes) == 1:
-            return [['']]
-        else:
-            labels = axes.labels[:-1]
-            prod = Product(labels)
-            return [_LazyDimLabels(prod, i) for i in range(len(labels))]
-
-    def get_2D_data(self):
-        """Returns Numpy 2D ndarray"""
-        data_ND = self.filtered_data.data
-        shape_ND, ndim = data_ND.shape, data_ND.ndim
-        if ndim == 0:
-            shape_2D = (1, 1)
-        elif ndim == 1:
-            shape_2D = (1,) + shape_ND
-        elif ndim == 2:
-            shape_2D = shape_ND
-        else:
-            shape_2D = (np.prod(shape_ND[:-1]), shape_ND[-1])
-        return data_ND.reshape(shape_2D)
-
-    def get_changes_2D(self):
-        # we cannot apply the changes directly to data because it might be a view
-        changes_2D = {}
-        for k, v in self.changes.items():
-            local_key = self._map_global_to_filtered(k)
-            if local_key is not None:
-                changes_2D[local_key] = v
-        return changes_2D
-
-    def get_bg_value_2D(self, shape_2D):
-        if self.bg_value is not None:
-            filtered_bg_value = self.bg_value[self.current_filter]
-            if np.isscalar(filtered_bg_value):
-                filtered_bg_value = la.aslarray(filtered_bg_value)
-            return filtered_bg_value.data.reshape(shape_2D)
-        else:
-            return None
-
-    # XXX: or create two methods?:
-    # - set_data (which reset the current filter)
-    # - update_data (which sets new data but keeps current filter unchanged)
-    def set_data(self, data, bg_value=None):
-        assert isinstance(data, la.LArray)
-        self.current_filter = {}
-        self.changes = {}
-        self.la_data = la.aslarray(data)
-        self.bg_value = la.aslarray(bg_value) if bg_value is not None else None
-        self.update_filtered_data()
-        self.data_model.reset_minmax()
-        self.data_model.reset()
-
-    def update_filtered_data(self):
-        assert isinstance(self.la_data, la.LArray)
-        self.filtered_data = self.la_data[self.current_filter]
-
-        if np.isscalar(self.filtered_data):
-            self.filtered_data = la.aslarray(self.filtered_data)
-
-        axes = self.get_axes()
-        hlabels = self.get_hlabels()
-        vlabels = self.get_vlabels()
-        data_2D = self.get_2D_data()
-        changes_2D = self.get_changes_2D()
-        bg_value_2D = self.get_bg_value_2D(data_2D.shape)
-
-        self.axes_model.set_data(axes)
-        self.hlabels_model.set_data(hlabels)
-        self.vlabels_model.set_data(vlabels)
-        # using the protected version of the method to avoid calling reset() several times
-        self.data_model._set_data(data_2D)
-        self.data_model._set_changes(changes_2D)
-        self.data_model._set_bg_value(bg_value_2D)
-
     def get_data(self):
-        return self.la_data
+        """Return original data"""
+        return self.original_data
 
-    @property
-    def ndim(self):
-        return self.filtered_data.ndim
+    def prepare_data(self, data):
+        """Must be overridden if data passed to set_data need some checks and/or transformations"""
+        return data
 
-    @property
-    def dtype(self):
-        return self.la_data.dtype
+    def prepare_bg_value(self, bg_value):
+        """Must be overridden if bg_value passed to set_data need some checks and/or transformations"""
+        return bg_value
 
-    def update_changes(self):
-        for k, v in self.data_model.changes.items():
-            self.changes[self._map_filtered_to_global(k)] = v
+    def filter_data(self, data, filter):
+        """Return filtered data"""
+        raise NotImplementedError()
 
-    def _map_filtered_to_global(self, k):
+    def get_axes(self, data):
+        """Return list of :py:class:`Axis` or an empty list in case of a scalar or an empty array.
         """
-        map local (filtered data) 2D key to global (unfiltered) ND key.
+        raise NotImplementedError()
 
-        Parameters
-        ----------
-        k: tuple
-            Positional index (row, column) of the modified data cell.
+    def get_internal_data(self, data):
+        """Return internal data as a ND Numpy array"""
+        raise NotImplementedError()
 
-        Returns
-        -------
-        tuple
-            Labels associated with the modified element of the non-filtered array.
+    def get_bg_value(self, bg_value):
+        """Return bg_value as ND Numpy array or None.
+        It must have the same shape as data if not None.
         """
-        # transform local positional index key to (axis_ids: label) dictionary key.
-        # Contains only displayed axes
-        row, col = k
-        labels = [self.filtered_data.axes[-1].labels[col]]
-        for axis in reversed(self.filtered_data.axes[:-1]):
-            row, position = divmod(row, len(axis))
-            labels = [axis.labels[position]] + labels
-        axes_ids = list(self.filtered_data.axes.ids)
-        dkey = dict(zip(axes_ids, labels))
-        # add the "scalar" parts of the filter to it (ie the parts of the
-        # filter which removed dimensions)
-        dkey.update({k: v for k, v in self.current_filter.items() if np.isscalar(v)})
-        # re-transform it to tuple (to make it hashable/to store it in .changes)
-        return tuple(dkey[axis_id] for axis_id in self.la_data.axes.ids)
+        raise NotImplementedError()
 
-    def _map_global_to_filtered(self, k):
+    def _map_global_to_filtered(self, data, filtered_data, filter, key):
         """
         map global (unfiltered) ND key to local (filtered) 2D key
 
         Parameters
         ----------
-        k: tuple
+        data : array
+            Input array.
+        filtered_data : array
+            Filtered data.
+        filter : dict
+            Current filter.
+        key: tuple
             Labels associated with the modified element of the non-filtered array.
 
         Returns
@@ -180,42 +75,194 @@ class LArrayDataAdapter(object):
         tuple
             Positional index (row, column) of the modified data cell.
         """
-        assert isinstance(k, tuple) and len(k) == self.la_data.ndim
-        dkey = {axis_id: axis_key for axis_key, axis_id in zip(k, self.la_data.axes.ids)}
-        # transform global dictionary key to "local" (filtered) key by removing
-        # the parts of the key which are redundant with the filter
-        for axis_id, axis_filter in self.current_filter.items():
-            axis_key = dkey[axis_id]
-            if np.isscalar(axis_filter) and axis_key == axis_filter:
-                del dkey[axis_id]
-            elif not np.isscalar(axis_filter) and axis_key in axis_filter:
-                pass
-            else:
-                # that key is invalid for/outside the current filter
-                return None
-        # transform (axis:label) dict key to positional ND key
-        try:
-            index_key = self.filtered_data._translated_key(dkey)
-        except ValueError:
-            return None
-        # transform positional ND key to positional 2D key
-        strides = np.append(1, np.cumprod(self.filtered_data.shape[1:-1][::-1], dtype=int))[::-1]
-        return (index_key[:-1] * strides).sum(), index_key[-1]
+        raise NotImplementedError()
 
-    def change_filter(self, axis, indices):
+    def _map_filtered_to_global(self, filtered_data, data, filter, key):
+        """
+        map local (filtered data) 2D key to global (unfiltered) ND key.
+
+        Parameters
+        ----------
+        filtered_data : array
+            Filtered data.
+        data : array
+            Input array.
+        filter : dict
+            Current filter.
+        key: tuple
+            Positional index (row, column) of the modified data cell.
+
+        Returns
+        -------
+        tuple
+            Labels associated with the modified element of the non-filtered array.
+        """
+        raise NotImplementedError()
+
+    def change_filter(self, data, filter, axis, indices):
+        """Update current filter for a given axis if labels selection from the array widget has changed
+
+        Parameters
+        ----------
+        data : array
+            Input array.
+        filter: dict
+            Dictionary {axis_id: labels} representing the current selection.
+        axis: axis
+             Axis for which selection has changed.
+        indices: list of int
+            Indices of selected labels.
+        """
+        raise NotImplementedError()
+
+    def apply_changes(self, data, changes):
+        """Apply changes to the original data"""
+        raise NotImplementedError()
+
+    def get_ndim(self, data):
+        raise NotImplementedError()
+
+    def get_size(self, data):
+        raise NotImplementedError()
+
+    def get_dtype(self, data):
+        raise NotImplementedError()
+
+    @property
+    def ndim(self):
+        return self.get_ndim(self.original_data)
+
+    @property
+    def size(self):
+        return self.get_size(self.original_data)
+
+    @property
+    def dtype(self):
+        return self.get_dtype(self.original_data)
+
+    def _get_axes(self):
+        return self.get_axes(self.filtered_data)
+
+    @property
+    def bgcolor_possible(self):
+        return self.data_model.bgcolor_possible
+
+    def _get_axes_names(self):
+        return [axis.name for axis in self._get_axes()]
+
+    def _set_axes_names(self, reset=True):
+        axes_names = self._get_axes_names()
+        if len(axes_names) >= 2:
+            axes_names = axes_names[:-2] + [axes_names[-2] + '\\' + axes_names[-1]]
+        axes_names = [[axis_name] for axis_name in axes_names] if len(axes_names) > 0 else [[]]
+        self.axes_model.set_data(axes_names, reset)
+
+    def _set_vlabels(self, reset=True):
+        axes = self.get_axes(self.filtered_data)
+        if len(axes) == 0:
+            vlabels = [[]]
+        elif len(axes) == 1:
+            vlabels = [['']]
+        else:
+            vlabels = [axis.labels for axis in axes[:-1]]
+            prod = Product(vlabels)
+            vlabels = [_LazyDimLabels(prod, i) for i in range(len(vlabels))]
+        self.vlabels_model.set_data(vlabels, reset)
+
+    def _set_hlabels(self, reset=True):
+        axes = self.get_axes(self.filtered_data)
+        if len(axes) == 0:
+            hlabels = [[]]
+        else:
+            hlabels = axes[-1].labels
+            hlabels = Product([hlabels])
+        self.hlabels_model.set_data(hlabels, reset)
+
+    def _get_shape_2D(self, np_data):
+        shape, ndim = np_data.shape, np_data.ndim
+        if ndim == 0:
+            shape_2D = (1, 1)
+        elif ndim == 1:
+            shape_2D = (1,) + shape
+        elif ndim == 2:
+            shape_2D = shape
+        else:
+            shape_2D = (np.prod(shape[:-1]), shape[-1])
+        return shape_2D
+
+    def _set_data(self, reset=True):
+        """Feed the Data model with new data and update bg value if required"""
+        # get filtered data as Numpy ND array
+        np_data = self.get_internal_data(self.filtered_data)
+        assert isinstance(np_data, np.ndarray)
+        data_shape = np_data.shape
+        # compute equivalent 2D shape
+        shape_2D = self._get_shape_2D(np_data)
+        assert shape_2D[0] * shape_2D[1] == np_data.size
+        # feed the Data model with data reshaped as 2D array
+        # use flag reset=False to avoid calling reset() several times
+        self.data_model.set_data(np_data.reshape(shape_2D), reset)
+
+    def _set_bg_value(self, reset=True):
+        """Set the bg value in Data model"""
+        # get filtered bg value as Numpy ND array or None
+        np_bg_value = self.get_bg_value(self.filter_data(self.bg_value, self.current_filter))
+        if np_bg_value is not None:
+            data_shape = self.data_model.get_data().shape
+            assert isinstance(np_bg_value, np.ndarray) and np_bg_value.size == np.prod(data_shape)
+            np_bg_value = np_bg_value.reshape(data_shape)
+        # set bg_value in Data model (bg_value reshaped as 2D array)
+        # use flag reset=False to avoid calling reset() several times
+        self.data_model.set_bg_value(np_bg_value, reset)
+
+    def _set_changes(self):
+        """Map all changes applied to raw data to equivalent changes to data holded by models"""
+        # we cannot apply the changes directly to data because it might be a view
+        assert isinstance(self.changes, dict)
+        changes_2D = {}
+        for key, value in self.changes.items():
+            local_key = self._map_global_to_filtered(self.original_data, self.filtered_data, self.current_filter, key)
+            if local_key is not None:
+                changes_2D[local_key] = value
+        self.data_model.set_changes(changes_2D)
+
+    def _reset_minmax(self):
+        self.data_model.reset_minmax()
+        self.data_model.reset()
+
+    def _update_models(self, reset_model):
+        self._set_axes_names()
+        self._set_hlabels()
+        self._set_vlabels()
+        self._set_data(reset=False)
+        self._set_bg_value(reset=False)
+        self._set_changes()
+        if reset_model:
+            self.data_model.reset()
+
+    def update_filtered_data(self, reset_model=True):
+        self.filtered_data = self.filter_data(self.original_data, self.current_filter)
+        self._update_models(reset_model)
+
+    def set_data(self, data, changes=None, bg_value=None):
+        self.current_filter = {}
+        self.original_data = self.prepare_data(data)
+        self.bg_value = self.prepare_bg_value(bg_value)
+        self.changes = {} if changes is None else changes
+        self.update_filtered_data(reset_model=False)
+        self._reset_minmax()
+
+    def _change_filter(self, axis, indices):
         # must be done before changing self.current_filter
         self.update_changes()
-        axis_id = self.la_data.axes.axis_id(axis)
-        if not indices or len(indices) == len(axis.labels):
-            if axis_id in self.current_filter:
-                del self.current_filter[axis_id]
-        else:
-            if len(indices) == 1:
-                self.current_filter[axis_id] = axis.labels[indices[0]]
-            else:
-                self.current_filter[axis_id] = axis.labels[indices]
+        self.change_filter(self.original_data, self.current_filter, axis, indices)
         self.update_filtered_data()
-        self.data_model.reset()
+
+    def update_changes(self):
+        changes_2D = self.data_model.changes
+        for key, value in changes_2D.items():
+            self.changes[self._map_filtered_to_global(
+                self.filtered_data, self.original_data, self.current_filter, key)] = value
 
     def clear_changes(self):
         self.changes.clear()
@@ -226,20 +273,124 @@ class LArrayDataAdapter(object):
         # update changes
         self.update_changes()
         # update internal data
-        axes = self.la_data.axes
-        for k, v in self.changes.items():
-            self.la_data.i[axes.translate_full_key(k)] = v
+        self.apply_changes(self.original_data, self.changes)
         # update models
         self.update_filtered_data()
-        self.data_model.reset()
         # clear changes
         self.clear_changes()
         # return modified data
-        return self.la_data
+        return self.original_data
 
     def reject_changes(self):
         """Reject changes"""
         # clear changes
         self.clear_changes()
-        self.data_model.reset_minmax()
-        self.data_model.reset()
+        self._reset_minmax()
+
+
+class LArrayDataAdapter(AbstractAdapter):
+    def __init__(self, axes_model, hlabels_model, vlabels_model, data_model):
+        AbstractAdapter.__init__(self, axes_model=axes_model, hlabels_model=hlabels_model, vlabels_model=vlabels_model,
+                                 data_model=data_model)
+
+    def get_ndim(self, data):
+        return data.ndim
+
+    def get_size(self, data):
+        return data.size
+
+    def get_dtype(self, data):
+        return data.dtype
+
+    def prepare_data(self, data):
+        return la.aslarray(data)
+
+    def prepare_bg_value(self, bg_value):
+        return la.aslarray(bg_value) if bg_value is not None else None
+
+    def filter_data(self, data, filter):
+        if data is None:
+            return data
+        assert isinstance(data, la.LArray)
+        if filter is None:
+            return data
+        else:
+            assert isinstance(filter, dict)
+            data = data[filter]
+            return la.aslarray(data) if np.isscalar(data) else data
+
+    def get_axes(self, data):
+        assert isinstance(data, la.LArray)
+        axes = data.axes
+        # test data.size == 0 is required in case an instance built as LArray([]) is passed
+        # test len(axes) == 0 is required when a user filters until to get a scalar
+        if data.size == 0 or len(axes) == 0:
+            return []
+        else:
+            return [Axis(axes.axis_id(axis), name, axis.labels) for axis, name in zip(axes, axes.display_names)]
+
+    def get_internal_data(self, data):
+        assert isinstance(data, la.LArray)
+        return data.data
+
+    def get_bg_value(self, bg_value):
+        if bg_value is not None:
+            assert isinstance(bg_value, la.LArray)
+            return bg_value.data
+        else:
+            return bg_value
+
+    def _map_filtered_to_global(self, filtered_data, data, filter, key):
+        # transform local positional index key to (axis_ids: label) dictionary key.
+        # Contains only displayed axes
+        row, col = key
+        labels = [filtered_data.axes[-1].labels[col]]
+        for axis in reversed(filtered_data.axes[:-1]):
+            row, position = divmod(row, len(axis))
+            labels = [axis.labels[position]] + labels
+        axes_ids = list(filtered_data.axes.ids)
+        dkey = dict(zip(axes_ids, labels))
+        # add the "scalar" parts of the filter to it (ie the parts of the
+        # filter which removed dimensions)
+        dkey.update({k: v for k, v in filter.items() if np.isscalar(v)})
+        # re-transform it to tuple (to make it hashable/to store it in .changes)
+        return tuple(dkey[axis_id] for axis_id in data.axes.ids)
+
+    def _map_global_to_filtered(self, data, filtered_data, filter, key):
+        assert isinstance(key, tuple) and len(key) == data.ndim
+        dkey = {axis_id: axis_key for axis_key, axis_id in zip(key, data.axes.ids)}
+        # transform global dictionary key to "local" (filtered) key by removing
+        # the parts of the key which are redundant with the filter
+        for axis_id, axis_filter in filter.items():
+            axis_key = dkey[axis_id]
+            if np.isscalar(axis_filter) and axis_key == axis_filter:
+                del dkey[axis_id]
+            elif not np.isscalar(axis_filter) and axis_key in axis_filter:
+                pass
+            else:
+                # that key is invalid for/outside the current filter
+                return None
+        # transform (axis:label) dict key to positional ND key
+        try:
+            index_key = filtered_data._translated_key(dkey)
+        except ValueError:
+            return None
+        # transform positional ND key to positional 2D key
+        strides = np.append(1, np.cumprod(filtered_data.shape[1:-1][::-1], dtype=int))[::-1]
+        return (index_key[:-1] * strides).sum(), index_key[-1]
+
+    def change_filter(self, data, filter, axis, indices):
+        axis_id = axis.id
+        if not indices or len(indices) == len(axis):
+            if axis_id in filter:
+                del filter[axis_id]
+        else:
+            if len(indices) == 1:
+                filter[axis_id] = axis.labels[indices[0]]
+            else:
+                filter[axis_id] = axis.labels[indices]
+
+    def apply_changes(self, data, changes):
+        axes = data.axes
+        for k, v in changes.items():
+            data.i[axes.translate_full_key(k)] = v

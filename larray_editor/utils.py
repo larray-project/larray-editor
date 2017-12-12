@@ -330,6 +330,36 @@ def show_figure(parent, figure):
     main.show()
 
 
+class Axis(object):
+    """
+    Represents an Axis.
+
+    Parameters
+    ----------
+    id : str or int
+        Id of axis.
+    name : str
+        Name of the axis. Can be None.
+    labels : list or tuple or 1D array
+        List of labels
+    """
+    def __init__(self, id, name, labels):
+        if not isinstance(id, (str, int)):
+            raise TypeError("id must a string or a integer")
+        if not (hasattr(labels, '__len__') and hasattr(labels, '__getitem__')):
+            raise TypeError("labels must be a list or tuple or any 1D array-like")
+        self.id = id
+        self.name = name
+        self.labels = labels
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __str__(self):
+        name = str(self.name) if self.name is not None else '{?}'
+        return 'Axis({}, {}, {})'.format(self.id, name, self.labels)
+
+
 class Product(object):
     """
     Represents the `cartesian product` of several arrays.

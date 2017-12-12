@@ -47,9 +47,10 @@ class AbstractArrayModel(QAbstractTableModel):
     def _set_data(self, data):
         raise NotImplementedError()
 
-    def set_data(self, data):
+    def set_data(self, data, reset=True):
         self._set_data(data)
-        self.reset()
+        if reset:
+            self.reset()
 
     def rowCount(self, parent=QModelIndex()):
         return self.rows_loaded
@@ -229,7 +230,7 @@ class DataArrayModel(AbstractArrayModel):
         """Return data"""
         return self._data
 
-    def _set_changes(self, changes):
+    def set_changes(self, changes):
         self.changes = changes
 
     def _set_data(self, data):
@@ -275,32 +276,26 @@ class DataArrayModel(AbstractArrayModel):
             self.vmax = None
             self.bgcolor_possible = False
 
-    def set_format(self, format):
+    def set_format(self, format, reset=True):
         """Change display format"""
-        self._set_format(format)
-        self.reset()
-
-    def _set_format(self, format):
         self._format = format
+        if reset:
+            self.reset()
 
-    def set_bg_gradient(self, bg_gradient):
-        self._set_bg_gradient(bg_gradient)
-        self.reset()
-
-    def _set_bg_gradient(self, bg_gradient):
+    def set_bg_gradient(self, bg_gradient, reset=True):
         if bg_gradient is not None and not isinstance(bg_gradient, LinearGradient):
             raise ValueError("Expected None or LinearGradient instance for `bg_gradient` argument")
         self.bg_gradient = bg_gradient
+        if reset:
+            self.reset()
 
-    def set_bg_value(self, bg_value):
-        self._set_bg_value(bg_value)
-        self.reset()
-
-    def _set_bg_value(self, bg_value):
+    def set_bg_value(self, bg_value, reset=True):
         if bg_value is not None and not (isinstance(bg_value, np.ndarray) and bg_value.shape == self._data.shape):
             raise ValueError("Expected None or 2D Numpy ndarray with shape {} for `bg_value` argument"
                              .format(self._data.shape))
         self.bg_value = bg_value
+        if reset:
+            self.reset()
 
     def get_value(self, index):
         i, j = index.row(), index.column()
