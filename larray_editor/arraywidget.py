@@ -537,6 +537,7 @@ class ArrayEditorWidget(QWidget):
             readonly = True
         self.readonly = readonly
 
+        # TODO : models should be created here but not be used in any methods --> use Adapter instead
         self.model_axes = LabelsArrayModel(parent=self, readonly=readonly)
         self.view_axes = LabelsView(parent=self, model=self.model_axes, position=(TOP, LEFT))
 
@@ -739,6 +740,7 @@ class ArrayEditorWidget(QWidget):
         else:
             event.ignore()
 
+    # TODO : should not depend of data type --> move transpose action to Adapter
     def dropEvent(self, event):
         if event.mimeData().hasText():
             if self.filters_layout.geometry().contains(event.pos()):
@@ -800,6 +802,7 @@ class ArrayEditorWidget(QWidget):
 
         self.view_data.set_dtype(data.dtype)
 
+    # TODO: move part of this to Adapter
     # called by set_data and ArrayEditorWidget.accept_changes (this should not be the case IMO)
     # two cases:
     # * set_data should update both scientific and ndigits
@@ -872,6 +875,7 @@ class ArrayEditorWidget(QWidget):
         # scientific -> non scientific or number -> object
         self.set_format(data.dtype, ndecimals, scientific)
 
+    # TODO: move this to Adapter
     def _get_sample(self, data):
         assert isinstance(data, la.LArray)
         data = data.data
@@ -976,6 +980,7 @@ class ArrayEditorWidget(QWidget):
 
     def scientific_changed(self, value):
         self._update_digits_scientific(self.data_adapter.get_data(), scientific=value)
+        # TODO: move this to Adapter
         self.model_data.reset()
 
     def digits_changed(self, value):
@@ -983,6 +988,7 @@ class ArrayEditorWidget(QWidget):
         self.set_format(self.data_adapter.dtype, value, self.use_scientific)
         self.model_data.reset()
 
+    # TODO: move this to Adapter
     def set_format(self, dtype, digits, scientific):
         """data: object with a dtype attribute"""
         type = dtype.type
