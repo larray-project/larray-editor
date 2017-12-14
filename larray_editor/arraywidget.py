@@ -71,7 +71,6 @@ Array Editor Dialog based on Qt
 from __future__ import print_function
 
 import math
-from itertools import chain
 
 import numpy as np
 from qtpy.QtCore import Qt, QPoint, QItemSelection, QItemSelectionModel, Signal, QSize
@@ -978,46 +977,46 @@ class ArrayEditorWidget(QWidget):
         combo.checkedItemsChanged.connect(filter_changed)
         return combo
 
-    def _selection_data(self, headers=True, none_selects_all=True):
+    def _selection_data(self, headers=True, none_selects_all=True, iterator=True):
         """
-        Returns an iterator over selected labels and data
-        if headers=True and a Numpy ndarray containing only
-        the data otherwise.
+        Return either an object created by the adapter from the selection (if headers=True and iterator=False)
+        or an iterator over selected (labels and) data (if iterator=True)
+        or a Numpy ndarray containing only the raw data (if headers=False and iterator=False).
 
         Parameters
         ----------
         headers : bool, optional
-            Labels are also returned if True.
+            Labels are also returned if True. Defaults to True.
         none_selects_all : bool, optional
-            If True (default) and selection is empty, returns all data.
+            If True and selection is empty, returns all data. Defaults to True.
+        iterator : bool, optional
+            Whether or not to return an itertools.chain or an array built by the data_adapter.
 
         Returns
         -------
-        numpy.ndarray or itertools.chain
+        itertools.chain or array object or numpy.ndarray
         """
         bounds = self.view_data._selection_bounds(none_selects_all=none_selects_all)
         if bounds is None:
             return None
         row_min, row_max, col_min, col_max = bounds
-        raw_data = self.model_data.get_values(row_min, col_min, row_max, col_max)
         if headers:
-            if not self.data_adapter.ndim:
-                return raw_data
-            # FIXME: this is extremely ad-hoc.
-            # TODO: in the future (pandas-based branch) we should use to_string(data[self._selection_filter()])
-            dim_headers = self.model_axes.get_values()
-            hlabels = self.model_hlabels.get_values(top=col_min, bottom=col_max)
-            topheaders = [[dim_header[0] for dim_header in dim_headers] + [label[0] for label in hlabels]]
-            if self.data_adapter.ndim == 1:
-                return chain(topheaders, [chain([''], row) for row in raw_data])
+            raw_data, axes_names, hlabels, vlabels = self.data_adapter._extract_selection(row_min, col_min,
+                                                                                          row_max, col_max)
+            if iterator:
+                from itertools import chain
+                topheaders = [axes_names + hlabels]
+                if self.data_adapter.ndim == 1:
+                    return chain(topheaders, [chain([''], row) for row in raw_data])
+                else:
+                    assert self.data_adapter.ndim > 1
+                    return chain(topheaders,
+                                 [chain([vlabels[j][r] for j in range(len(vlabels))], row)
+                                  for r, row in enumerate(raw_data)])
             else:
-                assert self.data_adapter.ndim > 1
-                vlabels = self.model_vlabels.get_values(left=row_min, right=row_max)
-                return chain(topheaders,
-                             [chain([vlabels[j][r] for j in range(len(vlabels))], row)
-                              for r, row in enumerate(raw_data)])
+                return self.data_adapter.from_selection(raw_data, axes_names, vlabels, hlabels)
         else:
-            return raw_data
+            return self.data_adapter._extract_selection(row_min, col_min, row_max, col_max, headers=False)
 
     def copy(self):
         """Copy selection as text to clipboard"""
@@ -1037,18 +1036,24 @@ class ArrayEditorWidget(QWidget):
         clipboard.setText(text)
 
     def to_excel(self):
-        """View selection in Excel"""
-        if xw is None:
-            QMessageBox.critical(self, "Error", "to_excel() is not available because xlwings is not installed")
-        data = self._selection_data()
-        if data is None:
-            return
-        # convert (row) generators to lists then array
-        # TODO: the conversion to array is currently necessary even though xlwings will translate it back to a list
-        #       anyway. The problem is that our lists contains numpy types and especially np.str_ crashes xlwings.
-        #       unsure how we should fix this properly: in xlwings, or change _selection_data to return only standard
-        #       Python types.
-        xw.view(np.array([list(r) for r in data]))
+        """Export selection in Excel"""
+        try:
+            data = self._selection_data(iterator=False)
+            if data is None:
+                return
+            self.data_adapter.to_excel(data)
+        except NotImplementedError:
+            if xw is None:
+                QMessageBox.critical(self, "Error", "to_excel() is not available because xlwings is not installed")
+            data = self._selection_data()
+            if data is None:
+                return
+            # convert (row) generators to lists then array
+            # TODO: the conversion to array is currently necessary even though xlwings will translate it back to a list
+            #       anyway. The problem is that our lists contains numpy types and especially np.str_ crashes xlwings.
+            #       unsure how we should fix this properly: in xlwings, or change _selection_data to return only standard
+            #       Python types.
+            xw.view(np.array([list(r) for r in data]))
 
     def paste(self):
         bounds = self.view_data._selection_bounds()

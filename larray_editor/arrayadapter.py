@@ -62,6 +62,26 @@ class AbstractAdapter(object):
         """
         raise NotImplementedError()
 
+    def from_selection(self, raw_data, axes_names, vlabels, hlabels):
+        """Create and return an object of type managed by the adapter subclass.
+
+        Parameters
+        ----------
+        raw_data : Numpy.ndarray
+            Array of selected data.
+        axes_names : list of string
+            List of axis names
+        vlabels : nested list
+            Selected vertical labels
+        hlabels: list
+            Selected horizontal labels
+
+        Returns
+        -------
+        Object of the type managed by the adapter subclass.
+        """
+        raise NotImplementedError()
+
     def _map_global_to_filtered(self, data, filtered_data, filter, key):
         """
         map global (unfiltered) ND key to local (filtered) 2D key
@@ -119,6 +139,16 @@ class AbstractAdapter(object):
              Axis for which selection has changed.
         indices: list of int
             Indices of selected labels.
+        """
+        raise NotImplementedError()
+
+    def to_excel(self, data):
+        """Export data to an Excel Sheet
+
+        Parameters
+        ----------
+        data : array
+            Input array.
         """
         raise NotImplementedError()
 
@@ -223,6 +253,35 @@ class AbstractAdapter(object):
             Actual bounds (end bound is inclusive) if update was successful, None otherwise
         """
         return self.data_model.set_values(row_min, col_min, row_max, col_max, new_data)
+
+    def _extract_selection(self, row_min, col_min, row_max, col_max, headers=True):
+        """
+        Return raw data, axes names, horizontal labels and vertical labels if headers=True,
+        only raw data otherwise.
+
+        Parameters
+        ----------
+        row_min : int
+            Lower row of the data selection.
+        row_max : int
+            Upper row of the data selection.
+        col_min : int
+            Lower column of the data selection.
+        col_max : int
+            Upper column of the data selection.
+        headers : bool, optional
+            Whether or not to return axes names and labels in addition to raw data. Defaults to True.
+        """
+        raw_data = self.data_model.get_values(row_min, col_min, row_max, col_max)
+        if headers:
+            if not self.ndim:
+                return raw_data, None, None, None
+            axes_names = [axis_name[0] for axis_name in self.axes_model.get_values()]
+            hlabels = [label[0] for label in self.hlabels_model.get_values(top=col_min, bottom=col_max)]
+            vlabels = self.vlabels_model.get_values(left=row_min, right=row_max) if self.ndim > 1 else []
+            return raw_data, axes_names, hlabels, vlabels
+        else:
+            return raw_data
 
     def _get_axes_names(self):
         return [axis.name for axis in self._get_axes()]
@@ -419,6 +478,19 @@ class LArrayDataAdapter(AbstractAdapter):
             return bg_value.data
         else:
             return bg_value
+
+    # TODO: We may want to update this method the day LArray objects will also handle MultiIndex-like axes.
+    def from_selection(self, raw_data, axes_names, vlabels, hlabels):
+        axes = []
+        # combine the N-1 first axes
+        if len(axes_names) > 1:
+            combined_axes_names = '_'.join(axes_names[:-1])
+            combined_labels = ['_'.join([str(vlabels[i][j]) for i in range(len(vlabels))])
+                               for j in range(len(vlabels[0]))]
+            axes = [la.Axis(combined_labels, combined_axes_names)]
+        # last axis
+        axes += [la.Axis(hlabels, axes_names[-1])]
+        return la.LArray(raw_data, axes)
 
     def _map_filtered_to_global(self, filtered_data, data, filter, key):
         # transform local positional index key to (axis_ids: label) dictionary key.
