@@ -548,6 +548,7 @@ class ArrayEditorWidget(QWidget):
 
         self.model_data = DataArrayModel(parent=self, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
         self.view_data = DataView(parent=self, model=self.model_data)
+        self.model_data.dataChanged.connect(parent.data_changed)
 
         self.data_adapter = LArrayDataAdapter(axes_model=self.model_axes, hlabels_model=self.model_hlabels,
                                               vlabels_model=self.model_vlabels, data_model=self.model_data)

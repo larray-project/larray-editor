@@ -113,7 +113,6 @@ class MappingEditor(QMainWindow):
 
         self.data = Session()
         self.arraywidget = ArrayEditorWidget(self, readonly=readonly)
-        self.arraywidget.model_data.dataChanged.connect(self.data_changed)
 
         if qtconsole_available:
             # Create an in-process kernel
