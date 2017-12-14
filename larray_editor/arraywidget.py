@@ -1076,7 +1076,7 @@ class ArrayEditorWidget(QWidget):
         if new_data.shape[1] > 1:
             col_max = col_min + new_data.shape[1]
 
-        result = self.model_data.set_values(row_min, col_min, row_max, col_max, new_data)
+        result = self.data_adapter._paste_data(row_min, col_min, row_max, col_max, new_data)
         if result is None:
             return
 

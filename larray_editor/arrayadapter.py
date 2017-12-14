@@ -201,6 +201,29 @@ class AbstractAdapter(object):
             fmt = '%%.%d%s' % (digits, format_letter)
         self.data_model.set_format(fmt, reset)
 
+    def _paste_data(self, row_min, col_min, row_max, col_max, new_data):
+        """Paste new data in Data model.
+
+        Parameters
+        ----------
+        row_min : int
+            Lower row where to paste new data.
+        row_max : int
+            Upper row where to paste new data.
+        col_min : int
+            Lower column where to paste new data.
+        col_max : int
+            Upper column where to paste new data.
+        new_data : Numpy 2D array
+            Data to be pasted.
+
+        Returns
+        -------
+        tuple of QModelIndex or None
+            Actual bounds (end bound is inclusive) if update was successful, None otherwise
+        """
+        return self.data_model.set_values(row_min, col_min, row_max, col_max, new_data)
+
     def _get_axes_names(self):
         return [axis.name for axis in self._get_axes()]
 
