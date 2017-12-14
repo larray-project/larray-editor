@@ -82,6 +82,29 @@ class AbstractAdapter(object):
         """
         raise NotImplementedError()
 
+    def move_axis(self, data, bg_value, old_index, new_index):
+        """Move an axis of the data array and associated bg value.
+
+        Parameters
+        ----------
+        data : array
+            Array to transpose
+        bg_value : array or None
+            Associated bg_value array.
+        old_index: int
+            Current index of axis to move.
+        new_index: int
+            New index of axis after transpose.
+
+        Returns
+        -------
+        data : array
+            Transposed input array
+        bg_value: array
+            Transposed associated bg_value
+        """
+        raise NotImplementedError()
+
     def _map_global_to_filtered(self, data, filtered_data, filter, key):
         """
         map global (unfiltered) ND key to local (filtered) 2D key
@@ -405,6 +428,12 @@ class AbstractAdapter(object):
         self.update_filtered_data(reset_model=False)
         self._reset_minmax()
 
+    def _move_axis(self, old_index, new_index):
+        self.original_data, self.bg_value = self.move_axis(self.original_data, self.bg_value, old_index, new_index)
+        self.changes = {}
+        self.update_filtered_data(reset_model=False)
+        self._reset_minmax()
+
     def _change_filter(self, axis, indices):
         # must be done before changing self.current_filter
         self.update_changes()
@@ -505,6 +534,16 @@ class LArrayDataAdapter(AbstractAdapter):
         # last axis
         axes += [la.Axis(hlabels, axes_names[-1])]
         return la.LArray(raw_data, axes)
+
+    def move_axis(self, data, bg_value, old_index, new_index):
+        assert isinstance(data, la.LArray)
+        new_axes = data.axes.copy()
+        new_axes.insert(new_index, new_axes.pop(new_axes[old_index]))
+        data = data.transpose(new_axes)
+        if bg_value is not None:
+            assert isinstance(bg_value, la.LArray)
+            bg_value = bg_value.transpose(new_axes)
+        return data, bg_value
 
     def _map_filtered_to_global(self, filtered_data, data, filter, key):
         # transform local positional index key to (axis_ids: label) dictionary key.

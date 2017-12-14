@@ -739,21 +739,15 @@ class ArrayEditorWidget(QWidget):
         else:
             event.ignore()
 
-    # TODO : should not depend of data type --> move transpose action to Adapter
     def dropEvent(self, event):
         if event.mimeData().hasText():
             if self.filters_layout.geometry().contains(event.pos()):
-                previous_index, success = event.mimeData().data("application/x-axis-index").toInt()
+                old_index, success = event.mimeData().data("application/x-axis-index").toInt()
                 new_index = self.filters_layout.indexOf(self.childAt(event.pos())) // 2
 
-                la_data = self.data_adapter.get_data()
-                new_axes = la_data.axes.copy()
-                new_axes.insert(new_index, new_axes.pop(new_axes[previous_index]))
-                la_data = la_data.transpose(new_axes)
-                bg_value = self.data_adapter.bg_value
-                if bg_value is not None:
-                    bg_value = bg_value.transpose(new_axes)
-                self.set_data(la_data, bg_value)
+                self.data_adapter._move_axis(old_index=old_index, new_index=new_index)
+                self._update_filter()
+                self._reset_default_size()
 
                 event.setDropAction(Qt.MoveAction)
                 event.accept()
@@ -771,6 +765,27 @@ class ArrayEditorWidget(QWidget):
         self.data_adapter.set_data(data, bg_value=bg_value)
 
         # update filters
+        self._update_filter()
+
+        # update data format
+        self._update_digits_scientific()
+
+        # update gradient_chooser
+        self.gradient_chooser.setEnabled(self.data_adapter.bgcolor_possible)
+
+        # reset default size
+        self._reset_default_size()
+
+        # update dtype in view_data
+        self.view_data.set_dtype(self.data_adapter.dtype)
+
+    def _reset_default_size(self):
+        self.view_axes.set_default_size()
+        self.view_vlabels.set_default_size()
+        self.view_hlabels.set_default_size()
+        self.view_data.set_default_size()
+
+    def _update_filter(self):
         filters_layout = self.filters_layout
         clear_layout(filters_layout)
         axes = self.data_adapter._get_axes()
@@ -786,20 +801,6 @@ class ArrayEditorWidget(QWidget):
                 else:
                     filters_layout.addWidget(QLabel("too big to be filtered"))
             filters_layout.addStretch()
-
-        # update data format
-        self._update_digits_scientific()
-
-        # update gradient_chooser
-        self.gradient_chooser.setEnabled(self.data_adapter.bgcolor_possible)
-
-        # reset default size
-        self.view_axes.set_default_size()
-        self.view_vlabels.set_default_size()
-        self.view_hlabels.set_default_size()
-        self.view_data.set_default_size()
-
-        self.view_data.set_dtype(self.data_adapter.dtype)
 
     # called by set_data and ArrayEditorWidget.accept_changes (this should not be the case IMO)
     # two cases:
