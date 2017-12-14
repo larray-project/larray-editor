@@ -23,6 +23,13 @@ class AbstractAdapter(object):
         self.hlabels_model = hlabels_model
         self.vlabels_model = vlabels_model
         self.data_model = data_model
+        self.models = \
+            {
+            'axes': self.axes_model,
+            'hlabels': self.hlabels_model,
+            'vlabels': self.vlabels_model,
+            'data': self.data_model
+            }
 
     def get_data(self):
         """Return original data"""
@@ -146,6 +153,26 @@ class AbstractAdapter(object):
     @property
     def bgcolor_possible(self):
         return self.data_model.bgcolor_possible
+
+    def columnCount(self, model):
+        """Return number of columns.
+
+        Parameters
+        ----------
+        model: str
+            Model's name. Must be either 'axes' or 'hlabels' or 'vlabels' or 'data'.
+        """
+        return self.models[model].columnCount()
+
+    def rowCount(self, model):
+        """Return number of rows.
+
+        Parameters
+        ----------
+        model: str
+            Model's name. Must be either 'axes' or 'hlabels' or 'vlabels' or 'data'.
+        """
+        return self.models[model].rowCount()
 
     def _get_axes_names(self):
         return [axis.name for axis in self._get_axes()]

@@ -931,10 +931,10 @@ class ArrayEditorWidget(QWidget):
 
     def autofit_columns(self):
         self.view_axes.autofit_columns()
-        for column in range(self.model_axes.columnCount()):
+        for column in range(self.data_adapter.columnCount('axes')):
             self.resize_axes_column_to_contents(column)
         self.view_hlabels.autofit_columns()
-        for column in range(self.model_hlabels.columnCount()):
+        for column in range(self.data_adapter.columnCount('hlabels')):
             self.resize_hlabels_column_to_contents(column)
 
     def resize_axes_column_to_contents(self, column):
