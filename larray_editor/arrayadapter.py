@@ -215,6 +215,9 @@ class AbstractAdapter(object):
         # use flag reset=False to avoid calling reset() several times
         self.data_model.set_bg_value(np_bg_value, reset)
 
+    def _set_bg_gradient(self, gradient):
+        self.data_model.set_bg_gradient(gradient)
+
     def _set_changes(self):
         """Map all changes applied to raw data to equivalent changes to data holded by models"""
         # we cannot apply the changes directly to data because it might be a view

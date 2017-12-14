@@ -686,7 +686,7 @@ class ArrayEditorWidget(QWidget):
 
     def gradient_changed(self, index):
         gradient = self.gradient_chooser.itemData(index) if index > 0 else None
-        self.model_data.set_bg_gradient(gradient)
+        self.data_adapter._set_bg_gradient(gradient)
 
     def mousePressEvent(self, event):
         self.dragLabel = self.childAt(event.pos()) if event.button() == Qt.LeftButton else None
