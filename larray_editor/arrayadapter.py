@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 import larray as la
 
-from larray_editor.utils import Product, _LazyDimLabels, Axis
+from larray_editor.utils import Product, _LazyDimLabels, Axis, get_sample
 
 
 class AbstractAdapter(object):
@@ -173,6 +173,33 @@ class AbstractAdapter(object):
             Model's name. Must be either 'axes' or 'hlabels' or 'vlabels' or 'data'.
         """
         return self.models[model].rowCount()
+
+    def _get_sample(self):
+        """Return a sample of the internal data"""
+        data = self.get_internal_data(self.filtered_data)
+        # this will yield a data sample of max 200
+        sample = get_sample(data, 200)
+        return sample[np.isfinite(sample)]
+
+    def set_format(self, digits, scientific, reset=True):
+        """Set format.
+
+        Parameters
+        ----------
+        digits : int
+            Number of digits to display.
+        scientific : boolean
+            Whether or not to display values in scientific format.
+        reset: boolean, optional
+            Whether or not to reset the data model. Defaults to True.
+        """
+        type = self.dtype.type
+        if type in (np.str, np.str_, np.bool_, np.bool, np.object_):
+            fmt = '%s'
+        else:
+            format_letter = 'e' if scientific else 'f'
+            fmt = '%%.%d%s' % (digits, format_letter)
+        self.data_model.set_format(fmt, reset)
 
     def _get_axes_names(self):
         return [axis.name for axis in self._get_axes()]

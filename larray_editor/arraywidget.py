@@ -789,7 +789,7 @@ class ArrayEditorWidget(QWidget):
             filters_layout.addStretch()
 
         # update data format
-        self._update_digits_scientific(self.data_adapter.get_data())
+        self._update_digits_scientific()
 
         # update gradient_chooser
         self.gradient_chooser.setEnabled(self.data_adapter.bgcolor_possible)
@@ -800,24 +800,19 @@ class ArrayEditorWidget(QWidget):
         self.view_hlabels.set_default_size()
         self.view_data.set_default_size()
 
-        self.view_data.set_dtype(data.dtype)
+        self.view_data.set_dtype(self.data_adapter.dtype)
 
-    # TODO: move part of this to Adapter
     # called by set_data and ArrayEditorWidget.accept_changes (this should not be the case IMO)
     # two cases:
     # * set_data should update both scientific and ndigits
     # * toggling scientific checkbox should update only ndigits
-    def _update_digits_scientific(self, data, scientific=None):
-        """
-        data : LArray
-        """
-        dtype = data.dtype
+    def _update_digits_scientific(self, scientific=None):
+        dtype = self.data_adapter.dtype
         if dtype.type in (np.str, np.str_, np.bool_, np.bool, np.object_):
             scientific = False
             ndecimals = 0
         else:
-            # XXX: move this to the adapter (return a data sample as a Numpy array)
-            data = self._get_sample(data)
+            data = self.data_adapter._get_sample()
 
             # max_digits = self.get_max_digits()
             # default width can fit 8 chars
@@ -870,21 +865,11 @@ class ArrayEditorWidget(QWidget):
         self.scientific_checkbox.setEnabled(is_number(dtype))
         self.scientific_checkbox.blockSignals(False)
 
-        # setting the format explicitly instead of relying on digits_spinbox.digits_changed to set it because
-        # digits_changed is only triggered when digits actually changed, not when passing from
-        # scientific -> non scientific or number -> object
-        self.set_format(data.dtype, ndecimals, scientific)
-
-    # TODO: move this to Adapter
-    def _get_sample(self, data):
-        assert isinstance(data, la.LArray)
-        data = data.data
-        # TODO: use utils.get_sample instead
-        size = data.size
-        # this will yield a data sample of max 199
-        step = (size // 100) if size > 100 else 1
-        sample = data.flat[::step]
-        return sample[np.isfinite(sample)]
+        # 1) setting the format explicitly instead of relying on digits_spinbox.digits_changed to set it because
+        #    digits_changed is only triggered when digits actually changed, not when passing from
+        #    scientific -> non scientific or number -> object
+        # 2) data model is reset by default in set_format, no need to call it explicitly
+        self.data_adapter.set_format(ndecimals, scientific)
 
     def format_helper(self, data):
         if not data.size:
@@ -979,28 +964,11 @@ class ArrayEditorWidget(QWidget):
         self.data_adapter.reject_changes()
 
     def scientific_changed(self, value):
-        self._update_digits_scientific(self.data_adapter.get_data(), scientific=value)
-        # TODO: move this to Adapter
-        self.model_data.reset()
+        self._update_digits_scientific(scientific=value)
 
     def digits_changed(self, value):
         self.digits = value
-        self.set_format(self.data_adapter.dtype, value, self.use_scientific)
-        self.model_data.reset()
-
-    # TODO: move this to Adapter
-    def set_format(self, dtype, digits, scientific):
-        """data: object with a dtype attribute"""
-        type = dtype.type
-        if type in (np.str, np.str_, np.bool_, np.bool, np.object_):
-            fmt = '%s'
-        else:
-            # XXX: use self.digits_spinbox.getValue() and instead?
-            # XXX: use self.digits_spinbox.getValue() instead?
-            format_letter = 'e' if scientific else 'f'
-            fmt = '%%.%d%s' % (digits, format_letter)
-        # this does not call model_data.reset() so it should be called by the caller
-        self.model_data.set_format(fmt, reset=False)
+        self.data_adapter.set_format(value, self.use_scientific)
 
     def create_filter_combo(self, axis):
         def filter_changed(checked_items):
