@@ -1094,59 +1094,66 @@ class ArrayEditorWidget(QWidget):
         from matplotlib.figure import Figure
         from larray_editor.utils import show_figure
 
-        data = self._selection_data(headers=False)
-        if data is None:
-            return
+        try:
+            data = self._selection_data(iterator=False)
+            if data is None:
+                return
+            figure = self.data_adapter.plot(data)
 
-        row_min, row_max, col_min, col_max = self.view_data._selection_bounds()
-        dim_names = self.data_adapter._get_axes_names()
-        # labels
-        xlabels = [label[0] for label in self.model_hlabels.get_values(top=col_min, bottom=col_max)]
-        ylabels = self.model_vlabels.get_values(left=row_min, right=row_max)
-        # transpose ylabels
-        ylabels = [[str(ylabels[i][j]) for i in range(len(ylabels))] for j in range(len(ylabels[0]))]
-        # if there is only one dimension, ylabels is empty
-        if not ylabels:
-            ylabels = [[]]
+        except NotImplementedError:
+            bounds = self.view_data._selection_bounds()
+            if bounds is None:
+                return
+            row_min, row_max, col_min, col_max = bounds
+            data, dim_names, xlabels, ylabels = self.data_adapter._extract_selection(row_min, col_min, row_max, col_max)
+            if data is None:
+                return
 
-        assert data.ndim == 2
+            # transpose ylabels
+            ylabels = [[str(ylabels[i][j]) for i in range(len(ylabels))] for j in range(len(ylabels[0]))]
+            # if there is only one dimension, ylabels is empty
+            if not ylabels:
+                ylabels = [[]]
 
-        figure = Figure()
+            assert data.ndim == 2
 
-        # create an axis
-        ax = figure.add_subplot(111)
+            figure = Figure()
 
-        if data.shape[1] == 1:
-            # plot one column
-            xlabel = ','.join(dim_names[:-1])
-            xticklabels = ['\n'.join(row) for row in ylabels]
-            xdata = np.arange(row_max - row_min)
-            ax.plot(xdata, data[:, 0])
-            ax.set_ylabel(xlabels[0])
-        else:
-            # plot each row as a line
-            xlabel = dim_names[-1]
-            xticklabels = [str(label) for label in xlabels]
-            xdata = np.arange(col_max - col_min)
-            for row in range(len(data)):
-                ax.plot(xdata, data[row], label=' '.join(ylabels[row]))
+            # create an axis
+            ax = figure.add_subplot(111)
 
-        # set x axis
-        ax.set_xlabel(xlabel)
-        ax.set_xlim((xdata[0], xdata[-1]))
-        # we need to do that because matplotlib is smart enough to
-        # not show all ticks but a selection. However, that selection
-        # may include ticks outside the range of x axis
-        xticks = [t for t in ax.get_xticks().astype(int) if t <= len(xticklabels) - 1]
-        xticklabels = [xticklabels[t] for t in xticks]
-        ax.set_xticks(xticks)
-        ax.set_xticklabels(xticklabels)
+            if data.shape[1] == 1:
+                # plot one column
+                xlabel = ','.join(dim_names[:-1])
+                xticklabels = ['\n'.join(row) for row in ylabels]
+                xdata = np.arange(row_max - row_min)
+                ax.plot(xdata, data[:, 0])
+                ax.set_ylabel(xlabels[0])
+            else:
+                # plot each row as a line
+                xlabel = dim_names[-1]
+                xticklabels = [str(label) for label in xlabels]
+                xdata = np.arange(col_max - col_min)
+                for row in range(len(data)):
+                    ax.plot(xdata, data[row], label=' '.join(ylabels[row]))
 
-        if data.shape[1] != 1 and ylabels != [[]]:
-            # set legend
-            # box = ax.get_position()
-            # ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
-            # ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-            ax.legend()
+            # set x axis
+            ax.set_xlabel(xlabel)
+            ax.set_xlim((xdata[0], xdata[-1]))
+            # we need to do that because matplotlib is smart enough to
+            # not show all ticks but a selection. However, that selection
+            # may include ticks outside the range of x axis
+            xticks = [t for t in ax.get_xticks().astype(int) if t <= len(xticklabels) - 1]
+            xticklabels = [xticklabels[t] for t in xticks]
+            ax.set_xticks(xticks)
+            ax.set_xticklabels(xticklabels)
 
+            if data.shape[1] != 1 and ylabels != [[]]:
+                # set legend
+                # box = ax.get_position()
+                # ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
+                # ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+                ax.legend()
+
+        # Display figure
         show_figure(self, figure)

@@ -148,9 +148,23 @@ class AbstractAdapter(object):
         Parameters
         ----------
         data : array
-            Input array.
+            data to export.
         """
         raise NotImplementedError()
+
+    def plot(self, data):
+        """Return a matplotlib.Figure object using input data.
+
+        Parameters
+        ----------
+        data : array
+            Data to plot.
+
+        Returns
+        -------
+        A matplotlib.Figure object.
+        """
+        raise NotImplementedError
 
     def apply_changes(self, data, changes):
         """Apply changes to the original data"""
