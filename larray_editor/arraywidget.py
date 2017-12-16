@@ -87,10 +87,9 @@ except ImportError:
 
 from larray_editor.utils import (keybinding, create_action, clear_layout, get_font, from_qvariant, to_qvariant,
                                  is_number, is_float, _, ima, LinearGradient)
-from larray_editor.arrayadapter import LArrayDataAdapter
+from larray_editor.arrayadapter import get_adapter
 from larray_editor.arraymodel import LabelsArrayModel, DataArrayModel
 from larray_editor.combo import FilterComboBox, FilterMenu
-import larray as la
 
 
 # XXX: define Enum instead ?
@@ -536,22 +535,21 @@ class ArrayEditorWidget(QWidget):
             readonly = True
         self.readonly = readonly
 
-        # TODO : models should be created here but not be used in any methods --> use Adapter instead
-        self.model_axes = LabelsArrayModel(parent=self, readonly=readonly)
-        self.view_axes = LabelsView(parent=self, model=self.model_axes, position=(TOP, LEFT))
+        model_axes = LabelsArrayModel(parent=self, readonly=readonly)
+        self.view_axes = LabelsView(parent=self, model=model_axes, position=(TOP, LEFT))
 
-        self.model_hlabels = LabelsArrayModel(parent=self, readonly=readonly)
-        self.view_hlabels = LabelsView(parent=self, model=self.model_hlabels, position=(TOP, RIGHT))
+        model_hlabels = LabelsArrayModel(parent=self, readonly=readonly)
+        self.view_hlabels = LabelsView(parent=self, model=model_hlabels, position=(TOP, RIGHT))
 
-        self.model_vlabels = LabelsArrayModel(parent=self, readonly=readonly)
-        self.view_vlabels = LabelsView(parent=self, model=self.model_vlabels, position=(BOTTOM, LEFT))
+        model_vlabels = LabelsArrayModel(parent=self, readonly=readonly)
+        self.view_vlabels = LabelsView(parent=self, model=model_vlabels, position=(BOTTOM, LEFT))
 
-        self.model_data = DataArrayModel(parent=self, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
-        self.view_data = DataView(parent=self, model=self.model_data)
-        self.model_data.dataChanged.connect(parent.data_changed)
+        model_data = DataArrayModel(parent=self, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
+        self.view_data = DataView(parent=self, model=model_data)
+        model_data.dataChanged.connect(parent.data_changed)
 
-        self.data_adapter = LArrayDataAdapter(axes_model=self.model_axes, hlabels_model=self.model_hlabels,
-                                              vlabels_model=self.model_vlabels, data_model=self.model_data)
+        self.data_adapter = get_adapter(data=data, changes=None, bg_value=bg_value, axes_model=model_axes,
+                                        hlabels_model=model_hlabels, vlabels_model=model_vlabels, data_model=model_data)
 
         # Create vertical and horizontal scrollbars
         self.vscrollbar = ScrollBar(self, self.view_data.verticalScrollBar())
@@ -676,7 +674,7 @@ class ArrayEditorWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
-        self.model_data.set_bg_gradient(gradient_map[bg_gradient])
+        self.data_adapter._set_bg_gradient(gradient_map[bg_gradient])
         if data is not None:
             self.set_data(data, bg_value=bg_value)
 
@@ -757,12 +755,10 @@ class ArrayEditorWidget(QWidget):
             event.ignore()
 
     def set_data(self, data, bg_value=None):
-        # TODO: in the future, data should either be an adapter directly or we should instantiate one here depending
-        # on the type of data it received. Having a single adapter instance and using set_data on it like we do now
-        # cannot work because we will need a different adapter class for different data types.
 
-        # set data
-        self.data_adapter.set_data(data, bg_value=bg_value)
+        # get new adapter instance + set data
+        models = self.data_adapter.models
+        self.data_adapter = get_adapter(data=data, changes=None, bg_value=bg_value, **models)
 
         # update filters
         self._update_filter()
@@ -916,10 +912,10 @@ class ArrayEditorWidget(QWidget):
 
     def autofit_columns(self):
         self.view_axes.autofit_columns()
-        for column in range(self.data_adapter.columnCount('axes')):
+        for column in range(self.data_adapter.columnCount('axes_model')):
             self.resize_axes_column_to_contents(column)
         self.view_hlabels.autofit_columns()
-        for column in range(self.data_adapter.columnCount('hlabels')):
+        for column in range(self.data_adapter.columnCount('hlabels_models')):
             self.resize_hlabels_column_to_contents(column)
 
     def resize_axes_column_to_contents(self, column):

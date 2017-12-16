@@ -6,16 +6,43 @@ import larray as la
 from larray_editor.utils import Product, _LazyDimLabels, Axis, get_sample
 
 
-class AbstractAdapter(object):
-    def __init__(self, axes_model, hlabels_model, vlabels_model, data_model):
-        self.current_filter = {}
-        self.changes = {}
-        self.original_data = None
-        self.bg_value = None
-        self.filtered_data = None
+REGISTERED_ADAPTERS = {}
 
+def register_adapter(type):
+    """Class decorator to register new adapter
+
+    Parameters
+    ----------
+    type : type
+        Type associated with adapter class.
+    """
+    def decorate_class(cls):
+        if type not in REGISTERED_ADAPTERS:
+            REGISTERED_ADAPTERS[type] = cls
+        return  cls
+    return decorate_class
+
+
+def get_adapter(data, changes, bg_value, axes_model, hlabels_model, vlabels_model, data_model):
+    data_type = type(data) if data is not None else data
+    if data_type not in REGISTERED_ADAPTERS:
+        raise ValueError("No Adapter implemented for data with type {}".format(data_type))
+    adapter_cls = REGISTERED_ADAPTERS[data_type]
+    return adapter_cls(data, changes, bg_value, axes_model, hlabels_model, vlabels_model, data_model)
+
+
+@register_adapter(None)
+class AbstractAdapter(object):
+    def __init__(self, data, changes, bg_value, axes_model, hlabels_model, vlabels_model, data_model):
         self.set_models(axes_model=axes_model, hlabels_model=hlabels_model, vlabels_model=vlabels_model,
                         data_model=data_model)
+        if data is not None:
+            self._set_data(data, changes, bg_value)
+        else:
+            self.current_filter = {}
+            self.original_data = None
+            self.bg_value = self.prepare_bg_value(bg_value)
+            self.changes = {}
 
     def set_models(self, axes_model, hlabels_model, vlabels_model, data_model):
         """Set models"""
@@ -25,10 +52,10 @@ class AbstractAdapter(object):
         self.data_model = data_model
         self.models = \
             {
-            'axes': self.axes_model,
-            'hlabels': self.hlabels_model,
-            'vlabels': self.vlabels_model,
-            'data': self.data_model
+            'axes_model': self.axes_model,
+            'hlabels_model': self.hlabels_model,
+            'vlabels_model': self.vlabels_model,
+            'data_model': self.data_model
             }
 
     def get_data(self):
@@ -227,7 +254,7 @@ class AbstractAdapter(object):
         Parameters
         ----------
         model: str
-            Model's name. Must be either 'axes' or 'hlabels' or 'vlabels' or 'data'.
+            Model's name. Must be either 'axes_model' or 'hlabels_model' or 'vlabels_model' or 'data_model'.
         """
         return self.models[model].columnCount()
 
@@ -237,7 +264,7 @@ class AbstractAdapter(object):
         Parameters
         ----------
         model: str
-            Model's name. Must be either 'axes' or 'hlabels' or 'vlabels' or 'data'.
+            Model's name. Must be either 'axes_model' or 'hlabels_model' or 'vlabels_model' or 'data_model'.
         """
         return self.models[model].rowCount()
 
@@ -363,7 +390,7 @@ class AbstractAdapter(object):
             shape_2D = (np.prod(shape[:-1]), shape[-1])
         return shape_2D
 
-    def _set_data(self, reset=True):
+    def _set_raw_data(self, reset=True):
         """Feed the Data model with new data and update bg value if required"""
         # get filtered data as Numpy ND array
         np_data = self.get_internal_data(self.filtered_data)
@@ -410,7 +437,7 @@ class AbstractAdapter(object):
         self._set_axes_names()
         self._set_hlabels()
         self._set_vlabels()
-        self._set_data(reset=False)
+        self._set_raw_data(reset=False)
         self._set_bg_value(reset=False)
         self._set_changes()
         if reset_model:
@@ -420,7 +447,7 @@ class AbstractAdapter(object):
         self.filtered_data = self.filter_data(self.original_data, self.current_filter)
         self._update_models(reset_model)
 
-    def set_data(self, data, changes=None, bg_value=None):
+    def _set_data(self, data, changes=None, bg_value=None):
         self.current_filter = {}
         self.original_data = self.prepare_data(data)
         self.bg_value = self.prepare_bg_value(bg_value)
@@ -470,9 +497,12 @@ class AbstractAdapter(object):
         self._reset_minmax()
 
 
+@register_adapter(np.ndarray)
+@register_adapter(la.LArray)
 class LArrayDataAdapter(AbstractAdapter):
-    def __init__(self, axes_model, hlabels_model, vlabels_model, data_model):
-        AbstractAdapter.__init__(self, axes_model=axes_model, hlabels_model=hlabels_model, vlabels_model=vlabels_model,
+    def __init__(self, data, changes, bg_value, axes_model, hlabels_model, vlabels_model, data_model):
+        AbstractAdapter.__init__(self, data=data, changes=changes, bg_value=bg_value,
+                                 axes_model=axes_model, hlabels_model=hlabels_model, vlabels_model=vlabels_model,
                                  data_model=data_model)
 
     def get_ndim(self, data):
