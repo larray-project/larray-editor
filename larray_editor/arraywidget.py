@@ -535,21 +535,22 @@ class ArrayEditorWidget(QWidget):
             readonly = True
         self.readonly = readonly
 
-        model_axes = LabelsArrayModel(parent=self, readonly=readonly)
-        self.view_axes = LabelsView(parent=self, model=model_axes, position=(TOP, LEFT))
+        # prepare internal views and models
+        self.model_axes = LabelsArrayModel(parent=self, readonly=readonly)
+        self.view_axes = LabelsView(parent=self, model=self.model_axes, position=(TOP, LEFT))
 
-        model_hlabels = LabelsArrayModel(parent=self, readonly=readonly)
-        self.view_hlabels = LabelsView(parent=self, model=model_hlabels, position=(TOP, RIGHT))
+        self.model_hlabels = LabelsArrayModel(parent=self, readonly=readonly)
+        self.view_hlabels = LabelsView(parent=self, model=self.model_hlabels, position=(TOP, RIGHT))
 
-        model_vlabels = LabelsArrayModel(parent=self, readonly=readonly)
-        self.view_vlabels = LabelsView(parent=self, model=model_vlabels, position=(BOTTOM, LEFT))
+        self.model_vlabels = LabelsArrayModel(parent=self, readonly=readonly)
+        self.view_vlabels = LabelsView(parent=self, model=self.model_vlabels, position=(BOTTOM, LEFT))
 
-        model_data = DataArrayModel(parent=self, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
-        self.view_data = DataView(parent=self, model=model_data)
-        model_data.dataChanged.connect(parent.data_changed)
+        self.model_data = DataArrayModel(parent=self, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
+        self.view_data = DataView(parent=self, model=self.model_data)
+        self.model_data.dataChanged.connect(parent.data_changed)
 
-        self.data_adapter = get_adapter(data=data, changes=None, bg_value=bg_value, axes_model=model_axes,
-                                        hlabels_model=model_hlabels, vlabels_model=model_vlabels, data_model=model_data)
+        # in case data is None
+        self.data_adapter = None
 
         # Create vertical and horizontal scrollbars
         self.vscrollbar = ScrollBar(self, self.view_data.verticalScrollBar())
@@ -674,7 +675,10 @@ class ArrayEditorWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
-        self.data_adapter._set_bg_gradient(gradient_map[bg_gradient])
+        # set gradient
+        self.model_data.set_bg_gradient(gradient_map[bg_gradient])
+
+        # set data
         if data is not None:
             self.set_data(data, bg_value=bg_value)
 
@@ -755,10 +759,10 @@ class ArrayEditorWidget(QWidget):
             event.ignore()
 
     def set_data(self, data, bg_value=None):
-
         # get new adapter instance + set data
-        models = self.data_adapter.models
-        self.data_adapter = get_adapter(data=data, changes=None, bg_value=bg_value, **models)
+        self.data_adapter = get_adapter(data=data, changes=None, bg_value=bg_value,
+                                        axes_model=self.model_axes, hlabels_model=self.model_hlabels,
+                                        vlabels_model=self.model_vlabels, data_model=self.model_data)
 
         # update filters
         self._update_filter()

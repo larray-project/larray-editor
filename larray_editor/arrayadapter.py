@@ -24,14 +24,15 @@ def register_adapter(type):
 
 
 def get_adapter(data, changes, bg_value, axes_model, hlabels_model, vlabels_model, data_model):
-    data_type = type(data) if data is not None else data
+    if data is None:
+        return None
+    data_type = type(data)
     if data_type not in REGISTERED_ADAPTERS:
         raise ValueError("No Adapter implemented for data with type {}".format(data_type))
     adapter_cls = REGISTERED_ADAPTERS[data_type]
     return adapter_cls(data, changes, bg_value, axes_model, hlabels_model, vlabels_model, data_model)
 
 
-@register_adapter(None)
 class AbstractAdapter(object):
     def __init__(self, data, changes, bg_value, axes_model, hlabels_model, vlabels_model, data_model):
         self.set_models(axes_model=axes_model, hlabels_model=hlabels_model, vlabels_model=vlabels_model,
