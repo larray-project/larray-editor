@@ -23,45 +23,81 @@ def register_adapter(type):
     return decorate_class
 
 
-def get_adapter(data, changes, bg_value, axes_model, hlabels_model, vlabels_model, data_model):
+def get_adapter(data, changes, bg_value):
     if data is None:
         return None
     data_type = type(data)
     if data_type not in REGISTERED_ADAPTERS:
-        raise ValueError("No Adapter implemented for data with type {}".format(data_type))
+        raise TypeError("No Adapter implemented for data with type {}".format(data_type))
     adapter_cls = REGISTERED_ADAPTERS[data_type]
-    return adapter_cls(data, changes, bg_value, axes_model, hlabels_model, vlabels_model, data_model)
+    return adapter_cls(data, changes, bg_value)
 
 
 class AbstractAdapter(object):
-    def __init__(self, data, changes, bg_value, axes_model, hlabels_model, vlabels_model, data_model):
-        self.set_models(axes_model=axes_model, hlabels_model=hlabels_model, vlabels_model=vlabels_model,
-                        data_model=data_model)
-        if data is not None:
-            self._set_data(data, changes, bg_value)
+    def __init__(self, data, changes, bg_value):
+        self.data = data
+        self.bg_value = bg_value
+        self.changes = changes
+        self.current_filter = {}
+        self.update_filtered_data()
+
+    # ===================== #
+    #      PROPERTIES       #
+    # ===================== #
+
+    @property
+    def data(self):
+        return self._original_data
+
+    @data.setter
+    def data(self, original_data):
+        assert original_data is not None, "{} does not accept None as input data".format(self.__class__)
+        self._original_data = self.prepare_data(original_data)
+
+    @property
+    def bg_value(self):
+        return self._bg_value
+
+    @bg_value.setter
+    def bg_value(self, bg_value):
+        self._bg_value = self.prepare_bg_value(bg_value)
+
+    @property
+    def changes(self):
+        return self._changes
+
+    @changes.setter
+    def changes(self, changes):
+        if changes is None:
+            self._changes = {}
         else:
-            self.current_filter = {}
-            self.original_data = None
-            self.bg_value = self.prepare_bg_value(bg_value)
-            self.changes = {}
+            assert isinstance(changes, dict), "{} only accept None or a dict as input changes".format(self.__class__)
+            self._changes = changes
 
-    def set_models(self, axes_model, hlabels_model, vlabels_model, data_model):
-        """Set models"""
-        self.axes_model = axes_model
-        self.hlabels_model = hlabels_model
-        self.vlabels_model = vlabels_model
-        self.data_model = data_model
-        self.models = \
-            {
-            'axes_model': self.axes_model,
-            'hlabels_model': self.hlabels_model,
-            'vlabels_model': self.vlabels_model,
-            'data_model': self.data_model
-            }
+    @property
+    def ndim(self):
+        return self.get_ndim(self._original_data)
 
-    def get_data(self):
-        """Return original data"""
-        return self.original_data
+    @property
+    def size(self):
+        return self.get_size(self._original_data)
+
+    @property
+    def dtype(self):
+        return self.get_dtype(self._original_data)
+
+    # ===================== #
+    #  METHODS TO OVERRIDE  #
+    # ===================== #
+
+    def get_ndim(self, data):
+        raise NotImplementedError()
+
+    def get_size(self, data):
+        raise NotImplementedError()
+
+    def get_dtype(self, data):
+        raise NotImplementedError()
 
     def prepare_data(self, data):
         """Must be overridden if data passed to set_data need some checks and/or transformations"""
@@ -80,11 +116,11 @@ class AbstractAdapter(object):
         """
         raise NotImplementedError()
 
-    def get_internal_data(self, data):
+    def _get_raw_data(self, data):
         """Return internal data as a ND Numpy array"""
         raise NotImplementedError()
 
-    def get_bg_value(self, bg_value):
+    def _get_bg_value(self, bg_value):
         """Return bg_value as ND Numpy array or None.
         It must have the same shape as data if not None.
         """
@@ -221,144 +257,28 @@ class AbstractAdapter(object):
         """Apply changes to the original data"""
         raise NotImplementedError()
 
-    def get_ndim(self, data):
-        raise NotImplementedError()
+    # =========================== #
+    #       OTHER METHODS         #
+    # =========================== #
 
-    def get_size(self, data):
-        raise NotImplementedError()
-
-    def get_dtype(self, data):
-        raise NotImplementedError()
-
-    @property
-    def ndim(self):
-        return self.get_ndim(self.original_data)
-
-    @property
-    def size(self):
-        return self.get_size(self.original_data)
-
-    @property
-    def dtype(self):
-        return self.get_dtype(self.original_data)
-
-    def _get_axes(self):
+    def get_axes_filtered_data(self):
         return self.get_axes(self.filtered_data)
 
-    @property
-    def bgcolor_possible(self):
-        return self.data_model.bgcolor_possible
-
-    def columnCount(self, model):
-        """Return number of columns.
-
-        Parameters
-        ----------
-        model: str
-            Model's name. Must be either 'axes_model' or 'hlabels_model' or 'vlabels_model' or 'data_model'.
-        """
-        return self.models[model].columnCount()
-
-    def rowCount(self, model):
-        """Return number of rows.
-
-        Parameters
-        ----------
-        model: str
-            Model's name. Must be either 'axes_model' or 'hlabels_model' or 'vlabels_model' or 'data_model'.
-        """
-        return self.models[model].rowCount()
-
-    def _get_sample(self):
+    def get_sample(self):
         """Return a sample of the internal data"""
-        data = self.get_internal_data(self.filtered_data)
+        data = self._get_raw_data(self.filtered_data)
         # this will yield a data sample of max 200
         sample = get_sample(data, 200)
         return sample[np.isfinite(sample)]
 
-    def set_format(self, digits, scientific, reset=True):
-        """Set format.
-
-        Parameters
-        ----------
-        digits : int
-            Number of digits to display.
-        scientific : boolean
-            Whether or not to display values in scientific format.
-        reset: boolean, optional
-            Whether or not to reset the data model. Defaults to True.
-        """
-        type = self.dtype.type
-        if type in (np.str, np.str_, np.bool_, np.bool, np.object_):
-            fmt = '%s'
-        else:
-            format_letter = 'e' if scientific else 'f'
-            fmt = '%%.%d%s' % (digits, format_letter)
-        self.data_model.set_format(fmt, reset)
-
-    def _paste_data(self, row_min, col_min, row_max, col_max, new_data):
-        """Paste new data in Data model.
-
-        Parameters
-        ----------
-        row_min : int
-            Lower row where to paste new data.
-        row_max : int
-            Upper row where to paste new data.
-        col_min : int
-            Lower column where to paste new data.
-        col_max : int
-            Upper column where to paste new data.
-        new_data : Numpy 2D array
-            Data to be pasted.
-
-        Returns
-        -------
-        tuple of QModelIndex or None
-            Actual bounds (end bound is inclusive) if update was successful, None otherwise
-        """
-        return self.data_model.set_values(row_min, col_min, row_max, col_max, new_data)
-
-    def _extract_selection(self, row_min, col_min, row_max, col_max, headers=True):
-        """
-        Return raw data, axes names, horizontal labels and vertical labels if headers=True,
-        only raw data otherwise.
-
-        Parameters
-        ----------
-        row_min : int
-            Lower row of the data selection.
-        row_max : int
-            Upper row of the data selection.
-        col_min : int
-            Lower column of the data selection.
-        col_max : int
-            Upper column of the data selection.
-        headers : bool, optional
-            Whether or not to return axes names and labels in addition to raw data. Defaults to True.
-        """
-        raw_data = self.data_model.get_values(row_min, col_min, row_max, col_max)
-        if headers:
-            if not self.ndim:
-                return raw_data, None, None, None
-            axes_names = [axis_name[0] for axis_name in self.axes_model.get_values()]
-            hlabels = [label[0] for label in self.hlabels_model.get_values(top=col_min, bottom=col_max)]
-            vlabels = self.vlabels_model.get_values(left=row_min, right=row_max) if self.ndim > 1 else []
-            return raw_data, axes_names, hlabels, vlabels
-        else:
-            return raw_data
-
-    def _get_axes_names(self):
-        return [axis.name for axis in self._get_axes()]
-
-    def _set_axes_names(self, reset=True):
-        axes_names = self._get_axes_names()
-        if len(axes_names) >= 2:
+    def get_axes_names(self, fold_last_axis=False):
+        axes_names = [axis.name for axis in self.get_axes_filtered_data()]
+        if fold_last_axis and len(axes_names) >= 2:
             axes_names = axes_names[:-2] + [axes_names[-2] + '\\' + axes_names[-1]]
         axes_names = [[axis_name] for axis_name in axes_names] if len(axes_names) > 0 else [[]]
-        self.axes_model.set_data(axes_names, reset)
+        return axes_names
 
-    def _set_vlabels(self, reset=True):
+    def get_vlabels(self):
         axes = self.get_axes(self.filtered_data)
         if len(axes) == 0:
             vlabels = [[]]
@@ -368,16 +288,16 @@ class AbstractAdapter(object):
             vlabels = [axis.labels for axis in axes[:-1]]
             prod = Product(vlabels)
             vlabels = [_LazyDimLabels(prod, i) for i in range(len(vlabels))]
-        self.vlabels_model.set_data(vlabels, reset)
+        return vlabels
 
-    def _set_hlabels(self, reset=True):
+    def get_hlabels(self):
         axes = self.get_axes(self.filtered_data)
         if len(axes) == 0:
             hlabels = [[]]
         else:
             hlabels = axes[-1].labels
             hlabels = Product([hlabels])
-        self.hlabels_model.set_data(hlabels, reset)
+        return hlabels
 
     def _get_shape_2D(self, np_data):
         shape, ndim = np_data.shape, np_data.ndim
@@ -391,120 +311,66 @@ class AbstractAdapter(object):
             shape_2D = (np.prod(shape[:-1]), shape[-1])
         return shape_2D
 
-    def _set_raw_data(self, reset=True):
-        """Feed the Data model with new data and update bg value if required"""
+    def get_raw_data(self):
         # get filtered data as Numpy ND array
-        np_data = self.get_internal_data(self.filtered_data)
+        np_data = self._get_raw_data(self.filtered_data)
         assert isinstance(np_data, np.ndarray)
-        data_shape = np_data.shape
         # compute equivalent 2D shape
         shape_2D = self._get_shape_2D(np_data)
         assert shape_2D[0] * shape_2D[1] == np_data.size
-        # feed the Data model with data reshaped as 2D array
-        # use flag reset=False to avoid calling reset() several times
-        self.data_model.set_data(np_data.reshape(shape_2D), reset)
+        # return data reshaped as 2D array
+        return np_data.reshape(shape_2D)
 
-    def _set_bg_value(self, reset=True):
-        """Set the bg value in Data model"""
+    def get_bg_value(self):
         # get filtered bg value as Numpy ND array or None
-        np_bg_value = self.get_bg_value(self.filter_data(self.bg_value, self.current_filter))
-        if np_bg_value is not None:
-            data_shape = self.data_model.get_data().shape
-            assert isinstance(np_bg_value, np.ndarray) and np_bg_value.size == np.prod(data_shape)
-            np_bg_value = np_bg_value.reshape(data_shape)
-        # set bg_value in Data model (bg_value reshaped as 2D array)
-        # use flag reset=False to avoid calling reset() several times
-        self.data_model.set_bg_value(np_bg_value, reset)
+        if self.bg_value is None:
+            return self.bg_value
+        np_bg_value = self._get_bg_value(self.filter_data(self.bg_value, self.current_filter))
+        # compute equivalent 2D shape
+        shape_2D = self._get_shape_2D(np_bg_value)
+        assert shape_2D[0] * shape_2D[1] == np_bg_value.size
+        # return bg_value reshaped as 2D array if not None
+        return np_bg_value.reshape(shape_2D)
 
-    def _set_bg_gradient(self, gradient):
-        self.data_model.set_bg_gradient(gradient)
-
-    def _set_changes(self):
-        """Map all changes applied to raw data to equivalent changes to data holded by models"""
+    def get_model_changes(self):
         # we cannot apply the changes directly to data because it might be a view
-        assert isinstance(self.changes, dict)
         changes_2D = {}
         for key, value in self.changes.items():
-            local_key = self._map_global_to_filtered(self.original_data, self.filtered_data, self.current_filter, key)
+            local_key = self._map_global_to_filtered(self.data, self.filtered_data, self.current_filter, key)
             if local_key is not None:
                 changes_2D[local_key] = value
-        self.data_model.set_changes(changes_2D)
+        return changes_2D
 
-    def _reset_minmax(self):
-        self.data_model.reset_minmax()
-        self.data_model.reset()
+    def update_filtered_data(self):
+        self.filtered_data = self.filter_data(self.data, self.current_filter)
 
-    def _update_models(self, reset_model):
-        self._set_axes_names()
-        self._set_hlabels()
-        self._set_vlabels()
-        self._set_raw_data(reset=False)
-        self._set_bg_value(reset=False)
-        self._set_changes()
-        if reset_model:
-            self.data_model.reset()
-
-    def update_filtered_data(self, reset_model=True):
-        self.filtered_data = self.filter_data(self.original_data, self.current_filter)
-        self._update_models(reset_model)
-
-    def _set_data(self, data, changes=None, bg_value=None):
-        self.current_filter = {}
-        self.original_data = self.prepare_data(data)
-        self.bg_value = self.prepare_bg_value(bg_value)
-        self.changes = {} if changes is None else changes
-        self.update_filtered_data(reset_model=False)
-        self._reset_minmax()
-
-    def _move_axis(self, old_index, new_index):
-        self.original_data, self.bg_value = self.move_axis(self.original_data, self.bg_value, old_index, new_index)
-        self.changes = {}
-        self.update_filtered_data(reset_model=False)
-        self._reset_minmax()
-
-    def _change_filter(self, axis, indices):
-        # must be done before changing self.current_filter
-        self.update_changes()
-        self.change_filter(self.original_data, self.current_filter, axis, indices)
+    def _update_filter(self, axis, indices, data_model_changes):
+        # must be done before to call update_filter method of data_adapter
+        self.update_changes(data_model_changes)
+        self.change_filter(self.data, self.current_filter, axis, indices)
         self.update_filtered_data()
 
-    def update_changes(self):
-        changes_2D = self.data_model.changes
-        for key, value in changes_2D.items():
+    def update_changes(self, data_model_changes):
+        for key, value in data_model_changes.items():
             self.changes[self._map_filtered_to_global(
-                self.filtered_data, self.original_data, self.current_filter, key)] = value
+                self.filtered_data, self.data, self.current_filter, key)] = value
 
     def clear_changes(self):
         self.changes.clear()
-        self.data_model.changes.clear()
 
-    def accept_changes(self):
+    def accept_changes(self, data_model_changes):
         """Accept changes"""
-        # update changes
-        self.update_changes()
+        # update internal changes
+        self.update_changes(data_model_changes)
         # update internal data
-        self.apply_changes(self.original_data, self.changes)
-        # update models
-        self.update_filtered_data()
-        # clear changes
-        self.clear_changes()
-        # return modified data
-        return self.original_data
-
-    def reject_changes(self):
-        """Reject changes"""
-        # clear changes
-        self.clear_changes()
-        self._reset_minmax()
+        self.apply_changes(self.data, self.changes)
 
 
 @register_adapter(np.ndarray)
 @register_adapter(la.LArray)
 class LArrayDataAdapter(AbstractAdapter):
-    def __init__(self, data, changes, bg_value, axes_model, hlabels_model, vlabels_model, data_model):
-        AbstractAdapter.__init__(self, data=data, changes=changes, bg_value=bg_value,
-                                 axes_model=axes_model, hlabels_model=hlabels_model, vlabels_model=vlabels_model,
-                                 data_model=data_model)
+    def __init__(self, data, changes, bg_value):
+        AbstractAdapter.__init__(self, data=data, changes=changes, bg_value=bg_value)
 
     def get_ndim(self, data):
         return data.ndim
@@ -542,11 +408,11 @@ class LArrayDataAdapter(AbstractAdapter):
         else:
             return [Axis(axes.axis_id(axis), name, axis.labels) for axis, name in zip(axes, axes.display_names)]
 
-    def get_internal_data(self, data):
+    def _get_raw_data(self, data):
         assert isinstance(data, la.LArray)
         return data.data
 
-    def get_bg_value(self, bg_value):
+    def _get_bg_value(self, bg_value):
         if bg_value is not None:
             assert isinstance(bg_value, la.LArray)
             return bg_value.data

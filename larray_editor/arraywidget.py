@@ -687,7 +687,7 @@ class ArrayEditorWidget(QWidget):
 
     def gradient_changed(self, index):
         gradient = self.gradient_chooser.itemData(index) if index > 0 else None
-        self.data_adapter._set_bg_gradient(gradient)
+        self.model_data.set_bg_gradient(gradient)
 
     def mousePressEvent(self, event):
         self.dragLabel = self.childAt(event.pos()) if event.button() == Qt.LeftButton else None
@@ -747,9 +747,9 @@ class ArrayEditorWidget(QWidget):
                 old_index, success = event.mimeData().data("application/x-axis-index").toInt()
                 new_index = self.filters_layout.indexOf(self.childAt(event.pos())) // 2
 
-                self.data_adapter._move_axis(old_index=old_index, new_index=new_index)
-                self._update_filter()
-                self._reset_default_size()
+                data, bg_value = self.data_adapter.data, self.data_adapter.bg_value
+                data, bg_value = self.data_adapter.move_axis(data, bg_value, old_index, new_index)
+                self.set_data(data, bg_value)
 
                 event.setDropAction(Qt.MoveAction)
                 event.accept()
@@ -758,24 +758,50 @@ class ArrayEditorWidget(QWidget):
         else:
             event.ignore()
 
+    def _reset_minmax(self):
+        self.model_data.reset_minmax()
+
+    def _update_models(self, reset_model, reset_minmax):
+        # axes names
+        axes_names = self.data_adapter.get_axes_names(fold_last_axis=True)
+        self.model_axes.set_data(axes_names)
+        # horizontal labels
+        hlabels = self.data_adapter.get_hlabels()
+        self.model_hlabels.set_data(hlabels)
+        # vertical labels
+        vlabels = self.data_adapter.get_vlabels()
+        self.model_vlabels.set_data(vlabels)
+        # raw data
+        # use flag reset=False to avoid calling reset() several times
+        raw_data = self.data_adapter.get_raw_data()
+        self.model_data.set_data(raw_data, reset=False)
+        # bg value
+        # use flag reset=False to avoid calling reset() several times
+        bg_value = self.data_adapter.get_bg_value()
+        self.model_data.set_bg_value(bg_value, reset=False)
+        # changes
+        changes = self.data_adapter.get_model_changes()
+        self.model_data.set_changes(changes)
+        # reset min and max values if required
+        if reset_minmax:
+            self._reset_minmax()
+        # reset the data model if required
+        if reset_model:
+            self.model_data.reset()
+
     def set_data(self, data, bg_value=None):
         # get new adapter instance + set data
-        self.data_adapter = get_adapter(data=data, changes=None, bg_value=bg_value,
-                                        axes_model=self.model_axes, hlabels_model=self.model_hlabels,
-                                        vlabels_model=self.model_vlabels, data_model=self.model_data)
-
+        self.data_adapter = get_adapter(data=data, changes=None, bg_value=bg_value)
         # update filters
         self._update_filter()
-
+        # update models
+        self._update_models(reset_model=True, reset_minmax=True)
         # update data format
         self._update_digits_scientific()
-
         # update gradient_chooser
-        self.gradient_chooser.setEnabled(self.data_adapter.bgcolor_possible)
-
+        self.gradient_chooser.setEnabled(self.model_data.bgcolor_possible)
         # reset default size
         self._reset_default_size()
-
         # update dtype in view_data
         self.view_data.set_dtype(self.data_adapter.dtype)
 
@@ -788,7 +814,7 @@ class ArrayEditorWidget(QWidget):
     def _update_filter(self):
         filters_layout = self.filters_layout
         clear_layout(filters_layout)
-        axes = self.data_adapter._get_axes()
+        axes = self.data_adapter.get_axes_filtered_data()
         # size > 0 to avoid arrays with length 0 axes and len(axes) > 0 to avoid scalars (scalar.size == 1)
         if self.data_adapter.size > 0 and len(axes) > 0:
             filters_layout.addWidget(QLabel(_("Filters")))
@@ -802,6 +828,26 @@ class ArrayEditorWidget(QWidget):
                     filters_layout.addWidget(QLabel("too big to be filtered"))
             filters_layout.addStretch()
 
+    def set_format(self, digits, scientific, reset=True):
+        """Set format.
+
+        Parameters
+        ----------
+        digits : int
+            Number of digits to display.
+        scientific : boolean
+            Whether or not to display values in scientific format.
+        reset: boolean, optional
+            Whether or not to reset the data model. Defaults to True.
+        """
+        type = self.data_adapter.dtype.type
+        if type in (np.str, np.str_, np.bool_, np.bool, np.object_):
+            fmt = '%s'
+        else:
+            format_letter = 'e' if scientific else 'f'
+            fmt = '%%.%d%s' % (digits, format_letter)
+        self.model_data.set_format(fmt, reset)
+
     # called by set_data and ArrayEditorWidget.accept_changes (this should not be the case IMO)
     # two cases:
     # * set_data should update both scientific and ndigits
@@ -812,7 +858,7 @@ class ArrayEditorWidget(QWidget):
             scientific = False
             ndecimals = 0
         else:
-            data = self.data_adapter._get_sample()
+            data = self.data_adapter.get_sample()
 
             # max_digits = self.get_max_digits()
             # default width can fit 8 chars
@@ -868,8 +914,8 @@ class ArrayEditorWidget(QWidget):
         # 1) setting the format explicitly instead of relying on digits_spinbox.digits_changed to set it because
         #    digits_changed is only triggered when digits actually changed, not when passing from
         #    scientific -> non scientific or number -> object
-        # 2) data model is reset by default in set_format, no need to call it explicitly
-        self.data_adapter.set_format(ndecimals, scientific)
+        # 2) data model is reset in set_format by default
+        self.set_format(ndecimals, scientific)
 
     def format_helper(self, data):
         if not data.size:
@@ -916,10 +962,10 @@ class ArrayEditorWidget(QWidget):
 
     def autofit_columns(self):
         self.view_axes.autofit_columns()
-        for column in range(self.data_adapter.columnCount('axes_model')):
+        for column in range(self.model_axes.columnCount()):
             self.resize_axes_column_to_contents(column)
         self.view_hlabels.autofit_columns()
-        for column in range(self.data_adapter.columnCount('hlabels_models')):
+        for column in range(self.model_hlabels.columnCount()):
             self.resize_hlabels_column_to_contents(column)
 
     def resize_axes_column_to_contents(self, column):
@@ -952,16 +998,33 @@ class ArrayEditorWidget(QWidget):
 
     @property
     def dirty(self):
-        self.data_adapter.update_changes()
+        model_changes = self.model_data.changes
+        self.data_adapter.update_changes(model_changes)
         return len(self.data_adapter.changes) > 0
+
+    def clear_changes(self):
+        self.data_adapter.clear_changes()
+        self.model_data.changes.clear()
 
     def accept_changes(self):
         """Accept changes"""
-        self.data_adapter.accept_changes()
+        model_changes = self.model_data.changes
+        # propagate changes from data model to adapter
+        self.data_adapter.accept_changes(model_changes)
+        # update filtered data
+        self.data_adapter.update_filtered_data()
+        # update models
+        self._update_models(reset_model=True, reset_minmax=True)
+        # clear changes
+        self.clear_changes()
+        # return modified data
+        return self.data_adapter.data
 
     def reject_changes(self):
         """Reject changes"""
-        self.data_adapter.reject_changes()
+        self.clear_changes()
+        self._reset_minmax()
+        self.model_data.reset()
 
     def scientific_changed(self, value):
         self._update_digits_scientific(scientific=value)
@@ -970,9 +1033,14 @@ class ArrayEditorWidget(QWidget):
         self.digits = value
         self.data_adapter.set_format(value, self.use_scientific)
 
+    def change_filter(self, axis, indices):
+        model_changes = self.model_data.changes
+        self.data_adapter._update_filter(axis, indices, model_changes)
+        self._update_models(reset_model=True, reset_minmax=False)
+
     def create_filter_combo(self, axis):
         def filter_changed(checked_items):
-            self.data_adapter._change_filter(axis, checked_items)
+            self.change_filter(axis, checked_items)
         combo = FilterComboBox(self)
         combo.addItems([str(l) for l in axis.labels])
         combo.checkedItemsChanged.connect(filter_changed)
@@ -1001,9 +1069,13 @@ class ArrayEditorWidget(QWidget):
         if bounds is None:
             return None
         row_min, row_max, col_min, col_max = bounds
+        raw_data = self.model_data.get_values(row_min, col_min, row_max, col_max)
         if headers:
-            raw_data, axes_names, hlabels, vlabels = self.data_adapter._extract_selection(row_min, col_min,
-                                                                                          row_max, col_max)
+            if not self.data_adapter.ndim:
+                return raw_data
+            axes_names = [axis_name[0] for axis_name in self.model_axes.get_values()]
+            hlabels = [label[0] for label in self.model_hlabels.get_values(top=col_min, bottom=col_max)]
+            vlabels = self.model_vlabels.get_values(left=row_min, right=row_max) if self.ndim > 1 else []
             if iterator:
                 from itertools import chain
                 topheaders = [axes_names + hlabels]
@@ -1017,7 +1089,7 @@ class ArrayEditorWidget(QWidget):
             else:
                 return self.data_adapter.from_selection(raw_data, axes_names, vlabels, hlabels)
         else:
-            return self.data_adapter._extract_selection(row_min, col_min, row_max, col_max, headers=False)
+            return raw_data
 
     def copy(self):
         """Copy selection as text to clipboard"""
@@ -1082,7 +1154,8 @@ class ArrayEditorWidget(QWidget):
         if new_data.shape[1] > 1:
             col_max = col_min + new_data.shape[1]
 
-        result = self.data_adapter._paste_data(row_min, col_min, row_max, col_max, new_data)
+        result = self.model_data.set_values(row_min, col_min, row_max, col_max, new_data)
+
         if result is None:
             return
 
