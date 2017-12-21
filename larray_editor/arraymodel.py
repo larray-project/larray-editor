@@ -108,6 +108,8 @@ class AbstractArrayModel(QAbstractTableModel):
     def reset(self):
         self.beginResetModel()
         self.endResetModel()
+        if __debug__:
+            print("model reset", self.__class__)
 
 
 class LabelsArrayModel(AbstractArrayModel):
@@ -513,7 +515,3 @@ class DataArrayModel(AbstractArrayModel):
         i, j = index.row(), index.column()
         result = self.set_values(i, j, i + 1, j + 1, from_qvariant(value, str))
         return result is not None
-
-    def reset(self):
-        self.beginResetModel()
-        self.endResetModel()
