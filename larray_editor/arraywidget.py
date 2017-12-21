@@ -80,11 +80,6 @@ from qtpy.QtWidgets import (QApplication, QTableView, QItemDelegate, QLineEdit, 
                             QMessageBox, QMenu, QLabel, QSpinBox, QWidget, QToolTip, QShortcut, QScrollBar,
                             QHBoxLayout, QVBoxLayout, QGridLayout, QSizePolicy, QFrame, QComboBox)
 
-try:
-    import xlwings as xw
-except ImportError:
-    xw = None
-
 from larray_editor.utils import (keybinding, create_action, clear_layout, get_font, from_qvariant, to_qvariant,
                                  is_number, is_float, _, ima, LinearGradient)
 from larray_editor.arrayadapter import get_adapter
@@ -1046,24 +1041,24 @@ class ArrayEditorWidget(QWidget):
         combo.checkedItemsChanged.connect(filter_changed)
         return combo
 
-    def _selection_data(self, headers=True, none_selects_all=True, iterator=True):
+    def _selection_data(self, headers=True, none_selects_all=True):
         """
-        Return either an object created by the adapter from the selection (if headers=True and iterator=False)
-        or an iterator over selected (labels and) data (if iterator=True)
-        or a Numpy ndarray containing only the raw data (if headers=False and iterator=False).
+        Returns selected labels as lists and raw data as Numpy ndarray
+        if headers=True or only the raw data otherwise
 
         Parameters
         ----------
         headers : bool, optional
-            Labels are also returned if True. Defaults to True.
+            Labels are also returned if True.
         none_selects_all : bool, optional
-            If True and selection is empty, returns all data. Defaults to True.
-        iterator : bool, optional
-            Whether or not to return an itertools.chain or an array built by the data_adapter.
+            If True (default) and selection is empty, returns all data.
 
         Returns
         -------
-        itertools.chain or array object or numpy.ndarray
+        raw_data: numpy.ndarray
+        axes_names: list
+        vlabels: nested list
+        hlabels: list
         """
         bounds = self.view_data._selection_bounds(none_selects_all=none_selects_all)
         if bounds is None:
@@ -1072,28 +1067,18 @@ class ArrayEditorWidget(QWidget):
         raw_data = self.model_data.get_values(row_min, col_min, row_max, col_max)
         if headers:
             if not self.data_adapter.ndim:
-                return raw_data
+                return raw_data, None, None, None
             axes_names = [axis_name[0] for axis_name in self.model_axes.get_values()]
             hlabels = [label[0] for label in self.model_hlabels.get_values(top=col_min, bottom=col_max)]
-            vlabels = self.model_vlabels.get_values(left=row_min, right=row_max) if self.ndim > 1 else []
-            if iterator:
-                from itertools import chain
-                topheaders = [axes_names + hlabels]
-                if self.data_adapter.ndim == 1:
-                    return chain(topheaders, [chain([''], row) for row in raw_data])
-                else:
-                    assert self.data_adapter.ndim > 1
-                    return chain(topheaders,
-                                 [chain([vlabels[j][r] for j in range(len(vlabels))], row)
-                                  for r, row in enumerate(raw_data)])
-            else:
-                return self.data_adapter.from_selection(raw_data, axes_names, vlabels, hlabels)
+            vlabels = self.model_vlabels.get_values(left=row_min, right=row_max) if self.data_adapter.ndim > 1 else []
+            return raw_data, axes_names, vlabels, hlabels
         else:
             return raw_data
 
     def copy(self):
         """Copy selection as text to clipboard"""
-        data = self._selection_data()
+        raw_data, axes_names, vlabels, hlabels = self._selection_data()
+        data = self.data_adapter.selection_to_chain(raw_data, axes_names, vlabels, hlabels)
         if data is None:
             return
 
@@ -1110,23 +1095,11 @@ class ArrayEditorWidget(QWidget):
 
     def to_excel(self):
         """Export selection in Excel"""
+        raw_data, axes_names, vlabels, hlabels = self._selection_data()
         try:
-            data = self._selection_data(iterator=False)
-            if data is None:
-                return
-            self.data_adapter.to_excel(data)
-        except NotImplementedError:
-            if xw is None:
-                QMessageBox.critical(self, "Error", "to_excel() is not available because xlwings is not installed")
-            data = self._selection_data()
-            if data is None:
-                return
-            # convert (row) generators to lists then array
-            # TODO: the conversion to array is currently necessary even though xlwings will translate it back to a list
-            #       anyway. The problem is that our lists contains numpy types and especially np.str_ crashes xlwings.
-            #       unsure how we should fix this properly: in xlwings, or change _selection_data to return only standard
-            #       Python types.
-            xw.view(np.array([list(r) for r in data]))
+            self.data_adapter.to_excel(raw_data, axes_names, vlabels, hlabels)
+        except ImportError:
+            QMessageBox.critical(self, "Error", "to_excel() is not available because xlwings is not installed")
 
     def paste(self):
         bounds = self.view_data._selection_bounds()
@@ -1165,69 +1138,11 @@ class ArrayEditorWidget(QWidget):
         self.view_data.selectionModel().select(QItemSelection(*result), QItemSelectionModel.ClearAndSelect)
 
     def plot(self):
-        from matplotlib.figure import Figure
-        from larray_editor.utils import show_figure
-
+        raw_data, axes_names, vlabels, hlabels = self._selection_data()
         try:
-            data = self._selection_data(iterator=False)
-            if data is None:
-                return
-            figure = self.data_adapter.plot(data)
-
-        except NotImplementedError:
-            bounds = self.view_data._selection_bounds()
-            if bounds is None:
-                return
-            row_min, row_max, col_min, col_max = bounds
-            data, dim_names, xlabels, ylabels = self.data_adapter._extract_selection(row_min, col_min, row_max, col_max)
-            if data is None:
-                return
-
-            # transpose ylabels
-            ylabels = [[str(ylabels[i][j]) for i in range(len(ylabels))] for j in range(len(ylabels[0]))]
-            # if there is only one dimension, ylabels is empty
-            if not ylabels:
-                ylabels = [[]]
-
-            assert data.ndim == 2
-
-            figure = Figure()
-
-            # create an axis
-            ax = figure.add_subplot(111)
-
-            if data.shape[1] == 1:
-                # plot one column
-                xlabel = ','.join(dim_names[:-1])
-                xticklabels = ['\n'.join(row) for row in ylabels]
-                xdata = np.arange(row_max - row_min)
-                ax.plot(xdata, data[:, 0])
-                ax.set_ylabel(xlabels[0])
-            else:
-                # plot each row as a line
-                xlabel = dim_names[-1]
-                xticklabels = [str(label) for label in xlabels]
-                xdata = np.arange(col_max - col_min)
-                for row in range(len(data)):
-                    ax.plot(xdata, data[row], label=' '.join(ylabels[row]))
-
-            # set x axis
-            ax.set_xlabel(xlabel)
-            ax.set_xlim((xdata[0], xdata[-1]))
-            # we need to do that because matplotlib is smart enough to
-            # not show all ticks but a selection. However, that selection
-            # may include ticks outside the range of x axis
-            xticks = [t for t in ax.get_xticks().astype(int) if t <= len(xticklabels) - 1]
-            xticklabels = [xticklabels[t] for t in xticks]
-            ax.set_xticks(xticks)
-            ax.set_xticklabels(xticklabels)
-
-            if data.shape[1] != 1 and ylabels != [[]]:
-                # set legend
-                # box = ax.get_position()
-                # ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
-                # ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-                ax.legend()
-
-        # Display figure
-        show_figure(self, figure)
+            from larray_editor.utils import show_figure
+            figure = self.data_adapter.plot(raw_data, axes_names, vlabels, hlabels)
+            # Display figure
+            show_figure(self, figure)
+        except ImportError:
+            QMessageBox.critical(self, "Error", "plot() is not available because matplotlib is not installed")

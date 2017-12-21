@@ -229,7 +229,7 @@ class AbstractAdapter(object):
         """
         raise NotImplementedError()
 
-    def to_excel(self, data):
+    def _to_excel(self, data):
         """Export data to an Excel Sheet
 
         Parameters
@@ -239,7 +239,7 @@ class AbstractAdapter(object):
         """
         raise NotImplementedError()
 
-    def plot(self, data):
+    def _plot(self, data):
         """Return a matplotlib.Figure object using input data.
 
         Parameters
@@ -365,6 +365,112 @@ class AbstractAdapter(object):
         # update internal data
         self.apply_changes(self.data, self.changes)
 
+    def selection_to_chain(self, raw_data, axes_names, vlabels, hlabels):
+        """Return an itertools.chain object.
+
+        Parameters
+        ----------
+        raw_data : Numpy.ndarray
+            Array of selected data.
+        axes_names : list of string
+            List of axis names
+        vlabels : nested list
+            Selected vertical labels
+        hlabels: list
+            Selected horizontal labels
+
+        Returns
+        -------
+        itertools.chain
+        """
+        from itertools import chain
+        topheaders = [axes_names + hlabels]
+        if self.ndim == 1:
+            return chain(topheaders, [chain([''], row) for row in raw_data])
+        else:
+            assert self.ndim > 1
+            return chain(topheaders,
+                         [chain([vlabels[j][r] for j in range(len(vlabels))], row)
+                          for r, row in enumerate(raw_data)])
+
+    def to_excel(self, raw_data, axes_names, vlabels, hlabels):
+        try:
+            data = self.from_selection(raw_data, axes_names, vlabels, hlabels)
+            if data is None:
+                return
+            self._to_excel(data)
+        except NotImplementedError:
+            import xlwings as xw
+            data = self.selection_to_chain(raw_data, axes_names, vlabels, hlabels)
+            if data is None:
+                return
+            # convert (row) generators to lists then array
+            # TODO: the conversion to array is currently necessary even though xlwings will translate it back to a list
+            #       anyway. The problem is that our lists contains numpy types and especially np.str_ crashes xlwings.
+            #       unsure how we should fix this properly: in xlwings, or change _selection_data to return only standard
+            #       Python types.
+            xw.view(np.array([list(r) for r in data]))
+
+    def plot(self, raw_data, axes_names, vlabels, hlabels):
+        from matplotlib.figure import Figure
+        try:
+            data = self.from_selection(raw_data, axes_names, vlabels, hlabels)
+            if data is None:
+                return
+            return self._plot(data)
+        except NotImplementedError:
+            if raw_data is None:
+                return
+
+            axes_names = [axis_name[0] for axis_name in self.get_axes_names()]
+            # transpose ylabels
+            ylabels = [[str(vlabels[i][j]) for i in range(len(vlabels))] for j in range(len(vlabels[0]))]
+            # if there is only one dimension, ylabels is empty
+            if not ylabels:
+                ylabels = [[]]
+
+            assert raw_data.ndim == 2
+
+            figure = Figure()
+
+            # create an axis
+            ax = figure.add_subplot(111)
+
+            if raw_data.shape[1] == 1:
+                # plot one column
+                xlabel = ','.join(axes_names[:-1])
+                xticklabels = ['\n'.join(row) for row in ylabels]
+                xdata = np.arange(raw_data.shape[0])
+                ax.plot(xdata, raw_data[:, 0])
+                ax.set_ylabel(hlabels[0])
+            else:
+                # plot each row as a line
+                xlabel = axes_names[-1]
+                xticklabels = [str(label) for label in hlabels]
+                xdata = np.arange(raw_data.shape[1])
+                for row in range(len(raw_data)):
+                    ax.plot(xdata, raw_data[row], label=' '.join(ylabels[row]))
+
+            # set x axis
+            ax.set_xlabel(xlabel)
+            ax.set_xlim((xdata[0], xdata[-1]))
+            # we need to do that because matplotlib is smart enough to
+            # not show all ticks but a selection. However, that selection
+            # may include ticks outside the range of x axis
+            xticks = [t for t in ax.get_xticks().astype(int) if t <= len(xticklabels) - 1]
+            xticklabels = [xticklabels[t] for t in xticks]
+            ax.set_xticks(xticks)
+            ax.set_xticklabels(xticklabels)
+
+            if raw_data.shape[1] != 1 and ylabels != [[]]:
+                # set legend
+                # box = ax.get_position()
+                # ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
+                # ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+                ax.legend()
+
+            return figure
+
 
 @register_adapter(np.ndarray)
 @register_adapter(la.LArray)
@@ -419,7 +525,7 @@ class LArrayDataAdapter(AbstractAdapter):
         else:
             return bg_value
 
-    # TODO: We may want to update this method the day LArray objects will also handle MultiIndex-like axes.
+    # TODO: update this method the day LArray objects will also handle MultiIndex-like axes.
     def from_selection(self, raw_data, axes_names, vlabels, hlabels):
         axes = []
         # combine the N-1 first axes
