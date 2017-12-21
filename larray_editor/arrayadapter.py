@@ -40,6 +40,9 @@ class AbstractAdapter(object):
         self.changes = changes
         self.current_filter = {}
         self.update_filtered_data()
+        self.ndim = None
+        self.size = None
+        self.dtype = None
 
     # ===================== #
     #      PROPERTIES       #
@@ -74,30 +77,9 @@ class AbstractAdapter(object):
             assert isinstance(changes, dict), "{} only accept None or a dict as input changes".format(self.__class__)
             self._changes = changes
 
-    @property
-    def ndim(self):
-        return self.get_ndim(self._original_data)
-
-    @property
-    def size(self):
-        return self.get_size(self._original_data)
-
-    @property
-    def dtype(self):
-        return self.get_dtype(self._original_data)
-
     # ===================== #
     #  METHODS TO OVERRIDE  #
     # ===================== #
-
-    def get_ndim(self, data):
-        raise NotImplementedError()
-
-    def get_size(self, data):
-        raise NotImplementedError()
-
-    def get_dtype(self, data):
-        raise NotImplementedError()
 
     def prepare_data(self, data):
         """Must be overridden if data passed to set_data need some checks and/or transformations"""
@@ -477,15 +459,9 @@ class AbstractAdapter(object):
 class LArrayDataAdapter(AbstractAdapter):
     def __init__(self, data, changes, bg_value):
         AbstractAdapter.__init__(self, data=data, changes=changes, bg_value=bg_value)
-
-    def get_ndim(self, data):
-        return data.ndim
-
-    def get_size(self, data):
-        return data.size
-
-    def get_dtype(self, data):
-        return data.dtype
+        self.ndim = data.ndim
+        self.size = data.size
+        self.dtype = data.dtype
 
     def prepare_data(self, data):
         return la.aslarray(data)
