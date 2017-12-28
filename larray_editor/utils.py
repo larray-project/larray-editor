@@ -344,20 +344,45 @@ class Axis(object):
         List of labels
     """
     def __init__(self, id, name, labels):
-        if not isinstance(id, (str, int)):
-            raise TypeError("id must a string or a integer")
-        if not (hasattr(labels, '__len__') and hasattr(labels, '__getitem__')):
-            raise TypeError("labels must be a list or tuple or any 1D array-like")
         self.id = id
         self.name = name
         self.labels = labels
+
+    @property
+    def id(self):
+        return self._id
+
+    @id.setter
+    def id(self, id):
+        if not isinstance(id, (str, int)):
+            raise TypeError("id must a string or a integer")
+        self._id = id
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        if not isinstance(name, str):
+            raise TypeError("name must be a string")
+        self._name = name
+
+    @property
+    def labels(self):
+        return self._labels
+
+    @labels.setter
+    def labels(self, labels):
+        if not (hasattr(labels, '__len__') and hasattr(labels, '__getitem__')):
+            raise TypeError("labels must be a list or tuple or any 1D array-like")
+        self._labels = labels
 
     def __len__(self):
         return len(self.labels)
 
     def __str__(self):
-        name = str(self.name) if self.name is not None else '{?}'
-        return 'Axis({}, {}, {})'.format(self.id, name, self.labels)
+        return 'Axis({}, {}, {})'.format(self.id, self.name, self.labels)
 
 
 class Product(object):
