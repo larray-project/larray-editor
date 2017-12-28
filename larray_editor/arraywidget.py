@@ -1026,7 +1026,7 @@ class ArrayEditorWidget(QWidget):
 
     def digits_changed(self, value):
         self.digits = value
-        self.data_adapter.set_format(value, self.use_scientific)
+        self.set_format(value, self.use_scientific)
 
     def change_filter(self, axis, indices):
         model_changes = self.model_data.changes
