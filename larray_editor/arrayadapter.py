@@ -195,22 +195,6 @@ class AbstractAdapter(object):
         """
         raise NotImplementedError()
 
-    def change_filter(self, data, filter, axis, indices):
-        """Update current filter for a given axis if labels selection from the array widget has changed
-
-        Parameters
-        ----------
-        data : array
-            Input array.
-        filter: dict
-            Dictionary {axis_id: labels} representing the current selection.
-        axis: axis
-             Axis for which selection has changed.
-        indices: list of int
-            Indices of selected labels.
-        """
-        raise NotImplementedError()
-
     def _to_excel(self, data):
         """Export data to an Excel Sheet
 
@@ -325,6 +309,30 @@ class AbstractAdapter(object):
 
     def update_filtered_data(self):
         self.filtered_data = self.filter_data(self.data, self.current_filter)
+
+    def change_filter(self, data, filter, axis, indices):
+        """Update current filter for a given axis if labels selection from the array widget has changed
+
+        Parameters
+        ----------
+        data : array
+            Input array.
+        filter: dict
+            Dictionary {axis_id: labels} representing the current selection.
+        axis: Axis
+             Axis for which selection has changed.
+        indices: list of int
+            Indices of selected labels.
+        """
+        axis_id = axis.id
+        if not indices or len(indices) == len(axis):
+            if axis_id in filter:
+                del filter[axis_id]
+        else:
+            if len(indices) == 1:
+                filter[axis_id] = axis.labels[indices[0]]
+            else:
+                filter[axis_id] = axis.labels[indices]
 
     def _update_filter(self, axis, indices, data_model_changes):
         # must be done before to call update_filter method of data_adapter
@@ -562,17 +570,6 @@ class LArrayDataAdapter(AbstractAdapter):
         # transform positional ND key to positional 2D key
         strides = np.append(1, np.cumprod(filtered_data.shape[1:-1][::-1], dtype=int))[::-1]
         return (index_key[:-1] * strides).sum(), index_key[-1]
-
-    def change_filter(self, data, filter, axis, indices):
-        axis_id = axis.id
-        if not indices or len(indices) == len(axis):
-            if axis_id in filter:
-                del filter[axis_id]
-        else:
-            if len(indices) == 1:
-                filter[axis_id] = axis.labels[indices[0]]
-            else:
-                filter[axis_id] = axis.labels[indices]
 
     def apply_changes(self, data, changes):
         axes = data.axes
