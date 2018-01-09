@@ -235,6 +235,14 @@ class DataArrayModel(AbstractArrayModel):
     def set_changes(self, changes):
         self.changes = changes
 
+    def clear_changes(self):
+        self.changes.clear()
+
+    def reject_changes(self):
+        self.clear_changes()
+        self.reset_minmax()
+        self.reset()
+
     def _set_data(self, data):
         # TODO: check that data respects minvalue/maxvalue
         assert isinstance(data, np.ndarray) and data.ndim == 2

@@ -993,33 +993,27 @@ class ArrayEditorWidget(QWidget):
 
     @property
     def dirty(self):
-        model_changes = self.model_data.changes
-        self.data_adapter.update_changes(model_changes)
-        return len(self.data_adapter.changes) > 0
-
-    def clear_changes(self):
-        self.data_adapter.clear_changes()
-        self.model_data.changes.clear()
+        return len(self.model_data.changes) > 0
 
     def accept_changes(self):
         """Accept changes"""
         model_changes = self.model_data.changes
-        # propagate changes from data model to adapter
-        self.data_adapter.accept_changes(model_changes)
+        # update changes in adapter
+        self.data_adapter.update_changes(model_changes)
+        # apply changes
+        self.data_adapter.accept_changes()
+        self.model_data.clear_changes()
         # update filtered data
         self.data_adapter.update_filtered_data()
         # update models
         self._update_models(reset_model=True, reset_minmax=True)
-        # clear changes
-        self.clear_changes()
         # return modified data
         return self.data_adapter.data
 
     def reject_changes(self):
         """Reject changes"""
-        self.clear_changes()
-        self._reset_minmax()
-        self.model_data.reset()
+        self.data_adapter.reject_changes()
+        self.model_data.reject_changes()
 
     def scientific_changed(self, value):
         self._update_digits_scientific(scientific=value)
@@ -1128,6 +1122,7 @@ class ArrayEditorWidget(QWidget):
             col_max = col_min + new_data.shape[1]
 
         result = self.model_data.set_values(row_min, col_min, row_max, col_max, new_data)
+        self.data_adapter.update_changes(self.model_data.changes)
 
         if result is None:
             return

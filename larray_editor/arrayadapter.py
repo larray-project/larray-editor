@@ -348,12 +348,13 @@ class AbstractAdapter(object):
     def clear_changes(self):
         self.changes.clear()
 
-    def accept_changes(self, data_model_changes):
+    def accept_changes(self):
         """Accept changes"""
-        # update internal changes
-        self.update_changes(data_model_changes)
-        # update internal data
         self.apply_changes(self.data, self.changes)
+        self.clear_changes()
+
+    def reject_changes(self):
+        self.clear_changes()
 
     def selection_to_chain(self, raw_data, axes_names, vlabels, hlabels):
         """Return an itertools.chain object.
