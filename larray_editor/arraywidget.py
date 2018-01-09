@@ -542,7 +542,6 @@ class ArrayEditorWidget(QWidget):
 
         self.model_data = DataArrayModel(parent=self, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
         self.view_data = DataView(parent=self, model=self.model_data)
-        self.model_data.dataChanged.connect(parent.data_changed)
 
         # in case data is None
         self.data_adapter = None
