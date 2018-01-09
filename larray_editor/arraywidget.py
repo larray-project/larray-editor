@@ -1024,7 +1024,7 @@ class ArrayEditorWidget(QWidget):
 
     def change_filter(self, axis, indices):
         model_changes = self.model_data.changes
-        self.data_adapter._update_filter(axis, indices, model_changes)
+        self.data_adapter.update_filter(axis, indices, model_changes)
         self._update_models(reset_model=True, reset_minmax=False)
 
     def create_filter_combo(self, axis):

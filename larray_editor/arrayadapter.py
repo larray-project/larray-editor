@@ -334,7 +334,7 @@ class AbstractAdapter(object):
             else:
                 filter[axis_id] = axis.labels[indices]
 
-    def _update_filter(self, axis, indices, data_model_changes):
+    def update_filter(self, axis, indices, data_model_changes):
         # must be done before to call update_filter method of data_adapter
         self.update_changes(data_model_changes)
         self.change_filter(self.data, self.current_filter, axis, indices)
