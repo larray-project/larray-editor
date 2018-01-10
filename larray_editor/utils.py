@@ -5,6 +5,10 @@ import sys
 import math
 
 import numpy as np
+try:
+    np.set_printoptions(legacy='1.13')
+except TypeError:
+    pass
 
 from qtpy import PYQT5
 from qtpy.QtCore import Qt, QVariant, QSettings
