@@ -597,40 +597,48 @@ def get_sample_indices(data, maxsize):
     return np.unravel_index(flat_indices, data.shape)
 
 
-class RecentFileList(object):
+class RecentlyUsedList(object):
     MAX_RECENT_FILES = 10
 
-    def __init__(self, list_name, actions=False, parent=None):
+    def __init__(self, list_name):
         self.settings = QSettings()
         self.list_name = list_name
         if self.settings.value(list_name) is None:
             self.settings.setValue(list_name, [])
-        self.actions = [QAction(parent) for _ in range(self.MAX_RECENT_FILES)] if actions else None
+        self.actions = []
 
     @property
-    def recent_files(self):
+    def files(self):
         return self.settings.value(self.list_name)
 
-    @recent_files.setter
-    def recent_files(self, files):
+    @files.setter
+    def files(self, files):
         self.settings.setValue(self.list_name, files[:self.MAX_RECENT_FILES])
-        self.update_actions()
+        self._update_actions()
+
+    @property
+    def actions(self):
+        return self._actions
+
+    @actions.setter
+    def actions(self, actions):
+        self._actions = actions if actions is not None else []
+        self._update_actions()
 
     def add(self, filepath):
         if filepath is not None:
-            recent_files = self.recent_files
+            recent_files = self.files
             if filepath in recent_files:
                 recent_files.remove(filepath)
             recent_files = [filepath] + recent_files
-            self.recent_files = recent_files
-            self.update_actions()
+            self.files = recent_files
 
     def clear(self):
-        self.recent_files = []
+        self.files = []
 
-    def update_actions(self):
-        if self.actions is not None:
-            recent_files = self.recent_files
+    def _update_actions(self):
+        if len(self.actions):
+            recent_files = self.files
             if recent_files is None:
                 recent_files = []
 

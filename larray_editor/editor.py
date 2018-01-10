@@ -5,12 +5,12 @@ import numpy as np
 
 from larray import LArray, Session, zeros, empty
 from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
-                                 get_versions, get_documentation_url, urls, RecentFileList)
+                                 get_versions, get_documentation_url, urls, RecentlyUsedList)
 from larray_editor.arraywidget import ArrayEditorWidget
 from qtpy.QtCore import Qt, QSettings, QUrl, Slot
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
-                            QDialogButtonBox, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit,
+                            QDialogButtonBox, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QAction,
                             QCheckBox, QComboBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton)
 
 try:
@@ -55,9 +55,9 @@ class MappingEditor(QMainWindow):
         QMainWindow.__init__(self, parent)
 
         # to handle recently opened data/script files
-        self.recent_data_files = RecentFileList("recentFileList", actions=True, parent=self)
-        self.recent_saved_scripts = RecentFileList("recentSavedScriptList")
-        self.recent_loaded_scripts = RecentFileList("recentLoadedScriptList")
+        self.recent_data_files = RecentlyUsedList("recentFileList")
+        self.recent_saved_scripts = RecentlyUsedList("recentSavedScriptList")
+        self.recent_loaded_scripts = RecentlyUsedList("recentLoadedScriptList")
 
         self.current_file = None
         self.current_array = None
@@ -203,7 +203,7 @@ class MappingEditor(QMainWindow):
 
         # check if reopen last opened file
         if data is REOPEN_LAST_FILE:
-            if len(self.recent_data_files.recent_files) > 0:
+            if len(self.recent_data_files.files) > 0:
                 data = self.recent_data_file_actions[0].data()
             else:
                 data = Session()
@@ -263,11 +263,12 @@ class MappingEditor(QMainWindow):
         file_menu.addAction(create_action(self, _('Save Data &As'), triggered=self.save_data_as,
                                           statustip=_('Save all arrays as a session in a file')))
         recent_files_menu = file_menu.addMenu("Open &Recent Data")
-        for action in self.recent_data_files.actions:
+        actions = [QAction(self) for _ in range(RecentlyUsedList.MAX_RECENT_FILES)]
+        for action in actions:
             action.setVisible(False)
             action.triggered.connect(self.open_recent_file)
             recent_files_menu.addAction(action)
-        self.recent_data_files.update_actions()
+        self.recent_data_files.actions = actions
         recent_files_menu.addSeparator()
         recent_files_menu.addAction(create_action(self, _('&Clear List'), triggered=self.recent_data_files.clear))
         #===============#
@@ -663,7 +664,7 @@ class MappingEditor(QMainWindow):
         browse_label = QLabel("Source")
         browse_combobox = QComboBox()
         browse_combobox.setEditable(True)
-        browse_combobox.addItems(self.recent_loaded_scripts.recent_files)
+        browse_combobox.addItems(self.recent_loaded_scripts.files)
         browse_combobox.lineEdit().setPlaceholderText("filepath to or URL containing the python source")
         browse_button = QPushButton("Browse")
         if isinstance(filepath, str):
@@ -759,7 +760,7 @@ class MappingEditor(QMainWindow):
         browse_label = QLabel("Filepath")
         browse_combobox = QComboBox()
         browse_combobox.setEditable(True)
-        browse_combobox.addItems(self.recent_saved_scripts.recent_files)
+        browse_combobox.addItems(self.recent_saved_scripts.files)
         browse_combobox.lineEdit().setPlaceholderText("destination file")
         browse_button = QPushButton("Browse")
         browse_filedialog = QFileDialog(self, filter="Python Script (*.py)")
