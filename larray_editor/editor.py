@@ -797,10 +797,10 @@ class MappingEditor(QMainWindow):
         group_box_layout = QGridLayout()
         # overwrite
         radio_button_overwrite = QRadioButton("Overwrite file")
-        radio_button_overwrite.setChecked(True)
         group_box_layout.addWidget(radio_button_overwrite, 0, 0)
         # append to
         radio_button_append = QRadioButton("Append to file")
+        radio_button_append.setChecked(True)
         group_box_layout.addWidget(radio_button_append, 0, 1)
         # set layout
         group_box.setLayout(group_box_layout)
