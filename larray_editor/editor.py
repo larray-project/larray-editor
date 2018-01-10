@@ -665,7 +665,7 @@ class MappingEditor(QMainWindow):
         browse_combobox = QComboBox()
         browse_combobox.setEditable(True)
         browse_combobox.addItems(self.recent_loaded_scripts.files)
-        browse_combobox.lineEdit().setPlaceholderText("filepath to or URL containing the python source")
+        browse_combobox.lineEdit().setPlaceholderText("filepath to the python source")
         browse_button = QPushButton("Browse")
         if isinstance(filepath, str):
             browse_combobox.setText(filepath)
