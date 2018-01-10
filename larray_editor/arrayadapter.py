@@ -108,7 +108,7 @@ class AbstractAdapter(object):
         """
         raise NotImplementedError()
 
-    def from_selection(self, raw_data, axes_names, vlabels, hlabels):
+    def _from_selection(self, raw_data, axes_names, vlabels, hlabels):
         """Create and return an object of type managed by the adapter subclass.
 
         Parameters
@@ -386,7 +386,7 @@ class AbstractAdapter(object):
 
     def to_excel(self, raw_data, axes_names, vlabels, hlabels):
         try:
-            data = self.from_selection(raw_data, axes_names, vlabels, hlabels)
+            data = self._from_selection(raw_data, axes_names, vlabels, hlabels)
             if data is None:
                 return
             self._to_excel(data)
@@ -405,7 +405,7 @@ class AbstractAdapter(object):
     def plot(self, raw_data, axes_names, vlabels, hlabels):
         from matplotlib.figure import Figure
         try:
-            data = self.from_selection(raw_data, axes_names, vlabels, hlabels)
+            data = self._from_selection(raw_data, axes_names, vlabels, hlabels)
             if data is None:
                 return
             return self._plot(data)
@@ -511,7 +511,7 @@ class LArrayDataAdapter(AbstractAdapter):
             return bg_value
 
     # TODO: update this method the day LArray objects will also handle MultiIndex-like axes.
-    def from_selection(self, raw_data, axes_names, vlabels, hlabels):
+    def _from_selection(self, raw_data, axes_names, vlabels, hlabels):
         axes = []
         # combine the N-1 first axes
         if len(axes_names) > 1:
