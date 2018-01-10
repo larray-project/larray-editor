@@ -629,25 +629,13 @@ class MappingEditor(QMainWindow):
     #================================#
 
     # See http://ipython.readthedocs.io/en/stable/interactive/magics.html#magic-load
-    # for more details
-    def _load_script(self, filepath, lines, symbols):
-        # IPython/core/magics/code.py -> CodeMagics -> load
+    # for ideas (# IPython/core/magics/code.py -> CodeMagics -> load)
+    def _load_script(self, filepath):
         assert qtconsole_available
         try:
-            cmd = []
-            if lines:
-                # -r <lines>: Specify lines or ranges of lines to load from the source.
-                # Ranges could be specified as x..y (x-y) or in python-style x:y (x..(y-1)).
-                # Both limits x and y can be left blank (meaning the beginning and end of the file, respectively).
-                lines = lines.replace('..', '-')
-                cmd += ['-r {}'.format(lines)]
-            if symbols:
-                # -s <symbols>: Specify function or classes to load from python source.
-                cmd += ['-s {}'.format(symbols)]
-            cmd += [filepath]
-            self.eval_box.input_buffer = '# Press Enter to display the command lines to be loaded and Enter again ' \
-                                         'to run them'
-            self.kernel.shell.run_line_magic('load', ' '.join(cmd))
+            with open(filepath, 'r') as f:
+                content = f.read()
+            self.eval_box.input_buffer = content
             self.ipython_cell_executed()
             self.recent_loaded_scripts.add(filepath)
         except Exception as e:
@@ -677,59 +665,24 @@ class MappingEditor(QMainWindow):
         layout.addWidget(browse_combobox, 0, 1)
         layout.addWidget(browse_button, 0, 2)
 
-        # lines / symbols
-        group_box = QGroupBox()
-        group_box_layout = QGridLayout()
-        # all lines
-        radio_button_all_lines = QRadioButton("Load all file")
-        radio_button_all_lines.setChecked(True)
-        group_box_layout.addWidget(radio_button_all_lines, 0, 0)
-        # specific lines
-        radio_button_specific_lines = QRadioButton("Load specific lines")
-        radio_button_specific_lines.setToolTip("Selected (ranges of) lines to load must be separated with "
-                                               "whitespaces.\nRanges could be specified as x..y (x-y) or in "
-                                               "python-style x:y (x..(y-1)).")
-        lines_edit = QLineEdit()
-        lines_edit.setPlaceholderText("1 4..6 8")
-        lines_edit.setEnabled(False)
-        radio_button_specific_lines.toggled.connect(lines_edit.setEnabled)
-        group_box_layout.addWidget(radio_button_specific_lines, 1, 0)
-        group_box_layout.addWidget(lines_edit, 1, 1)
-        # specific symbols (variables, functions and classes)
-        radio_button_symbols = QRadioButton("Load symbols")
-        symbols_edit = QLineEdit()
-        symbols_edit.setPlaceholderText("variables or functions separated by commas")
-        symbols_edit.setEnabled(False)
-        radio_button_symbols.toggled.connect(symbols_edit.setEnabled)
-        group_box_layout.addWidget(radio_button_symbols, 2, 0)
-        group_box_layout.addWidget(symbols_edit, 2, 1)
-        # set layout
-        group_box.setLayout(group_box_layout)
-        layout.addWidget(group_box, 1, 0, 1, 3)
-
+        # clear session
         clear_session_checkbox = QCheckBox("Clear session before to load")
         clear_session_checkbox.setChecked(False)
-        layout.addWidget(clear_session_checkbox, 2, 0, 1, 3)
+        layout.addWidget(clear_session_checkbox, 1, 0, 1, 3)
 
         # accept/reject
         bbox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bbox.accepted.connect(dialog.accept)
         bbox.rejected.connect(dialog.reject)
-        layout.addWidget(bbox, 3, 0, 1, 3)
+        layout.addWidget(bbox, 2, 0, 1, 3)
 
         # open dialog
         ret = dialog.exec_()
         if ret == QDialog.Accepted:
             filepath = browse_combobox.currentText()
-            if radio_button_specific_lines.isChecked():
-                lines, symbols = lines_edit.text(), ''
-            elif radio_button_symbols.isChecked():
-                lines, symbols = '', symbols_edit.text()
-            else:
-                lines, symbols = '', ''
             if clear_session_checkbox.isChecked():
                 self._reset()
-            self._load_script(filepath, lines, symbols)
+            self._load_script(filepath)
 
     def _save_script(self, filepath, lines, overwrite):
         # IPython/core/magics/code.py -> CodeMagics -> save
