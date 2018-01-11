@@ -992,7 +992,8 @@ class ArrayEditorWidget(QWidget):
 
     @property
     def dirty(self):
-        return len(self.model_data.changes) > 0
+        self.data_adapter.update_changes(self.model_data.changes)
+        return len(self.data_adapter.changes) > 0
 
     def accept_changes(self):
         """Accept changes"""
