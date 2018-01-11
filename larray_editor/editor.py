@@ -661,6 +661,36 @@ class MappingEditor(QMainWindow):
         layout.addWidget(browse_combobox, 0, 1)
         layout.addWidget(browse_button, 0, 2)
 
+        # # lines / symbols
+        # group_box = QGroupBox()
+        # group_box_layout = QGridLayout()
+        # # all lines
+        # radio_button_all_lines = QRadioButton("Load all file")
+        # radio_button_all_lines.setChecked(True)
+        # group_box_layout.addWidget(radio_button_all_lines, 0, 0)
+        # # specific lines
+        # radio_button_specific_lines = QRadioButton("Load specific lines")
+        # radio_button_specific_lines.setToolTip("Selected (ranges of) lines to load must be separated with "
+        #                                        "whitespaces.\nRanges could be specified as x..y (x-y) or in "
+        #                                        "python-style x:y (x..(y-1)).")
+        # lines_edit = QLineEdit()
+        # lines_edit.setPlaceholderText("1 4..6 8")
+        # lines_edit.setEnabled(False)
+        # radio_button_specific_lines.toggled.connect(lines_edit.setEnabled)
+        # group_box_layout.addWidget(radio_button_specific_lines, 1, 0)
+        # group_box_layout.addWidget(lines_edit, 1, 1)
+        # # specific symbols (variables, functions and classes)
+        # radio_button_symbols = QRadioButton("Load symbols")
+        # symbols_edit = QLineEdit()
+        # symbols_edit.setPlaceholderText("variables or functions separated by commas")
+        # symbols_edit.setEnabled(False)
+        # radio_button_symbols.toggled.connect(symbols_edit.setEnabled)
+        # group_box_layout.addWidget(radio_button_symbols, 2, 0)
+        # group_box_layout.addWidget(symbols_edit, 2, 1)
+        # # set layout
+        # group_box.setLayout(group_box_layout)
+        # layout.addWidget(group_box, 1, 0, 1, 3)
+
         # clear session
         clear_session_checkbox = QCheckBox("Clear session before to load")
         clear_session_checkbox.setChecked(False)
