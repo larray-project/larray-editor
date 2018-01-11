@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import sys
 import math
+import logging
 
 import numpy as np
 try:
@@ -21,6 +22,9 @@ if PYQT5:
 else:
     from matplotlib.backends.backend_qt4agg import FigureCanvas
     from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
+
+
+logger = logging.getLogger("editor")
 
 
 core_dependencies = ['numpy', 'pandas', 'matplotlib', 'pytables', 'xlwings', 'xlsxwriter', 'xlrd', 'openpyxl']

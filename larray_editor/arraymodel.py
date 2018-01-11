@@ -1,9 +1,12 @@
 from __future__ import absolute_import, division, print_function
 
+from os.path import basename
+import logging
+from inspect import stack
 import numpy as np
 from larray_editor.utils import (get_font, from_qvariant, to_qvariant, to_text_string,
                                  is_float, is_number, LinearGradient, SUPPORTED_FORMATS, scale_to_01range,
-                                 Product, is_number_value, get_sample, get_sample_indices)
+                                 Product, is_number_value, get_sample, get_sample_indices, logger)
 from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel
 from qtpy.QtGui import QColor
 from qtpy.QtWidgets import QMessageBox
@@ -108,8 +111,10 @@ class AbstractArrayModel(QAbstractTableModel):
     def reset(self):
         self.beginResetModel()
         self.endResetModel()
-        if __debug__:
-            print("model reset", self.__class__)
+        if logger.isEnabledFor(logging.DEBUG):
+            caller = stack()[1]
+            logger.debug("model {} has been reset after call of {} from module {} at line {}".format(self.__class__,
+                            caller.function, basename(caller.filename), caller.lineno))
 
 
 class LabelsArrayModel(AbstractArrayModel):

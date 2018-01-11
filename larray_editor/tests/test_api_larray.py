@@ -1,10 +1,17 @@
 from __future__ import absolute_import, division, print_function
-from larray_editor.api import *
 
 """Array editor test"""
+
+import logging
+from larray_editor.api import *
+from larray_editor.utils import logger
+
 import numpy as np
 from larray import (Session, Axis, LArray, ndtest, ndrange, zeros, from_lists, union,
                     sin, cos, radians, maximum, sqrt)
+
+
+logger.setLevel(logging.DEBUG)
 
 lipro = Axis(['P%02d' % i for i in range(1, 16)], 'lipro')
 age = Axis('age=0..115')
