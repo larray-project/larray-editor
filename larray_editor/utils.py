@@ -5,9 +5,13 @@ import sys
 import math
 
 import numpy as np
+try:
+    np.set_printoptions(legacy='1.13')
+except TypeError:
+    pass
 
 from qtpy import PYQT5
-from qtpy.QtCore import Qt, QVariant
+from qtpy.QtCore import Qt, QVariant, QSettings
 from qtpy.QtGui import QIcon, QColor, QFont, QKeySequence, QLinearGradient
 from qtpy.QtWidgets import QAction, QDialog, QVBoxLayout
 
@@ -595,3 +599,63 @@ def get_sample(data, maxsize):
 def get_sample_indices(data, maxsize):
     flat_indices = np.arange(0, data.size, get_sample_step(data, maxsize))
     return np.unravel_index(flat_indices, data.shape)
+
+
+class RecentlyUsedList(object):
+    MAX_RECENT_FILES = 10
+
+    def __init__(self, list_name, parent_action=None, triggered=None):
+        self.settings = QSettings()
+        self.list_name = list_name
+        if self.settings.value(list_name) is None:
+            self.settings.setValue(list_name, [])
+        if parent_action is not None:
+            actions = [QAction(parent_action) for _ in range(self.MAX_RECENT_FILES)]
+            for action in actions:
+                action.setVisible(False)
+                if triggered is not None:
+                    action.triggered.connect(triggered)
+            self._actions = actions
+        else:
+            self._actions = None
+        self._update_actions()
+
+    @property
+    def files(self):
+        return self.settings.value(self.list_name)
+
+    @files.setter
+    def files(self, files):
+        self.settings.setValue(self.list_name, files[:self.MAX_RECENT_FILES])
+        self._update_actions()
+
+    @property
+    def actions(self):
+        return self._actions
+
+    def add(self, filepath):
+        if filepath is not None:
+            recent_files = self.files
+            if filepath in recent_files:
+                recent_files.remove(filepath)
+            recent_files = [filepath] + recent_files
+            self.files = recent_files
+
+    def clear(self):
+        self.files = []
+
+    def _update_actions(self):
+        if self.actions is not None:
+            recent_files = self.files
+            if recent_files is None:
+                recent_files = []
+
+            # zip will iterate up to the shortest of the two
+            for filepath, action in zip(recent_files, self.actions):
+                action.setText(os.path.basename(filepath))
+                action.setStatusTip(filepath)
+                action.setData(filepath)
+                action.setVisible(True)
+            # if we have less recent recent files than actions, hide the remaining actions
+            for action in self.actions[len(recent_files):]:
+                action.setVisible(False)

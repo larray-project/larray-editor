@@ -5,13 +5,13 @@ import numpy as np
 
 from larray import LArray, Session, zeros, empty
 from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
-                                 get_versions, get_documentation_url, urls)
+                                 get_versions, get_documentation_url, urls, RecentlyUsedList)
 from larray_editor.arraywidget import ArrayEditorWidget
 from qtpy.QtCore import Qt, QSettings, QUrl, Slot
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
-                            QDialogButtonBox, QAction, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit,
-                            QCheckBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton)
+                            QDialogButtonBox, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit,
+                            QCheckBox, QComboBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton)
 
 try:
     from qtconsole.rich_jupyter_widget import RichJupyterWidget
@@ -39,7 +39,6 @@ except ImportError:
 
 REOPEN_LAST_FILE = object()
 
-
 assignment_pattern = re.compile('[^\[\]]+[^=]=[^=].+')
 setitem_pattern = re.compile('(.+)\[.+\][^=]=[^=].+')
 history_vars_pattern = re.compile('_i?\d+')
@@ -52,21 +51,13 @@ DISPLAY_IN_GRID = (LArray, np.ndarray)
 class MappingEditor(QMainWindow):
     """Session Editor Dialog"""
 
-    MAX_RECENT_FILES = 10
-
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
 
         # to handle recently opened data/script files
-        settings = QSettings()
-        # data files
-        if settings.value("recentFileList") is None:
-            settings.setValue("recentFileList", [])
-        self.recent_file_actions = [QAction(self) for _ in range(self.MAX_RECENT_FILES)]
-        # script files
-        if settings.value("recentScriptList") is None:
-            settings.setValue("recentScriptList", [])
-        self.recent_script_actions = [QAction(self) for _ in range(self.MAX_RECENT_FILES)]
+        self.recent_data_files = RecentlyUsedList("recentFileList", self, self.open_recent_file)
+        self.recent_saved_scripts = RecentlyUsedList("recentSavedScriptList")
+        self.recent_loaded_scripts = RecentlyUsedList("recentLoadedScriptList")
 
         self.current_file = None
         self.current_array = None
@@ -212,8 +203,8 @@ class MappingEditor(QMainWindow):
 
         # check if reopen last opened file
         if data is REOPEN_LAST_FILE:
-            if len(QSettings().value("recentFileList")) > 0:
-                data = self.recent_file_actions[0].data()
+            if len(self.recent_data_files.files) > 0:
+                data = self.recent_data_file.files[0]
             else:
                 data = Session()
 
@@ -272,13 +263,10 @@ class MappingEditor(QMainWindow):
         file_menu.addAction(create_action(self, _('Save Data &As'), triggered=self.save_data_as,
                                           statustip=_('Save all arrays as a session in a file')))
         recent_files_menu = file_menu.addMenu("Open &Recent Data")
-        for action in self.recent_file_actions:
-            action.setVisible(False)
-            action.triggered.connect(self.open_recent_file)
+        for action in self.recent_data_files.actions:
             recent_files_menu.addAction(action)
-        self.update_recent_file_actions()
         recent_files_menu.addSeparator()
-        recent_files_menu.addAction(create_action(self, _('&Clear List'), triggered=self._clear_recent_files))
+        recent_files_menu.addAction(create_action(self, _('&Clear List'), triggered=self.recent_data_files.clear))
         #===============#
         #    EXAMPLES   #
         #===============#
@@ -287,20 +275,13 @@ class MappingEditor(QMainWindow):
         #===============#
         #    SCRIPTS    #
         #===============#
-        file_menu.addSeparator()
         if qtconsole_available:
-            # file_menu.addAction(create_action(self, _('&Load Script'), shortcut="Ctrl+Shift+O",
-            #                                   triggered=self.load_script, statustip=_('Load script from file')))
+            file_menu.addSeparator()
+            file_menu.addAction(create_action(self, _('&Load from Script'), shortcut="Ctrl+Shift+O",
+                                              triggered=self.load_script, statustip=_('Load script from file')))
             file_menu.addAction(create_action(self, _('&Save Command History To Script'), shortcut="Ctrl+Shift+S",
                                               triggered=self.save_script, statustip=_('Save command history in a file')))
-            # recent_files_menu = file_menu.addMenu("Open &Recent Scripts")
-            # for action in self.recent_script_actions:
-            #     action.setVisible(False)
-            #     action.triggered.connect(self.open_recent_script)
-            #     recent_files_menu.addAction(action)
-            # self.update_recent_file_actions()
-            # recent_files_menu.addSeparator()
-            # recent_files_menu.addAction(create_action(self, _('&Clear List'), triggered=self._clear_recent_scripts))
+
         #===============#
         #     QUIT      #
         #===============#
@@ -568,6 +549,11 @@ class MappingEditor(QMainWindow):
         self.current_array_name = name
         self.update_title()
 
+    def set_current_file(self, filepath):
+        self.recent_data_files.add(filepath)
+        self.current_file = filepath
+        self.update_title()
+
     def _add_arrays(self, arrays):
         for k, v in arrays.items():
             self.data[k] = v
@@ -601,9 +587,30 @@ class MappingEditor(QMainWindow):
         else:
             return True
 
+    def closeEvent(self, event):
+        if self._ask_to_save_if_unsaved_modifications():
+            event.accept()
+        else:
+            event.ignore()
+
+    def apply_changes(self):
+        # update unsaved_modifications (and thus title) only if at least 1 change has been applied
+        if self.arraywidget.dirty:
+            self.unsaved_modifications = True
+        self.arraywidget.accept_changes()
+
+    def discard_changes(self):
+        self.arraywidget.reject_changes()
+        self.update_title()
+
+    def get_value(self):
+        """Return modified array -- this is *not* a copy"""
+        # It is import to avoid accessing Qt C++ object as it has probably
+        # already been destroyed, due to the Qt.WA_DeleteOnClose attribute
+        return self.data
 
     #########################################
-    #  METHODS TO SAVE/LOAD DATA & SCRIPTS  #
+    #               FILE MENU               #
     #########################################
 
     def new(self):
@@ -614,149 +621,98 @@ class MappingEditor(QMainWindow):
             self.unsaved_modifications = False
             self.statusBar().showMessage("Viewer has been reset", 4000)
 
-    ##################################
+    #================================#
     #  METHODS TO SAVE/LOAD SCRIPTS  #
-    ##################################
+    #================================#
 
     # See http://ipython.readthedocs.io/en/stable/interactive/magics.html#magic-load
-    # for more details
-    def _load_script(self, filepath, lines, symbols):
+    # for ideas (# IPython/core/magics/code.py -> CodeMagics -> load)
+    def _load_script(self, filepath):
         assert qtconsole_available
         try:
-            cmd = []
-            if lines:
-                # -r <lines>: Specify lines or ranges of lines to load from the source.
-                # Ranges could be specified as x..y (x-y) or in python-style x:y (x..(y-1)).
-                # Both limits x and y can be left blank (meaning the beginning and end of the file, respectively).
-                lines = lines.replace('..', '-')
-                cmd += ['-r {}'.format(lines)]
-            if symbols:
-                # -s <symbols>: Specify function or classes to load from python source.
-                cmd += ['-s {}'.format(symbols)]
-            cmd += [filepath]
-            self.kernel.shell.run_line_magic('load', ' '.join(cmd))
+            with open(filepath, 'r') as f:
+                content = f.read()
+            self.eval_box.input_buffer = content
             self.ipython_cell_executed()
-            self.update_recent_script_list(filepath)
+            self.recent_loaded_scripts.add(filepath)
         except Exception as e:
             QMessageBox.critical(self, "Error", "Cannot load script file {}:\n{}"
                                  .format(os.path.basename(filepath), e))
 
     def load_script(self, filepath=None):
-        # %save add automatically the extension .py if not present in passed filename
+        # %load add automatically the extension .py if not present in passed filename
         dialog = QDialog(self)
         layout = QGridLayout()
         dialog.setLayout(layout)
 
         # filepath
         browse_label = QLabel("Source")
-        browse_edit = QLineEdit()
-        browse_edit.setPlaceholderText("filepath to or URL containing the python source")
+        browse_combobox = QComboBox()
+        browse_combobox.setEditable(True)
+        browse_combobox.addItems(self.recent_loaded_scripts.files)
+        browse_combobox.lineEdit().setPlaceholderText("filepath to the python source")
         browse_button = QPushButton("Browse")
         if isinstance(filepath, str):
-            browse_edit.setText(filepath)
+            browse_combobox.setText(filepath)
         browse_filedialog = QFileDialog(self, filter="Python Script (*.py)")
         browse_filedialog.setFileMode(QFileDialog.ExistingFile)
         browse_button.clicked.connect(browse_filedialog.open)
-        browse_filedialog.fileSelected.connect(browse_edit.setText)
+        browse_filedialog.fileSelected.connect(browse_combobox.lineEdit().setText)
         layout.addWidget(browse_label, 0, 0)
-        layout.addWidget(browse_edit, 0, 1)
+        layout.addWidget(browse_combobox, 0, 1)
         layout.addWidget(browse_button, 0, 2)
 
-        # lines / symbols
-        group_box = QGroupBox()
-        group_box_layout = QGridLayout()
-        # all lines
-        radio_button_all_lines = QRadioButton("Load all file")
-        radio_button_all_lines.setChecked(True)
-        group_box_layout.addWidget(radio_button_all_lines, 0, 0)
-        # specific lines
-        radio_button_specific_lines = QRadioButton("Load specific lines")
-        radio_button_specific_lines.setToolTip("Selected (ranges of) lines to load must be separated with "
-                                               "whitespaces.\nRanges could be specified as x..y (x-y) or in "
-                                               "python-style x:y (x..(y-1)).")
-        lines_edit = QLineEdit()
-        lines_edit.setPlaceholderText("1 4..6 8")
-        lines_edit.setEnabled(False)
-        radio_button_specific_lines.toggled.connect(lines_edit.setEnabled)
-        group_box_layout.addWidget(radio_button_specific_lines, 1, 0)
-        group_box_layout.addWidget(lines_edit, 1, 1)
-        # specific symbols (variables, functions and classes)
-        radio_button_symbols = QRadioButton("Load symbols")
-        symbols_edit = QLineEdit()
-        symbols_edit.setPlaceholderText("variables or functions separated by commas")
-        symbols_edit.setEnabled(False)
-        radio_button_symbols.toggled.connect(symbols_edit.setEnabled)
-        group_box_layout.addWidget(radio_button_symbols, 2, 0)
-        group_box_layout.addWidget(symbols_edit, 2, 1)
-        # set layout
-        group_box.setLayout(group_box_layout)
-        layout.addWidget(group_box, 1, 0, 1, 3)
+        # # lines / symbols
+        # group_box = QGroupBox()
+        # group_box_layout = QGridLayout()
+        # # all lines
+        # radio_button_all_lines = QRadioButton("Load all file")
+        # radio_button_all_lines.setChecked(True)
+        # group_box_layout.addWidget(radio_button_all_lines, 0, 0)
+        # # specific lines
+        # radio_button_specific_lines = QRadioButton("Load specific lines")
+        # radio_button_specific_lines.setToolTip("Selected (ranges of) lines to load must be separated with "
+        #                                        "whitespaces.\nRanges could be specified as x..y (x-y) or in "
+        #                                        "python-style x:y (x..(y-1)).")
+        # lines_edit = QLineEdit()
+        # lines_edit.setPlaceholderText("1 4..6 8")
+        # lines_edit.setEnabled(False)
+        # radio_button_specific_lines.toggled.connect(lines_edit.setEnabled)
+        # group_box_layout.addWidget(radio_button_specific_lines, 1, 0)
+        # group_box_layout.addWidget(lines_edit, 1, 1)
+        # # specific symbols (variables, functions and classes)
+        # radio_button_symbols = QRadioButton("Load symbols")
+        # symbols_edit = QLineEdit()
+        # symbols_edit.setPlaceholderText("variables or functions separated by commas")
+        # symbols_edit.setEnabled(False)
+        # radio_button_symbols.toggled.connect(symbols_edit.setEnabled)
+        # group_box_layout.addWidget(radio_button_symbols, 2, 0)
+        # group_box_layout.addWidget(symbols_edit, 2, 1)
+        # # set layout
+        # group_box.setLayout(group_box_layout)
+        # layout.addWidget(group_box, 1, 0, 1, 3)
 
+        # clear session
         clear_session_checkbox = QCheckBox("Clear session before to load")
         clear_session_checkbox.setChecked(False)
-        layout.addWidget(clear_session_checkbox, 2, 0, 1, 3)
+        layout.addWidget(clear_session_checkbox, 1, 0, 1, 3)
 
         # accept/reject
         bbox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bbox.accepted.connect(dialog.accept)
         bbox.rejected.connect(dialog.reject)
-        layout.addWidget(bbox, 3, 0, 1, 3)
+        layout.addWidget(bbox, 2, 0, 1, 3)
 
         # open dialog
         ret = dialog.exec_()
         if ret == QDialog.Accepted:
-            filepath = browse_edit.text()
-            if radio_button_specific_lines.isChecked():
-                lines, symbols = lines_edit.text(), ''
-            elif radio_button_symbols.isChecked():
-                lines, symbols = '', symbols_edit.text()
-            else:
-                lines, symbols = '', ''
+            filepath = browse_combobox.currentText()
             if clear_session_checkbox.isChecked():
                 self._reset()
-            self._load_script(filepath, lines, symbols)
-
-    def open_recent_script(self):
-        if self._ask_to_save_if_unsaved_modifications():
-            action = self.sender()
-            if action:
-                filepath = action.data()
-                if os.path.exists(filepath):
-                    self.load_script(filepath)
-                else:
-                    QMessageBox.warning(self, "Warning", "File {} could not be found".format(filepath))
-
-    def update_recent_script_list(self, filepath):
-        settings = QSettings()
-        scripts = settings.value("recentScriptList")
-        if filepath is not None and filepath in scripts:
-            scripts.remove(filepath)
-        scripts = [filepath] + scripts
-        settings.setValue("recentScriptList", scripts[:self.MAX_RECENT_FILES])
-        self.update_recent_script_actions()
-
-    def _clear_recent_scripts(self):
-        settings = QSettings()
-        settings.setValue("recentScriptList", [])
-        self.update_recent_script_actions()
-
-    def update_recent_script_actions(self):
-        settings = QSettings()
-        recent_scripts = settings.value("recentScriptList")
-        if recent_scripts is None:
-            recent_scripts = []
-
-        # zip will iterate up to the shortest of the two
-        for filepath, action in zip(recent_scripts, self.recent_script_actions):
-            action.setText(os.path.basename(filepath))
-            action.setStatusTip(filepath)
-            action.setData(filepath)
-            action.setVisible(True)
-        # if we have less recent recent files than actions, hide the remaining actions
-        for action in self.recent_script_actions[len(recent_scripts):]:
-            action.setVisible(False)
+            self._load_script(filepath)
 
     def _save_script(self, filepath, lines, overwrite):
+        # IPython/core/magics/code.py -> CodeMagics -> save
         assert qtconsole_available
         try:
             # -f: force overwrite. If file exists, %save will prompt for overwrite unless -f is given.
@@ -767,6 +723,7 @@ class MappingEditor(QMainWindow):
             else:
                 lines = '1-{}'.format(self.kernel.shell.execution_count)
             self.kernel.shell.run_line_magic('save', '{} {} {}'.format(overwrite, filepath, lines))
+            self.recent_saved_scripts.add(filepath)
         except Exception as e:
             QMessageBox.critical(self, "Error", "Cannot save history as {}:\n{}"
                                  .format(os.path.basename(filepath), e))
@@ -781,13 +738,16 @@ class MappingEditor(QMainWindow):
 
         # filepath
         browse_label = QLabel("Filepath")
-        browse_edit = QLineEdit()
+        browse_combobox = QComboBox()
+        browse_combobox.setEditable(True)
+        browse_combobox.addItems(self.recent_saved_scripts.files)
+        browse_combobox.lineEdit().setPlaceholderText("destination file")
         browse_button = QPushButton("Browse")
         browse_filedialog = QFileDialog(self, filter="Python Script (*.py)")
         browse_button.clicked.connect(browse_filedialog.open)
-        browse_filedialog.fileSelected.connect(browse_edit.setText)
+        browse_filedialog.fileSelected.connect(browse_combobox.lineEdit().setText)
         layout.addWidget(browse_label, 0, 0)
-        layout.addWidget(browse_edit, 0, 1)
+        layout.addWidget(browse_combobox, 0, 1)
         layout.addWidget(browse_button, 0, 2)
 
         # lines
@@ -817,10 +777,10 @@ class MappingEditor(QMainWindow):
         group_box_layout = QGridLayout()
         # overwrite
         radio_button_overwrite = QRadioButton("Overwrite file")
-        radio_button_overwrite.setChecked(True)
         group_box_layout.addWidget(radio_button_overwrite, 0, 0)
         # append to
         radio_button_append = QRadioButton("Append to file")
+        radio_button_append.setChecked(True)
         group_box_layout.addWidget(radio_button_append, 0, 1)
         # set layout
         group_box.setLayout(group_box_layout)
@@ -835,20 +795,27 @@ class MappingEditor(QMainWindow):
         # open dialog
         ret = dialog.exec_()
         if ret == QDialog.Accepted:
-            filepath = browse_edit.text()
+            filepath = browse_combobox.currentText()
             if filepath == '':
                 QMessageBox.warning(self, "Warning", "No file provided")
             else:
-                if radio_button_specific_lines.isChecked():
-                    lines = lines_edit.text()
-                else:
-                    lines = ''
-                overwrite = radio_button_overwrite.isChecked()
-                self._save_script(filepath, lines, overwrite)
+                specific_lines = radio_button_specific_lines.isChecked()
+                lines = lines_edit.text() if specific_lines else ''
 
-    ###############################
+                overwrite = radio_button_overwrite.isChecked()
+                if overwrite and os.path.isfile(filepath):
+                    ret = QMessageBox.warning(self, "Warning",
+                                              "File `{}` exists. Are you sure to overwrite it?".format(filepath),
+                                              QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
+                    if ret == QMessageBox.Save:
+                        self._save_script(filepath, lines, overwrite)
+                else:
+                    self._save_script(filepath, lines, overwrite)
+
+
+    #=============================#
     #  METHODS TO SAVE/LOAD DATA  #
-    ###############################
+    #=============================#
 
     def _open_file(self, filepath):
         session = Session()
@@ -952,6 +919,10 @@ class MappingEditor(QMainWindow):
                 filepath = AVAILABLE_EXAMPLE_DATA[dataset_name]
                 self._open_file(filepath)
 
+    #########################################
+    #               HELP MENU               #
+    #########################################
+
     def open_documentation(self):
         QDesktopServices.openUrl(QUrl(get_documentation_url('doc_index')))
 
@@ -1027,65 +998,6 @@ class MappingEditor(QMainWindow):
                 message += "<li>{dep} {{{dep}}}</li>\n".format(dep=dep)
         message += "</ul>"
         QMessageBox.about(self, _("About LArray Editor"), message.format(**kwargs))
-
-    def set_current_file(self, filepath):
-        self.update_recent_files([filepath])
-        self.current_file = filepath
-        self.update_title()
-
-    def update_recent_files(self, filepaths):
-        settings = QSettings()
-        files = settings.value("recentFileList")
-        for filepath in filepaths:
-            if filepath is not None:
-                if filepath in files:
-                    files.remove(filepath)
-                files = [filepath] + files
-        settings.setValue("recentFileList", files[:self.MAX_RECENT_FILES])
-        self.update_recent_file_actions()
-
-    def _clear_recent_files(self):
-        settings = QSettings()
-        settings.setValue("recentFileList", [])
-        self.update_recent_file_actions()
-
-    def update_recent_file_actions(self):
-        settings = QSettings()
-        recent_files = settings.value("recentFileList")
-        if recent_files is None:
-            recent_files = []
-
-        # zip will iterate up to the shortest of the two
-        for filepath, action in zip(recent_files, self.recent_file_actions):
-            action.setText(os.path.basename(filepath))
-            action.setStatusTip(filepath)
-            action.setData(filepath)
-            action.setVisible(True)
-        # if we have less recent recent files than actions, hide the remaining actions
-        for action in self.recent_file_actions[len(recent_files):]:
-            action.setVisible(False)
-
-    def closeEvent(self, event):
-        if self._ask_to_save_if_unsaved_modifications():
-            event.accept()
-        else:
-            event.ignore()
-
-    def apply_changes(self):
-        # update unsaved_modifications (and thus title) only if at least 1 change has been applied
-        if self.arraywidget.dirty:
-            self.unsaved_modifications = True
-        self.arraywidget.accept_changes()
-
-    def discard_changes(self):
-        self.arraywidget.reject_changes()
-        self.update_title()
-
-    def get_value(self):
-        """Return modified array -- this is *not* a copy"""
-        # It is import to avoid accessing Qt C++ object as it has probably
-        # already been destroyed, due to the Qt.WA_DeleteOnClose attribute
-        return self.data
 
 
 class ArrayEditor(QDialog):
