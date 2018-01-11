@@ -275,16 +275,17 @@ class MappingEditor(QMainWindow):
         #===============#
         #    SCRIPTS    #
         #===============#
-        file_menu.addSeparator()
         if qtconsole_available:
+            file_menu.addSeparator()
             file_menu.addAction(create_action(self, _('&Load from Script'), shortcut="Ctrl+Shift+O",
                                               triggered=self.load_script, statustip=_('Load script from file')))
             file_menu.addAction(create_action(self, _('&Save Command History To Script'), shortcut="Ctrl+Shift+S",
                                               triggered=self.save_script, statustip=_('Save command history in a file')))
-            file_menu.addSeparator()
+
         #===============#
         #     QUIT      #
         #===============#
+        file_menu.addSeparator()
         file_menu.addAction(create_action(self, _('&Quit'), shortcut="Ctrl+Q", triggered=self.close))
 
         #################
