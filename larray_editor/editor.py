@@ -10,7 +10,7 @@ from larray_editor.arraywidget import ArrayEditorWidget
 from qtpy.QtCore import Qt, QSettings, QUrl, Slot
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
-                            QDialogButtonBox, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QAction,
+                            QDialogButtonBox, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit,
                             QCheckBox, QComboBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton)
 
 try:
@@ -55,7 +55,7 @@ class MappingEditor(QMainWindow):
         QMainWindow.__init__(self, parent)
 
         # to handle recently opened data/script files
-        self.recent_data_files = RecentlyUsedList("recentFileList")
+        self.recent_data_files = RecentlyUsedList("recentFileList", self, self.open_recent_file)
         self.recent_saved_scripts = RecentlyUsedList("recentSavedScriptList")
         self.recent_loaded_scripts = RecentlyUsedList("recentLoadedScriptList")
 
@@ -204,7 +204,7 @@ class MappingEditor(QMainWindow):
         # check if reopen last opened file
         if data is REOPEN_LAST_FILE:
             if len(self.recent_data_files.files) > 0:
-                data = self.recent_data_file_actions[0].data()
+                data = self.recent_data_file.files[0]
             else:
                 data = Session()
 
@@ -263,12 +263,8 @@ class MappingEditor(QMainWindow):
         file_menu.addAction(create_action(self, _('Save Data &As'), triggered=self.save_data_as,
                                           statustip=_('Save all arrays as a session in a file')))
         recent_files_menu = file_menu.addMenu("Open &Recent Data")
-        actions = [QAction(self) for _ in range(RecentlyUsedList.MAX_RECENT_FILES)]
-        for action in actions:
-            action.setVisible(False)
-            action.triggered.connect(self.open_recent_file)
+        for action in self.recent_data_files.actions:
             recent_files_menu.addAction(action)
-        self.recent_data_files.actions = actions
         recent_files_menu.addSeparator()
         recent_files_menu.addAction(create_action(self, _('&Clear List'), triggered=self.recent_data_files.clear))
         #===============#
@@ -285,10 +281,10 @@ class MappingEditor(QMainWindow):
                                               triggered=self.load_script, statustip=_('Load script from file')))
             file_menu.addAction(create_action(self, _('&Save Command History To Script'), shortcut="Ctrl+Shift+S",
                                               triggered=self.save_script, statustip=_('Save command history in a file')))
+            file_menu.addSeparator()
         #===============#
         #     QUIT      #
         #===============#
-        file_menu.addSeparator()
         file_menu.addAction(create_action(self, _('&Quit'), shortcut="Ctrl+Q", triggered=self.close))
 
         #################

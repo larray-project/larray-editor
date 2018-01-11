@@ -604,12 +604,21 @@ def get_sample_indices(data, maxsize):
 class RecentlyUsedList(object):
     MAX_RECENT_FILES = 10
 
-    def __init__(self, list_name):
+    def __init__(self, list_name, parent_action=None, triggered=None):
         self.settings = QSettings()
         self.list_name = list_name
         if self.settings.value(list_name) is None:
             self.settings.setValue(list_name, [])
-        self.actions = []
+        if parent_action is not None:
+            actions = [QAction(parent_action) for _ in range(self.MAX_RECENT_FILES)]
+            for action in actions:
+                action.setVisible(False)
+                if triggered is not None:
+                    action.triggered.connect(triggered)
+            self._actions = actions
+        else:
+            self._actions = None
+        self._update_actions()
 
     @property
     def files(self):
@@ -624,11 +633,6 @@ class RecentlyUsedList(object):
     def actions(self):
         return self._actions
 
-    @actions.setter
-    def actions(self, actions):
-        self._actions = actions if actions is not None else []
-        self._update_actions()
-
     def add(self, filepath):
         if filepath is not None:
             recent_files = self.files
@@ -641,7 +645,7 @@ class RecentlyUsedList(object):
         self.files = []
 
     def _update_actions(self):
-        if len(self.actions):
+        if self.actions is not None:
             recent_files = self.files
             if recent_files is None:
                 recent_files = []
