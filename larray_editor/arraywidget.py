@@ -755,7 +755,7 @@ class ArrayEditorWidget(QWidget):
     def _reset_minmax(self):
         self.model_data.reset_minmax()
 
-    def _update_models(self, reset_model, reset_minmax):
+    def _update_models(self, reset_model_data, reset_minmax):
         # axes names
         axes_names = self.data_adapter.get_axes_names(fold_last_axis=True)
         self.model_axes.set_data(axes_names)
@@ -780,7 +780,7 @@ class ArrayEditorWidget(QWidget):
         if reset_minmax:
             self._reset_minmax()
         # reset the data model if required
-        if reset_model:
+        if reset_model_data:
             self.model_data.reset()
 
     def set_data(self, data, bg_value=None):
@@ -789,7 +789,9 @@ class ArrayEditorWidget(QWidget):
         # update filters
         self._update_filter()
         # update models
-        self._update_models(reset_model=True, reset_minmax=True)
+        # Note: model_data is reset by call of _update_digits_scientific below which call
+        #       set_format which reset the data_model
+        self._update_models(reset_model_data=False, reset_minmax=True)
         # update data format
         self._update_digits_scientific()
         # update gradient_chooser
@@ -1006,7 +1008,7 @@ class ArrayEditorWidget(QWidget):
         # update filtered data
         self.data_adapter.update_filtered_data()
         # update models
-        self._update_models(reset_model=True, reset_minmax=True)
+        self._update_models(reset_model_data=True, reset_minmax=True)
         # return modified data
         return self.data_adapter.data
 
@@ -1025,7 +1027,7 @@ class ArrayEditorWidget(QWidget):
     def change_filter(self, axis, indices):
         model_changes = self.model_data.changes
         self.data_adapter.update_filter(axis, indices, model_changes)
-        self._update_models(reset_model=True, reset_minmax=False)
+        self._update_models(reset_model_data=True, reset_minmax=False)
 
     def create_filter_combo(self, axis):
         def filter_changed(checked_items):
