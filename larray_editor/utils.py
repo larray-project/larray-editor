@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import sys
 import math
+import logging
 
 import numpy as np
 try:
@@ -21,6 +22,9 @@ if PYQT5:
 else:
     from matplotlib.backends.backend_qt4agg import FigureCanvas
     from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
+
+
+logger = logging.getLogger("editor")
 
 
 core_dependencies = ['numpy', 'pandas', 'matplotlib', 'pytables', 'xlwings', 'xlsxwriter', 'xlrd', 'openpyxl']
@@ -328,6 +332,61 @@ def show_figure(parent, figure):
     canvas = FigureCanvas(figure)
     main = PlotDialog(canvas, parent)
     main.show()
+
+
+class Axis(object):
+    """
+    Represents an Axis.
+
+    Parameters
+    ----------
+    id : str or int
+        Id of axis.
+    name : str
+        Name of the axis. Can be None.
+    labels : list or tuple or 1D array
+        List of labels
+    """
+    def __init__(self, id, name, labels):
+        self.id = id
+        self.name = name
+        self.labels = labels
+
+    @property
+    def id(self):
+        return self._id
+
+    @id.setter
+    def id(self, id):
+        if not isinstance(id, (str, int)):
+            raise TypeError("id must a string or a integer")
+        self._id = id
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        if not isinstance(name, str):
+            raise TypeError("name must be a string")
+        self._name = name
+
+    @property
+    def labels(self):
+        return self._labels
+
+    @labels.setter
+    def labels(self, labels):
+        if not (hasattr(labels, '__len__') and hasattr(labels, '__getitem__')):
+            raise TypeError("labels must be a list or tuple or any 1D array-like")
+        self._labels = labels
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __str__(self):
+        return 'Axis({}, {}, {})'.format(self.id, self.name, self.labels)
 
 
 class Product(object):

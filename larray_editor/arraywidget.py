@@ -71,7 +71,6 @@ Array Editor Dialog based on Qt
 from __future__ import print_function
 
 import math
-from itertools import chain
 
 import numpy as np
 from qtpy.QtCore import Qt, QPoint, QItemSelection, QItemSelectionModel, Signal, QSize
@@ -81,17 +80,11 @@ from qtpy.QtWidgets import (QApplication, QTableView, QItemDelegate, QLineEdit, 
                             QMessageBox, QMenu, QLabel, QSpinBox, QWidget, QToolTip, QShortcut, QScrollBar,
                             QHBoxLayout, QVBoxLayout, QGridLayout, QSizePolicy, QFrame, QComboBox)
 
-try:
-    import xlwings as xw
-except ImportError:
-    xw = None
-
 from larray_editor.utils import (keybinding, create_action, clear_layout, get_font, from_qvariant, to_qvariant,
                                  is_number, is_float, _, ima, LinearGradient)
-from larray_editor.arrayadapter import LArrayDataAdapter
+from larray_editor.arrayadapter import get_adapter
 from larray_editor.arraymodel import LabelsArrayModel, DataArrayModel
 from larray_editor.combo import FilterComboBox, FilterMenu
-import larray as la
 
 
 # XXX: define Enum instead ?
@@ -537,35 +530,36 @@ class ArrayEditorWidget(QWidget):
             readonly = True
         self.readonly = readonly
 
+        # prepare internal views and models
         self.model_axes = LabelsArrayModel(parent=self, readonly=readonly)
         self.view_axes = LabelsView(parent=self, model=self.model_axes, position=(TOP, LEFT))
 
-        self.model_xlabels = LabelsArrayModel(parent=self, readonly=readonly)
-        self.view_xlabels = LabelsView(parent=self, model=self.model_xlabels, position=(TOP, RIGHT))
+        self.model_hlabels = LabelsArrayModel(parent=self, readonly=readonly)
+        self.view_hlabels = LabelsView(parent=self, model=self.model_hlabels, position=(TOP, RIGHT))
 
-        self.model_ylabels = LabelsArrayModel(parent=self, readonly=readonly)
-        self.view_ylabels = LabelsView(parent=self, model=self.model_ylabels, position=(BOTTOM, LEFT))
+        self.model_vlabels = LabelsArrayModel(parent=self, readonly=readonly)
+        self.view_vlabels = LabelsView(parent=self, model=self.model_vlabels, position=(BOTTOM, LEFT))
 
         self.model_data = DataArrayModel(parent=self, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
         self.view_data = DataView(parent=self, model=self.model_data)
 
-        self.data_adapter = LArrayDataAdapter(axes_model=self.model_axes, xlabels_model=self.model_xlabels,
-                                              ylabels_model=self.model_ylabels, data_model=self.model_data)
+        # in case data is None
+        self.data_adapter = None
 
         # Create vertical and horizontal scrollbars
         self.vscrollbar = ScrollBar(self, self.view_data.verticalScrollBar())
         self.hscrollbar = ScrollBar(self, self.view_data.horizontalScrollBar())
 
         # Synchronize resizing
-        self.view_axes.horizontalHeader().sectionResized.connect(self.view_ylabels.updateSectionWidth)
-        self.view_axes.verticalHeader().sectionResized.connect(self.view_xlabels.updateSectionHeight)
-        self.view_xlabels.horizontalHeader().sectionResized.connect(self.view_data.updateSectionWidth)
-        self.view_ylabels.verticalHeader().sectionResized.connect(self.view_data.updateSectionHeight)
+        self.view_axes.horizontalHeader().sectionResized.connect(self.view_vlabels.updateSectionWidth)
+        self.view_axes.verticalHeader().sectionResized.connect(self.view_hlabels.updateSectionHeight)
+        self.view_hlabels.horizontalHeader().sectionResized.connect(self.view_data.updateSectionWidth)
+        self.view_vlabels.verticalHeader().sectionResized.connect(self.view_data.updateSectionHeight)
         # Synchronize auto-resizing
         self.view_axes.horizontalHeader().sectionHandleDoubleClicked.connect(self.resize_axes_column_to_contents)
-        self.view_xlabels.horizontalHeader().sectionHandleDoubleClicked.connect(self.resize_xlabels_column_to_contents)
+        self.view_hlabels.horizontalHeader().sectionHandleDoubleClicked.connect(self.resize_hlabels_column_to_contents)
         self.view_axes.verticalHeader().sectionHandleDoubleClicked.connect(self.resize_axes_row_to_contents)
-        self.view_ylabels.verticalHeader().sectionHandleDoubleClicked.connect(self.resize_ylabels_row_to_contents)
+        self.view_vlabels.verticalHeader().sectionHandleDoubleClicked.connect(self.resize_vlabels_row_to_contents)
 
         # synchronize specific methods
         self.view_axes.allSelected.connect(self.view_data.selectAll)
@@ -575,18 +569,18 @@ class ArrayEditorWidget(QWidget):
         self.view_data.signal_plot.connect(self.plot)
 
         # Synchronize scrolling
-        # data <--> xlabels
-        self.view_data.horizontalScrollBar().valueChanged.connect(self.view_xlabels.horizontalScrollBar().setValue)
-        self.view_xlabels.horizontalScrollBar().valueChanged.connect(self.view_data.horizontalScrollBar().setValue)
-        # data <--> ylabels
-        self.view_data.verticalScrollBar().valueChanged.connect(self.view_ylabels.verticalScrollBar().setValue)
-        self.view_ylabels.verticalScrollBar().valueChanged.connect(self.view_data.verticalScrollBar().setValue)
+        # data <--> hlabels
+        self.view_data.horizontalScrollBar().valueChanged.connect(self.view_hlabels.horizontalScrollBar().setValue)
+        self.view_hlabels.horizontalScrollBar().valueChanged.connect(self.view_data.horizontalScrollBar().setValue)
+        # data <--> vlabels
+        self.view_data.verticalScrollBar().valueChanged.connect(self.view_vlabels.verticalScrollBar().setValue)
+        self.view_vlabels.verticalScrollBar().valueChanged.connect(self.view_data.verticalScrollBar().setValue)
 
         # Synchronize selecting columns(rows) via hor.(vert.) header of x(y)labels view
-        self.view_xlabels.horizontalHeader().sectionPressed.connect(self.view_data.selectColumn)
-        self.view_xlabels.horizontalHeader().sectionEntered.connect(self.view_data.selectNewColumn)
-        self.view_ylabels.verticalHeader().sectionPressed.connect(self.view_data.selectRow)
-        self.view_ylabels.verticalHeader().sectionEntered.connect(self.view_data.selectNewRow)
+        self.view_hlabels.horizontalHeader().sectionPressed.connect(self.view_data.selectColumn)
+        self.view_hlabels.horizontalHeader().sectionEntered.connect(self.view_data.selectNewColumn)
+        self.view_vlabels.verticalHeader().sectionPressed.connect(self.view_data.selectRow)
+        self.view_vlabels.verticalHeader().sectionEntered.connect(self.view_data.selectNewRow)
 
         # following lines are required to keep usual selection color
         # when selecting rows/columns via headers of label views.
@@ -601,17 +595,17 @@ class ArrayEditorWidget(QWidget):
         array_frame.setFrameStyle(QFrame.StyledPanel)
         # remove borders of internal tables
         self.view_axes.setFrameStyle(QFrame.NoFrame)
-        self.view_xlabels.setFrameStyle(QFrame.NoFrame)
-        self.view_ylabels.setFrameStyle(QFrame.NoFrame)
+        self.view_hlabels.setFrameStyle(QFrame.NoFrame)
+        self.view_vlabels.setFrameStyle(QFrame.NoFrame)
         self.view_data.setFrameStyle(QFrame.NoFrame)
         # Set layout of table views:
-        # [ axes  ][xlabels]|V|
-        # [ylabels][ data  ]|s|
+        # [ axes  ][hlabels]|V|
+        # [vlabels][ data  ]|s|
         # |  H. scrollbar  |
         array_layout = QGridLayout()
         array_layout.addWidget(self.view_axes, 0, 0)
-        array_layout.addWidget(self.view_xlabels, 0, 1)
-        array_layout.addWidget(self.view_ylabels, 1, 0)
+        array_layout.addWidget(self.view_hlabels, 0, 1)
+        array_layout.addWidget(self.view_vlabels, 1, 0)
         self.view_data.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         array_layout.addWidget(self.view_data, 1, 1)
         array_layout.addWidget(self.vscrollbar, 0, 2, 2, 1)
@@ -675,7 +669,10 @@ class ArrayEditorWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
+        # set gradient
         self.model_data.set_bg_gradient(gradient_map[bg_gradient])
+
+        # set data
         if data is not None:
             self.set_data(data, bg_value=bg_value)
 
@@ -741,17 +738,12 @@ class ArrayEditorWidget(QWidget):
     def dropEvent(self, event):
         if event.mimeData().hasText():
             if self.filters_layout.geometry().contains(event.pos()):
-                previous_index, success = event.mimeData().data("application/x-axis-index").toInt()
+                old_index, success = event.mimeData().data("application/x-axis-index").toInt()
                 new_index = self.filters_layout.indexOf(self.childAt(event.pos())) // 2
 
-                la_data = self.data_adapter.get_data()
-                new_axes = la_data.axes.copy()
-                new_axes.insert(new_index, new_axes.pop(new_axes[previous_index]))
-                la_data = la_data.transpose(new_axes)
-                bg_value = self.data_adapter.bg_value
-                if bg_value is not None:
-                    bg_value = bg_value.transpose(new_axes)
-                self.set_data(la_data, bg_value)
+                data, bg_value = self.data_adapter.data, self.data_adapter.bg_value
+                data, bg_value = self.data_adapter.move_axis(data, bg_value, old_index, new_index)
+                self.set_data(data, bg_value)
 
                 event.setDropAction(Qt.MoveAction)
                 event.accept()
@@ -760,26 +752,70 @@ class ArrayEditorWidget(QWidget):
         else:
             event.ignore()
 
+    def _reset_minmax(self):
+        self.model_data.reset_minmax()
+
+    def _update_models(self, reset_model_data, reset_minmax):
+        # axes names
+        axes_names = self.data_adapter.get_axes_names(fold_last_axis=True)
+        self.model_axes.set_data(axes_names)
+        # horizontal labels
+        hlabels = self.data_adapter.get_hlabels()
+        self.model_hlabels.set_data(hlabels)
+        # vertical labels
+        vlabels = self.data_adapter.get_vlabels()
+        self.model_vlabels.set_data(vlabels)
+        # raw data
+        # use flag reset=False to avoid calling reset() several times
+        raw_data = self.data_adapter.get_raw_data()
+        self.model_data.set_data(raw_data, reset=False)
+        # bg value
+        # use flag reset=False to avoid calling reset() several times
+        bg_value = self.data_adapter.get_bg_value()
+        self.model_data.set_bg_value(bg_value, reset=False)
+        # changes
+        changes = self.data_adapter.get_model_changes()
+        self.model_data.set_changes(changes)
+        # reset min and max values if required
+        if reset_minmax:
+            self._reset_minmax()
+        # reset the data model if required
+        if reset_model_data:
+            self.model_data.reset()
+
     def set_data(self, data, bg_value=None):
-        # TODO: in the future, data should either be an adapter directly or we should instantiate one here depending
-        # on the type of data it received. Having a single adapter instance and using set_data on it like we do now
-        # cannot work because we will need a different adapter class for different data types.
-        data = la.aslarray(data)
-
-        axes = data.axes
-        display_names = axes.display_names
-
-        # update data format
-        self._update_digits_scientific(data)
-
+        # get new adapter instance + set data
+        self.data_adapter = get_adapter(data=data, changes=None, bg_value=bg_value)
         # update filters
+        self._update_filter()
+        # update models
+        # Note: model_data is reset by call of _update_digits_scientific below which call
+        #       set_format which reset the data_model
+        self._update_models(reset_model_data=False, reset_minmax=True)
+        # update data format
+        self._update_digits_scientific()
+        # update gradient_chooser
+        self.gradient_chooser.setEnabled(self.model_data.bgcolor_possible)
+        # reset default size
+        self._reset_default_size()
+        # update dtype in view_data
+        self.view_data.set_dtype(self.data_adapter.dtype)
+
+    def _reset_default_size(self):
+        self.view_axes.set_default_size()
+        self.view_vlabels.set_default_size()
+        self.view_hlabels.set_default_size()
+        self.view_data.set_default_size()
+
+    def _update_filter(self):
         filters_layout = self.filters_layout
         clear_layout(filters_layout)
-        # data.size > 0 to avoid arrays with length 0 axes and len(axes) > 0 to avoid scalars (scalar.size == 1)
-        if data.size > 0 and len(axes) > 0:
+        axes = self.data_adapter.get_axes_filtered_data()
+        # size > 0 to avoid arrays with length 0 axes and len(axes) > 0 to avoid scalars (scalar.size == 1)
+        if self.data_adapter.size > 0 and len(axes) > 0:
             filters_layout.addWidget(QLabel(_("Filters")))
-            for axis, display_name in zip(axes, display_names):
-                filters_layout.addWidget(QLabel(display_name))
+            for axis in axes:
+                filters_layout.addWidget(QLabel(axis.name))
                 # FIXME: on very large axes, this is getting too slow. Ideally the combobox should use a model which
                 # only fetch labels when they are needed to be displayed
                 if len(axis) < 10000:
@@ -788,32 +824,37 @@ class ArrayEditorWidget(QWidget):
                     filters_layout.addWidget(QLabel("too big to be filtered"))
             filters_layout.addStretch()
 
-        self.data_adapter.set_data(data, bg_value=bg_value)
-        self.gradient_chooser.setEnabled(self.model_data.bgcolor_possible)
+    def set_format(self, digits, scientific, reset=True):
+        """Set format.
 
-        # reset default size
-        self.view_axes.set_default_size()
-        self.view_ylabels.set_default_size()
-        self.view_xlabels.set_default_size()
-        self.view_data.set_default_size()
-
-        self.view_data.set_dtype(data.dtype)
+        Parameters
+        ----------
+        digits : int
+            Number of digits to display.
+        scientific : boolean
+            Whether or not to display values in scientific format.
+        reset: boolean, optional
+            Whether or not to reset the data model. Defaults to True.
+        """
+        type = self.data_adapter.dtype.type
+        if type in (np.str, np.str_, np.bool_, np.bool, np.object_):
+            fmt = '%s'
+        else:
+            format_letter = 'e' if scientific else 'f'
+            fmt = '%%.%d%s' % (digits, format_letter)
+        self.model_data.set_format(fmt, reset)
 
     # called by set_data and ArrayEditorWidget.accept_changes (this should not be the case IMO)
     # two cases:
     # * set_data should update both scientific and ndigits
     # * toggling scientific checkbox should update only ndigits
-    def _update_digits_scientific(self, data, scientific=None):
-        """
-        data : LArray
-        """
-        dtype = data.dtype
+    def _update_digits_scientific(self, scientific=None):
+        dtype = self.data_adapter.dtype
         if dtype.type in (np.str, np.str_, np.bool_, np.bool, np.object_):
             scientific = False
             ndecimals = 0
         else:
-            # XXX: move this to the adapter (return a data sample as a Numpy array)
-            data = self._get_sample(data)
+            data = self.data_adapter.get_sample()
 
             # max_digits = self.get_max_digits()
             # default width can fit 8 chars
@@ -866,20 +907,11 @@ class ArrayEditorWidget(QWidget):
         self.scientific_checkbox.setEnabled(is_number(dtype))
         self.scientific_checkbox.blockSignals(False)
 
-        # setting the format explicitly instead of relying on digits_spinbox.digits_changed to set it because
-        # digits_changed is only triggered when digits actually changed, not when passing from
-        # scientific -> non scientific or number -> object
-        self.set_format(data, ndecimals, scientific)
-
-    def _get_sample(self, data):
-        assert isinstance(data, la.LArray)
-        data = data.data
-        # TODO: use utils.get_sample instead
-        size = data.size
-        # this will yield a data sample of max 199
-        step = (size // 100) if size > 100 else 1
-        sample = data.flat[::step]
-        return sample[np.isfinite(sample)]
+        # 1) setting the format explicitly instead of relying on digits_spinbox.digits_changed to set it because
+        #    digits_changed is only triggered when digits actually changed, not when passing from
+        #    scientific -> non scientific or number -> object
+        # 2) data model is reset in set_format by default
+        self.set_format(ndecimals, scientific)
 
     def format_helper(self, data):
         if not data.size:
@@ -928,76 +960,78 @@ class ArrayEditorWidget(QWidget):
         self.view_axes.autofit_columns()
         for column in range(self.model_axes.columnCount()):
             self.resize_axes_column_to_contents(column)
-        self.view_xlabels.autofit_columns()
-        for column in range(self.model_xlabels.columnCount()):
-            self.resize_xlabels_column_to_contents(column)
+        self.view_hlabels.autofit_columns()
+        for column in range(self.model_hlabels.columnCount()):
+            self.resize_hlabels_column_to_contents(column)
 
     def resize_axes_column_to_contents(self, column):
         # must be connected to view_axes.horizontalHeader().sectionHandleDoubleClicked signal
         width = max(self.view_axes.horizontalHeader().sectionSize(column),
-                    self.view_ylabels.sizeHintForColumn(column))
-        # no need to call resizeSection on view_ylabels (see synchronization lines in init)
+                    self.view_vlabels.sizeHintForColumn(column))
+        # no need to call resizeSection on view_vlabels (see synchronization lines in init)
         self.view_axes.horizontalHeader().resizeSection(column, width)
 
-    def resize_xlabels_column_to_contents(self, column):
+    def resize_hlabels_column_to_contents(self, column):
         # must be connected to view_labels.horizontalHeader().sectionHandleDoubleClicked signal
-        width = max(self.view_xlabels.horizontalHeader().sectionSize(column),
+        width = max(self.view_hlabels.horizontalHeader().sectionSize(column),
                     self.view_data.sizeHintForColumn(column))
         # no need to call resizeSection on view_data (see synchronization lines in init)
-        self.view_xlabels.horizontalHeader().resizeSection(column, width)
+        self.view_hlabels.horizontalHeader().resizeSection(column, width)
 
     def resize_axes_row_to_contents(self, row):
         # must be connected to view_axes.verticalHeader().sectionHandleDoubleClicked
         height = max(self.view_axes.verticalHeader().sectionSize(row),
-                     self.view_xlabels.sizeHintForRow(row))
-        # no need to call resizeSection on view_xlabels (see synchronization lines in init)
+                     self.view_hlabels.sizeHintForRow(row))
+        # no need to call resizeSection on view_hlabels (see synchronization lines in init)
         self.view_axes.verticalHeader().resizeSection(row, height)
 
-    def resize_ylabels_row_to_contents(self, row):
+    def resize_vlabels_row_to_contents(self, row):
         # must be connected to view_labels.verticalHeader().sectionHandleDoubleClicked
-        height = max(self.view_ylabels.verticalHeader().sectionSize(row),
+        height = max(self.view_vlabels.verticalHeader().sectionSize(row),
                      self.view_data.sizeHintForRow(row))
         # no need to call resizeSection on view_data (see synchronization lines in init)
-        self.view_ylabels.verticalHeader().resizeSection(row, height)
+        self.view_vlabels.verticalHeader().resizeSection(row, height)
 
     @property
     def dirty(self):
-        self.data_adapter.update_changes()
+        self.data_adapter.update_changes(self.model_data.changes)
         return len(self.data_adapter.changes) > 0
 
     def accept_changes(self):
         """Accept changes"""
+        model_changes = self.model_data.changes
+        # update changes in adapter
+        self.data_adapter.update_changes(model_changes)
+        # apply changes
         self.data_adapter.accept_changes()
+        self.model_data.clear_changes()
+        # update filtered data
+        self.data_adapter.update_filtered_data()
+        # update models
+        self._update_models(reset_model_data=True, reset_minmax=True)
+        # return modified data
+        return self.data_adapter.data
 
     def reject_changes(self):
         """Reject changes"""
         self.data_adapter.reject_changes()
+        self.model_data.reject_changes()
 
     def scientific_changed(self, value):
-        self._update_digits_scientific(self.data_adapter.get_data(), scientific=value)
-        self.model_data.reset()
+        self._update_digits_scientific(scientific=value)
 
     def digits_changed(self, value):
         self.digits = value
-        self.set_format(self.data_adapter, value, self.use_scientific)
-        self.model_data.reset()
+        self.set_format(value, self.use_scientific)
 
-    def set_format(self, data, digits, scientific):
-        """data: object with a dtype attribute"""
-        type = data.dtype.type
-        if type in (np.str, np.str_, np.bool_, np.bool, np.object_):
-            fmt = '%s'
-        else:
-            # XXX: use self.digits_spinbox.getValue() and instead?
-            # XXX: use self.digits_spinbox.getValue() instead?
-            format_letter = 'e' if scientific else 'f'
-            fmt = '%%.%d%s' % (digits, format_letter)
-        # this does not call model_data.reset() so it should be called by the caller
-        self.model_data._set_format(fmt)
+    def change_filter(self, axis, indices):
+        model_changes = self.model_data.changes
+        self.data_adapter.update_filter(axis, indices, model_changes)
+        self._update_models(reset_model_data=True, reset_minmax=False)
 
     def create_filter_combo(self, axis):
         def filter_changed(checked_items):
-            self.data_adapter.change_filter(axis, checked_items)
+            self.change_filter(axis, checked_items)
         combo = FilterComboBox(self)
         combo.addItems([str(l) for l in axis.labels])
         combo.checkedItemsChanged.connect(filter_changed)
@@ -1005,9 +1039,8 @@ class ArrayEditorWidget(QWidget):
 
     def _selection_data(self, headers=True, none_selects_all=True):
         """
-        Returns an iterator over selected labels and data
-        if headers=True and a Numpy ndarray containing only
-        the data otherwise.
+        Returns selected labels as lists and raw data as Numpy ndarray
+        if headers=True or only the raw data otherwise
 
         Parameters
         ----------
@@ -1018,7 +1051,10 @@ class ArrayEditorWidget(QWidget):
 
         Returns
         -------
-        numpy.ndarray or itertools.chain
+        raw_data: numpy.ndarray
+        axes_names: list
+        vlabels: nested list
+        hlabels: list
         """
         bounds = self.view_data._selection_bounds(none_selects_all=none_selects_all)
         if bounds is None:
@@ -1027,26 +1063,18 @@ class ArrayEditorWidget(QWidget):
         raw_data = self.model_data.get_values(row_min, col_min, row_max, col_max)
         if headers:
             if not self.data_adapter.ndim:
-                return raw_data
-            # FIXME: this is extremely ad-hoc.
-            # TODO: in the future (pandas-based branch) we should use to_string(data[self._selection_filter()])
-            dim_headers = self.model_axes.get_values()
-            xlabels = self.model_xlabels.get_values(top=col_min, bottom=col_max)
-            topheaders = [[dim_header[0] for dim_header in dim_headers] + [label[0] for label in xlabels]]
-            if self.data_adapter.ndim == 1:
-                return chain(topheaders, [chain([''], row) for row in raw_data])
-            else:
-                assert self.data_adapter.ndim > 1
-                ylabels = self.model_ylabels.get_values(left=row_min, right=row_max)
-                return chain(topheaders,
-                             [chain([ylabels[j][r] for j in range(len(ylabels))], row)
-                              for r, row in enumerate(raw_data)])
+                return raw_data, None, None, None
+            axes_names = [axis_name[0] for axis_name in self.model_axes.get_values()]
+            hlabels = [label[0] for label in self.model_hlabels.get_values(top=col_min, bottom=col_max)]
+            vlabels = self.model_vlabels.get_values(left=row_min, right=row_max) if self.data_adapter.ndim > 1 else []
+            return raw_data, axes_names, vlabels, hlabels
         else:
             return raw_data
 
     def copy(self):
         """Copy selection as text to clipboard"""
-        data = self._selection_data()
+        raw_data, axes_names, vlabels, hlabels = self._selection_data()
+        data = self.data_adapter.selection_to_chain(raw_data, axes_names, vlabels, hlabels)
         if data is None:
             return
 
@@ -1062,18 +1090,12 @@ class ArrayEditorWidget(QWidget):
         clipboard.setText(text)
 
     def to_excel(self):
-        """View selection in Excel"""
-        if xw is None:
+        """Export selection in Excel"""
+        raw_data, axes_names, vlabels, hlabels = self._selection_data()
+        try:
+            self.data_adapter.to_excel(raw_data, axes_names, vlabels, hlabels)
+        except ImportError:
             QMessageBox.critical(self, "Error", "to_excel() is not available because xlwings is not installed")
-        data = self._selection_data()
-        if data is None:
-            return
-        # convert (row) generators to lists then array
-        # TODO: the conversion to array is currently necessary even though xlwings will translate it back to a list
-        #       anyway. The problem is that our lists contains numpy types and especially np.str_ crashes xlwings.
-        #       unsure how we should fix this properly: in xlwings, or change _selection_data to return only standard
-        #       Python types.
-        xw.view(np.array([list(r) for r in data]))
 
     def paste(self):
         bounds = self.view_data._selection_bounds()
@@ -1102,6 +1124,8 @@ class ArrayEditorWidget(QWidget):
             col_max = col_min + new_data.shape[1]
 
         result = self.model_data.set_values(row_min, col_min, row_max, col_max, new_data)
+        self.data_adapter.update_changes(self.model_data.changes)
+
         if result is None:
             return
 
@@ -1111,62 +1135,11 @@ class ArrayEditorWidget(QWidget):
         self.view_data.selectionModel().select(QItemSelection(*result), QItemSelectionModel.ClearAndSelect)
 
     def plot(self):
-        from matplotlib.figure import Figure
-        from larray_editor.utils import show_figure
-
-        data = self._selection_data(headers=False)
-        if data is None:
-            return
-
-        row_min, row_max, col_min, col_max = self.view_data._selection_bounds()
-        dim_names = self.data_adapter.get_axes_names()
-        # labels
-        xlabels = [label[0] for label in self.model_xlabels.get_values(top=col_min, bottom=col_max)]
-        ylabels = self.model_ylabels.get_values(left=row_min, right=row_max)
-        # transpose ylabels
-        ylabels = [[str(ylabels[i][j]) for i in range(len(ylabels))] for j in range(len(ylabels[0]))]
-        # if there is only one dimension, ylabels is empty
-        if not ylabels:
-            ylabels = [[]]
-
-        assert data.ndim == 2
-
-        figure = Figure()
-
-        # create an axis
-        ax = figure.add_subplot(111)
-
-        if data.shape[1] == 1:
-            # plot one column
-            xlabel = ','.join(dim_names[:-1])
-            xticklabels = ['\n'.join(row) for row in ylabels]
-            xdata = np.arange(row_max - row_min)
-            ax.plot(xdata, data[:, 0])
-            ax.set_ylabel(xlabels[0])
-        else:
-            # plot each row as a line
-            xlabel = dim_names[-1]
-            xticklabels = [str(label) for label in xlabels]
-            xdata = np.arange(col_max - col_min)
-            for row in range(len(data)):
-                ax.plot(xdata, data[row], label=' '.join(ylabels[row]))
-
-        # set x axis
-        ax.set_xlabel(xlabel)
-        ax.set_xlim((xdata[0], xdata[-1]))
-        # we need to do that because matplotlib is smart enough to
-        # not show all ticks but a selection. However, that selection
-        # may include ticks outside the range of x axis
-        xticks = [t for t in ax.get_xticks().astype(int) if t <= len(xticklabels) - 1]
-        xticklabels = [xticklabels[t] for t in xticks]
-        ax.set_xticks(xticks)
-        ax.set_xticklabels(xticklabels)
-
-        if data.shape[1] != 1 and ylabels != [[]]:
-            # set legend
-            # box = ax.get_position()
-            # ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
-            # ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-            ax.legend()
-
-        show_figure(self, figure)
+        raw_data, axes_names, vlabels, hlabels = self._selection_data()
+        try:
+            from larray_editor.utils import show_figure
+            figure = self.data_adapter.plot(raw_data, axes_names, vlabels, hlabels)
+            # Display figure
+            show_figure(self, figure)
+        except ImportError:
+            QMessageBox.critical(self, "Error", "plot() is not available because matplotlib is not installed")
