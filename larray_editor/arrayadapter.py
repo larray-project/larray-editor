@@ -345,6 +345,13 @@ class AbstractAdapter(object):
             self.changes[self._map_filtered_to_global(
                 self.filtered_data, self.data, self.current_filter, key)] = value
 
+    def translate_changes(self, data_model_changes):
+        global_changes = {}
+        for key, (old_value, new_value) in data_model_changes.items():
+            global_changes[self._map_filtered_to_global(
+                self.filtered_data, self.data, self.current_filter, key)] = (old_value, new_value)
+        return global_changes
+
     def clear_changes(self):
         self.changes.clear()
 

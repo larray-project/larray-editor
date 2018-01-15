@@ -2,15 +2,18 @@ import os
 import re
 import matplotlib
 import numpy as np
+import logging
 
 from larray import LArray, Session, zeros, empty
 from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
-                                 get_versions, get_documentation_url, urls, RecentlyUsedList)
+                                 get_versions, get_documentation_url, urls, RecentlyUsedList, logger)
 from larray_editor.arraywidget import ArrayEditorWidget
+from larray_editor.commands import EditArrayCommand
+
 from qtpy.QtCore import Qt, QSettings, QUrl, Slot
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
-                            QDialogButtonBox, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit,
+                            QDialogButtonBox, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QUndoStack,
                             QCheckBox, QComboBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton)
 
 try:
@@ -70,6 +73,7 @@ class MappingEditor(QMainWindow):
         self.setAttribute(Qt.WA_DeleteOnClose)
 
         self.data = None
+        self.edit_undo_stack = QUndoStack(self)
         self.arraywidget = None
         self._listwidget = None
         self.eval_box = None
@@ -113,6 +117,7 @@ class MappingEditor(QMainWindow):
 
         self.data = Session()
         self.arraywidget = ArrayEditorWidget(self, readonly=readonly)
+        self.arraywidget.dataChanged.connect(self.push_changes)
         self.arraywidget.model_data.dataChanged.connect(self.data_changed)
 
         if qtconsole_available:
@@ -230,6 +235,7 @@ class MappingEditor(QMainWindow):
         self._listwidget.clear()
         self.current_array = None
         self.current_array_name = None
+        self.edit_undo_stack.clear()
         if qtconsole_available:
             self.kernel.shell.reset()
             self.kernel.shell.run_cell('from larray import *')
@@ -289,6 +295,23 @@ class MappingEditor(QMainWindow):
         file_menu.addAction(create_action(self, _('&Quit'), shortcut="Ctrl+Q", triggered=self.close))
 
         #################
+        #   EDIT MENU   #
+        #################
+        edit_menu = menu_bar.addMenu('&Edit')
+
+        #===============#
+        #   UNDO/REDO   #
+        #===============#
+        if qtconsole_available:
+            undo_action = self.edit_undo_stack.createUndoAction(self, "&Undo Edit Array")
+            undo_action.setShortcuts(QKeySequence.Undo)
+            edit_menu.addAction(undo_action)
+
+            redo_action = self.edit_undo_stack.createRedoAction(self, "&Redo Edit Table")
+            redo_action.setShortcuts(QKeySequence.Redo)
+            edit_menu.addAction(redo_action)
+
+        #################
         #   HELP MENU   #
         #################
         help_menu = menu_bar.addMenu('&Help')
@@ -320,6 +343,12 @@ class MappingEditor(QMainWindow):
         #=================#
         help_menu.addSeparator()
         help_menu.addAction(create_action(self, _('&About'), triggered=self.about))
+
+    def push_changes(self, changes):
+        for key, (old_value, new_value) in changes.items():
+            self.edit_undo_stack.push(EditArrayCommand(self, self.current_array_name, key, old_value, new_value))
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Edit command pushed: {}[{}] = {}".format(self.current_array_name, key, new_value))
 
     def data_changed(self):
         # We do not set self._unsaved_modifications to True because if users click on `Discard` button
@@ -881,6 +910,7 @@ class MappingEditor(QMainWindow):
             session = Session({k: v for k, v in self.data.items() if self._display_in_grid(k, v)})
             session.save(filepath)
             self.set_current_file(filepath)
+            self.edit_undo_stack.clear()
             self.unsaved_modifications = False
             self.statusBar().showMessage("Arrays saved in file {}".format(filepath), 4000)
         except Exception as e:

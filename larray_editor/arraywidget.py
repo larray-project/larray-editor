@@ -522,6 +522,9 @@ gradient_map = dict(available_gradients)
 
 
 class ArrayEditorWidget(QWidget):
+
+    dataChanged = Signal(dict)
+
     def __init__(self, parent, data=None, readonly=False, bg_value=None, bg_gradient='blue-red',
                  minvalue=None, maxvalue=None):
         QWidget.__init__(self, parent)
@@ -567,6 +570,9 @@ class ArrayEditorWidget(QWidget):
         self.view_data.signal_excel.connect(self.to_excel)
         self.view_data.signal_paste.connect(self.paste)
         self.view_data.signal_plot.connect(self.plot)
+
+        # propagate changes
+        self.model_data.newChanges.connect(self.data_changed)
 
         # Synchronize scrolling
         # data <--> hlabels
@@ -682,6 +688,10 @@ class ArrayEditorWidget(QWidget):
     def gradient_changed(self, index):
         gradient = self.gradient_chooser.itemData(index) if index > 0 else None
         self.model_data.set_bg_gradient(gradient)
+
+    def data_changed(self, data_model_changes):
+        changes = self.data_adapter.translate_changes(data_model_changes)
+        self.dataChanged.emit(changes)
 
     def mousePressEvent(self, event):
         self.dragLabel = self.childAt(event.pos()) if event.button() == Qt.LeftButton else None

@@ -7,7 +7,7 @@ import numpy as np
 from larray_editor.utils import (get_font, from_qvariant, to_qvariant, to_text_string,
                                  is_float, is_number, LinearGradient, SUPPORTED_FORMATS, scale_to_01range,
                                  Product, is_number_value, get_sample, get_sample_indices, logger)
-from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel
+from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel, Signal
 from qtpy.QtGui import QColor
 from qtpy.QtWidgets import QMessageBox
 
@@ -210,6 +210,7 @@ class DataArrayModel(AbstractArrayModel):
 
     ROWS_TO_LOAD = 500
     COLS_TO_LOAD = 40
+    newChanges = Signal(dict)
 
     def __init__(self, parent=None, readonly=False, format="%.3f", font=None, minvalue=None, maxvalue=None):
         AbstractArrayModel.__init__(self, parent, readonly, font)
@@ -485,6 +486,7 @@ class DataArrayModel(AbstractArrayModel):
 
         # Add change to self.changes
         # requires numpy 1.10
+        changes = {}
         newvalues = np.broadcast_to(values, (width, height))
         oldvalues = np.empty_like(newvalues)
         for i in range(width):
@@ -494,7 +496,8 @@ class DataArrayModel(AbstractArrayModel):
                 oldvalues[i, j] = old_value
                 val = newvalues[i, j]
                 if val != old_value:
-                    self.changes[pos] = val
+                    # self.changes[pos] = val
+                    changes[pos] = (old_value, val)
 
         # Update vmin/vmax if necessary
         if self.vmin is not None and self.vmax is not None:
@@ -514,6 +517,10 @@ class DataArrayModel(AbstractArrayModel):
             if np.any(colorval < self.vmin):
                 self.vmin = float(np.nanmin(colorval))
                 self.reset()
+
+        # DataArrayModel should have a reference to an adapter?
+        if len(changes) > 0:
+            self.newChanges.emit(changes)
 
         top_left = self.index(left, top)
         # -1 because Qt index end bounds are inclusive
