@@ -303,11 +303,11 @@ class MappingEditor(QMainWindow):
         #   UNDO/REDO   #
         #===============#
         if qtconsole_available:
-            undo_action = self.edit_undo_stack.createUndoAction(self, "&Undo Edit Array")
+            undo_action = self.edit_undo_stack.createUndoAction(self, "&Undo")
             undo_action.setShortcuts(QKeySequence.Undo)
             edit_menu.addAction(undo_action)
 
-            redo_action = self.edit_undo_stack.createRedoAction(self, "&Redo Edit Table")
+            redo_action = self.edit_undo_stack.createRedoAction(self, "&Redo")
             redo_action.setShortcuts(QKeySequence.Redo)
             edit_menu.addAction(redo_action)
 
