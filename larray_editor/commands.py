@@ -1,44 +1,68 @@
 from __future__ import absolute_import, print_function
 
+import logging
+
 from qtpy.QtWidgets import QUndoCommand
+from larray_editor.utils import logger
 
 
-class EditArrayCommand(QUndoCommand):
+class ArrayValueChange(object):
     """
     Class representing the change of one value of an array.
 
     Parameters
     ----------
-    editor: MappingEditor
-        Instance of MappingEditor
-    key: list of str
+    key: list/tuple of str
         Key associated with the value
     new_value: scalar
         New value
     old_value: scalar
         Previous value
     """
-
-    def __init__(self, editor, array_name, key, old_value, new_value):
-        QUndoCommand.__init__(self)
-        self.editor = editor
-        self.array_name = array_name
+    def __init__(self, key, old_value, new_value):
         self.key = key
         self.old_value = old_value
         self.new_value = new_value
-        command = "{}[{}] = {}".format(self.array_name, self.key, self.new_value)
+
+
+# XXX: we need to handle the case of several changes at once because the method paste()
+#      of ArrayEditorWidget can be used on objects not handling MultiIndex axes (LArray, Numpy).
+class EditArrayCommand(QUndoCommand):
+    """
+    Class representing the change of one or several value(s) of an array.
+
+    Parameters
+    ----------
+    editor: MappingEditor
+        Instance of MappingEditor
+    changes: (list of) instance(s) of ArrayValueChange
+        List of changes
+    """
+
+    def __init__(self, editor, array_name, changes):
+        QUndoCommand.__init__(self)
+        self.editor = editor
+        self.array_name = array_name
+        if not isinstance(changes, (list, tuple)):
+            changes = (changes,)
+        self.changes = changes
+
+        if len(changes) == 1:
+            command = "Editing Cell {}".format(changes[0].key)
+        else:
+            command = "Pasting {} Cells".format(len(changes))
         self.setText(command)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Edit command pushed: {}".format(command))
 
     def undo(self):
-        command = "{}[{}] = {}".format(self.array_name, self.key, self.old_value)
-        print("undo {}".format(command))
-        # move next 2 lines to MappingEditor?
-        self.editor.kernel.shell.run_cell(command)
+        for change in self.changes:
+            command = "{}[{}] = {}".format(self.array_name, change.key, change.old_value)
+            self.editor.kernel.shell.run_cell(command)
         self.editor.arraywidget.model_data.reset()
 
     def redo(self):
-        command = "{}[{}] = {}".format(self.array_name, self.key, self.new_value)
-        print("redo {}".format(command))
-        # move next 2 lines to MappingEditor?
-        self.editor.kernel.shell.run_cell(command)
+        for change in self.changes:
+            command = "{}[{}] = {}".format(self.array_name, change.key, change.new_value)
+            self.editor.kernel.shell.run_cell(command)
         self.editor.arraywidget.model_data.reset()

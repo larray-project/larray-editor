@@ -345,10 +345,7 @@ class MappingEditor(QMainWindow):
         help_menu.addAction(create_action(self, _('&About'), triggered=self.about))
 
     def push_changes(self, changes):
-        for key, (old_value, new_value) in changes.items():
-            self.edit_undo_stack.push(EditArrayCommand(self, self.current_array_name, key, old_value, new_value))
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Edit command pushed: {}[{}] = {}".format(self.current_array_name, key, new_value))
+        self.edit_undo_stack.push(EditArrayCommand(self, self.current_array_name, changes))
 
     def data_changed(self):
         # We do not set self._unsaved_modifications to True because if users click on `Discard` button

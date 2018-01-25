@@ -4,6 +4,7 @@ import numpy as np
 import larray as la
 
 from larray_editor.utils import Product, _LazyDimLabels, Axis, get_sample
+from larray_editor.commands import ArrayValueChange
 
 
 REGISTERED_ADAPTERS = {}
@@ -346,10 +347,11 @@ class AbstractAdapter(object):
                 self.filtered_data, self.data, self.current_filter, key)] = value
 
     def translate_changes(self, data_model_changes):
-        global_changes = {}
-        for key, (old_value, new_value) in data_model_changes.items():
-            global_changes[self._map_filtered_to_global(
-                self.filtered_data, self.data, self.current_filter, key)] = (old_value, new_value)
+        def to_global(key):
+            return self._map_filtered_to_global(self.filtered_data, self.data, self.current_filter, key)
+
+        global_changes = [ArrayValueChange(to_global(key), old_value, new_value)
+                          for key, (old_value, new_value) in data_model_changes.items()]
         return global_changes
 
     def clear_changes(self):

@@ -523,7 +523,7 @@ gradient_map = dict(available_gradients)
 
 class ArrayEditorWidget(QWidget):
 
-    dataChanged = Signal(dict)
+    dataChanged = Signal(list)
 
     def __init__(self, parent, data=None, readonly=False, bg_value=None, bg_gradient='blue-red',
                  minvalue=None, maxvalue=None):
