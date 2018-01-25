@@ -571,7 +571,7 @@ class ArrayEditorWidget(QWidget):
         self.view_data.signal_paste.connect(self.paste)
         self.view_data.signal_plot.connect(self.plot)
 
-        # propagate changes
+        # propagate changes (add new items in the QUndoStack attribute of MappingEditor)
         self.model_data.newChanges.connect(self.data_changed)
 
         # Synchronize scrolling
@@ -783,9 +783,6 @@ class ArrayEditorWidget(QWidget):
         # use flag reset=False to avoid calling reset() several times
         bg_value = self.data_adapter.get_bg_value()
         self.model_data.set_bg_value(bg_value, reset=False)
-        # changes
-        changes = self.data_adapter.get_model_changes()
-        self.model_data.set_changes(changes)
         # reset min and max values if required
         if reset_minmax:
             self._reset_minmax()
@@ -795,7 +792,7 @@ class ArrayEditorWidget(QWidget):
 
     def set_data(self, data, bg_value=None):
         # get new adapter instance + set data
-        self.data_adapter = get_adapter(data=data, changes=None, bg_value=bg_value)
+        self.data_adapter = get_adapter(data=data, bg_value=bg_value)
         # update filters
         self._update_filter()
         # update models
@@ -854,7 +851,6 @@ class ArrayEditorWidget(QWidget):
             fmt = '%%.%d%s' % (digits, format_letter)
         self.model_data.set_format(fmt, reset)
 
-    # called by set_data and ArrayEditorWidget.accept_changes (this should not be the case IMO)
     # two cases:
     # * set_data should update both scientific and ndigits
     # * toggling scientific checkbox should update only ndigits
@@ -1002,31 +998,6 @@ class ArrayEditorWidget(QWidget):
         # no need to call resizeSection on view_data (see synchronization lines in init)
         self.view_vlabels.verticalHeader().resizeSection(row, height)
 
-    @property
-    def dirty(self):
-        self.data_adapter.update_changes(self.model_data.changes)
-        return len(self.data_adapter.changes) > 0
-
-    def accept_changes(self):
-        """Accept changes"""
-        model_changes = self.model_data.changes
-        # update changes in adapter
-        self.data_adapter.update_changes(model_changes)
-        # apply changes
-        self.data_adapter.accept_changes()
-        self.model_data.clear_changes()
-        # update filtered data
-        self.data_adapter.update_filtered_data()
-        # update models
-        self._update_models(reset_model_data=True, reset_minmax=True)
-        # return modified data
-        return self.data_adapter.data
-
-    def reject_changes(self):
-        """Reject changes"""
-        self.data_adapter.reject_changes()
-        self.model_data.reject_changes()
-
     def scientific_changed(self, value):
         self._update_digits_scientific(scientific=value)
 
@@ -1035,8 +1006,7 @@ class ArrayEditorWidget(QWidget):
         self.set_format(value, self.use_scientific)
 
     def change_filter(self, axis, indices):
-        model_changes = self.model_data.changes
-        self.data_adapter.update_filter(axis, indices, model_changes)
+        self.data_adapter.update_filter(axis, indices)
         self._update_models(reset_model_data=True, reset_minmax=False)
 
     def create_filter_combo(self, axis):
@@ -1134,7 +1104,6 @@ class ArrayEditorWidget(QWidget):
             col_max = col_min + new_data.shape[1]
 
         result = self.model_data.set_values(row_min, col_min, row_max, col_max, new_data)
-        self.data_adapter.update_changes(self.model_data.changes)
 
         if result is None:
             return
