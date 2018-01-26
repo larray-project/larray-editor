@@ -48,12 +48,12 @@ class EditArrayCommand(QUndoCommand):
         self.changes = changes
 
         if len(changes) == 1:
-            command = "Editing Cell {}".format(changes[0].key)
+            text_command = "Editing Cell {} of {}".format(changes[0].key, array_name)
         else:
-            command = "Pasting {} Cells".format(len(changes))
-        self.setText(command)
+            text_command = "Pasting {} Cells in {}".format(len(changes), array_name)
+        self.setText(text_command)
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug("Edit command pushed: {}".format(command))
+            logger.debug("Edit command pushed: {}".format(text_command))
 
     def undo(self):
         for change in self.changes:
