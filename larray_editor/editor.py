@@ -118,7 +118,7 @@ class MappingEditor(QMainWindow):
         self.data = Session()
         self.arraywidget = ArrayEditorWidget(self, readonly=readonly)
         self.arraywidget.dataChanged.connect(self.push_changes)
-        self.arraywidget.model_data.dataChanged.connect(self.data_changed)
+        self.arraywidget.model_data.dataChanged.connect(self.update_title)
 
         if qtconsole_available:
             # Create an in-process kernel
@@ -339,17 +339,9 @@ class MappingEditor(QMainWindow):
     def push_changes(self, changes):
         self.edit_undo_stack.push(EditArrayCommand(self, self.current_array_name, changes))
 
-    def data_changed(self):
-        # We do not set self._unsaved_modifications to True because if users choose to display another array,
-        # all temporary changes are lost. `update_title` relies on self.unsaved_modifications.
-        self.update_title()
-
     @property
     def unsaved_modifications(self):
-        if self.arraywidget.readonly:
-            return False
-        else:
-            return self.edit_undo_stack.canUndo() or self._unsaved_modifications
+        return self.edit_undo_stack.canUndo() or self._unsaved_modifications
 
     @unsaved_modifications.setter
     def unsaved_modifications(self, unsaved_modifications):
