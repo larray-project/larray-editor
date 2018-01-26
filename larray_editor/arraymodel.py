@@ -7,7 +7,7 @@ import numpy as np
 from larray_editor.utils import (get_font, from_qvariant, to_qvariant, to_text_string,
                                  is_float, is_number, LinearGradient, SUPPORTED_FORMATS, scale_to_01range,
                                  Product, is_number_value, get_sample, get_sample_indices, logger)
-from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel
+from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel, Signal
 from qtpy.QtGui import QColor
 from qtpy.QtWidgets import QMessageBox
 
@@ -210,6 +210,7 @@ class DataArrayModel(AbstractArrayModel):
 
     ROWS_TO_LOAD = 500
     COLS_TO_LOAD = 40
+    newChanges = Signal(dict)
 
     def __init__(self, parent=None, readonly=False, format="%.3f", font=None, minvalue=None, maxvalue=None):
         AbstractArrayModel.__init__(self, parent, readonly, font)
@@ -218,7 +219,6 @@ class DataArrayModel(AbstractArrayModel):
         self.minvalue = minvalue
         self.maxvalue = maxvalue
 
-        self.changes = {}
         self.color_func = None
 
         self.vmin = None
@@ -236,17 +236,6 @@ class DataArrayModel(AbstractArrayModel):
     def get_data(self):
         """Return data"""
         return self._data
-
-    def set_changes(self, changes):
-        self.changes = changes
-
-    def clear_changes(self):
-        self.changes.clear()
-
-    def reject_changes(self):
-        self.clear_changes()
-        self.reset_minmax()
-        self.reset()
 
     def _set_data(self, data):
         # TODO: check that data respects minvalue/maxvalue
@@ -314,7 +303,7 @@ class DataArrayModel(AbstractArrayModel):
 
     def get_value(self, index):
         i, j = index.row(), index.column()
-        return self.changes.get((i, j), self._data[i, j])
+        return self._data[i, j]
 
     def flags(self, index):
         """Set editable flag"""
@@ -380,39 +369,13 @@ class DataArrayModel(AbstractArrayModel):
             right = width
         if bottom is None:
             bottom = height
-        # this whole bullshit will disappear when we implement undo/redo
         values = self._data[left:right, top:bottom]
-        # both versions get the same result, but depending on inputs, the speed difference can be large.
-        if values.size < len(self.changes):
-            # changes are supposedly relatively small so this case should not be too slow even if we just want a sample
-            values = values.copy()
-            for i in range(left, right):
-                for j in range(top, bottom):
-                    pos = i, j
-                    if pos in self.changes:
-                        values[i - left, j - top] = self.changes[pos]
-            if sample:
-                return get_sample(values, 500)
-            else:
-                return values
+        if sample:
+            sample_indices = get_sample_indices(values, 500)
+            # we need to keep the dtype, otherwise numpy might convert mixed object arrays to strings
+            return np.array([values[i, j] for i, j in zip(*sample_indices)], dtype=values.dtype)
         else:
-            if sample:
-                sample_indices = get_sample_indices(values, 500)
-                changes = self.changes
-
-                def get_val(idx):
-                    i, j = idx
-                    changes_idx = (i + left, j + top)
-                    return changes[changes_idx] if changes_idx in changes else values[idx]
-
-                # we need to keep the dtype, otherwise numpy might convert mixed object arrays to strings
-                return np.array([get_val(idx) for idx in zip(*sample_indices)], dtype=values.dtype)
-            else:
-                values = values.copy()
-                for (i, j), value in self.changes.items():
-                    if left <= i < right and top <= j < bottom:
-                        values[i - left, j - top] = value
-                return values
+            return values
 
     def convert_value(self, value):
         """
@@ -485,16 +448,17 @@ class DataArrayModel(AbstractArrayModel):
 
         # Add change to self.changes
         # requires numpy 1.10
+        changes = {}
         newvalues = np.broadcast_to(values, (width, height))
         oldvalues = np.empty_like(newvalues)
         for i in range(width):
             for j in range(height):
                 pos = left + i, top + j
-                old_value = self.changes.get(pos, self._data[pos])
+                old_value = self._data[pos]
                 oldvalues[i, j] = old_value
                 val = newvalues[i, j]
                 if val != old_value:
-                    self.changes[pos] = val
+                    changes[pos] = (old_value, val)
 
         # Update vmin/vmax if necessary
         if self.vmin is not None and self.vmax is not None:
@@ -514,6 +478,10 @@ class DataArrayModel(AbstractArrayModel):
             if np.any(colorval < self.vmin):
                 self.vmin = float(np.nanmin(colorval))
                 self.reset()
+
+        # DataArrayModel should have a reference to an adapter?
+        if len(changes) > 0:
+            self.newChanges.emit(changes)
 
         top_left = self.index(left, top)
         # -1 because Qt index end bounds are inclusive

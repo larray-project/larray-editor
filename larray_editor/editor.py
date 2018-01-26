@@ -2,15 +2,18 @@ import os
 import re
 import matplotlib
 import numpy as np
+import logging
 
 from larray import LArray, Session, zeros, empty
 from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
-                                 get_versions, get_documentation_url, urls, RecentlyUsedList)
+                                 get_versions, get_documentation_url, urls, RecentlyUsedList, logger)
 from larray_editor.arraywidget import ArrayEditorWidget
+from larray_editor.commands import EditArrayCommand
+
 from qtpy.QtCore import Qt, QSettings, QUrl, Slot
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
-                            QDialogButtonBox, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit,
+                            QDialogButtonBox, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QUndoStack,
                             QCheckBox, QComboBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton)
 
 try:
@@ -70,6 +73,7 @@ class MappingEditor(QMainWindow):
         self.setAttribute(Qt.WA_DeleteOnClose)
 
         self.data = None
+        self.edit_undo_stack = QUndoStack(self)
         self.arraywidget = None
         self._listwidget = None
         self.eval_box = None
@@ -113,7 +117,8 @@ class MappingEditor(QMainWindow):
 
         self.data = Session()
         self.arraywidget = ArrayEditorWidget(self, readonly=readonly)
-        self.arraywidget.model_data.dataChanged.connect(self.data_changed)
+        self.arraywidget.dataChanged.connect(self.push_changes)
+        self.arraywidget.model_data.dataChanged.connect(self.update_title)
 
         if qtconsole_available:
             # Create an in-process kernel
@@ -150,16 +155,6 @@ class MappingEditor(QMainWindow):
                 # Buttons configuration
                 btn_layout = QHBoxLayout()
                 btn_layout.addStretch()
-
-                bbox = QDialogButtonBox(QDialogButtonBox.Apply | QDialogButtonBox.Discard)
-
-                apply_btn = bbox.button(QDialogButtonBox.Apply)
-                apply_btn.clicked.connect(self.apply_changes)
-
-                discard_btn = bbox.button(QDialogButtonBox.Discard)
-                discard_btn.clicked.connect(self.discard_changes)
-
-                btn_layout.addWidget(bbox)
 
                 arraywidget_layout = QVBoxLayout()
                 arraywidget_layout.addWidget(self.arraywidget)
@@ -230,6 +225,7 @@ class MappingEditor(QMainWindow):
         self._listwidget.clear()
         self.current_array = None
         self.current_array_name = None
+        self.edit_undo_stack.clear()
         if qtconsole_available:
             self.kernel.shell.reset()
             self.kernel.shell.run_cell('from larray import *')
@@ -289,6 +285,25 @@ class MappingEditor(QMainWindow):
         file_menu.addAction(create_action(self, _('&Quit'), shortcut="Ctrl+Q", triggered=self.close))
 
         #################
+        #   EDIT MENU   #
+        #################
+        edit_menu = menu_bar.addMenu('&Edit')
+
+        #===============#
+        #   UNDO/REDO   #
+        #===============#
+        if qtconsole_available:
+            undo_action = self.edit_undo_stack.createUndoAction(self, "&Undo")
+            undo_action.setShortcuts(QKeySequence.Undo)
+            undo_action.triggered.connect(self.update_title)
+            edit_menu.addAction(undo_action)
+
+            redo_action = self.edit_undo_stack.createRedoAction(self, "&Redo")
+            redo_action.setShortcuts(QKeySequence.Redo)
+            redo_action.triggered.connect(self.update_title)
+            edit_menu.addAction(redo_action)
+
+        #################
         #   HELP MENU   #
         #################
         help_menu = menu_bar.addMenu('&Help')
@@ -321,16 +336,12 @@ class MappingEditor(QMainWindow):
         help_menu.addSeparator()
         help_menu.addAction(create_action(self, _('&About'), triggered=self.about))
 
-    def data_changed(self):
-        # We do not set self._unsaved_modifications to True because if users click on `Discard` button
-        # (which calls reject_changes) or choose to display another array, all temporary changes are lost.
-        # `update_title` relies on _is_unsaved_modifications() which checks both self._unsaved_modifications
-        # and self.arraywidget.dirty
-        self.update_title()
+    def push_changes(self, changes):
+        self.edit_undo_stack.push(EditArrayCommand(self, self.current_array_name, changes))
 
     @property
     def unsaved_modifications(self):
-        return self._unsaved_modifications
+        return self.edit_undo_stack.canUndo() or self._unsaved_modifications
 
     @unsaved_modifications.setter
     def unsaved_modifications(self, unsaved_modifications):
@@ -505,7 +516,7 @@ class MappingEditor(QMainWindow):
         array = self.current_array
         name = self.current_array_name if self.current_array_name is not None else ''
 
-        unsaved_marker = '*' if self._is_unsaved_modifications() else ''
+        unsaved_marker = '*' if self.unsaved_modifications else ''
         if self.current_file is not None:
             basename = os.path.basename(self.current_file)
             if os.path.isdir(self.current_file):
@@ -561,12 +572,6 @@ class MappingEditor(QMainWindow):
         if qtconsole_available:
             self.kernel.shell.push(dict(arrays))
 
-    def _is_unsaved_modifications(self):
-        if self.arraywidget.readonly:
-            return False
-        else:
-            return self.arraywidget.dirty or self._unsaved_modifications
-
     def _ask_to_save_if_unsaved_modifications(self):
         """
         Returns
@@ -574,11 +579,10 @@ class MappingEditor(QMainWindow):
         bool
             whether or not the process should continue
         """
-        if self._is_unsaved_modifications():
+        if self.unsaved_modifications:
             ret = QMessageBox.warning(self, "Warning", "The data has been modified.\nDo you want to save your changes?",
                                       QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
             if ret == QMessageBox.Save:
-                self.apply_changes()
                 return self.save_data()
             elif ret == QMessageBox.Cancel:
                 return False
@@ -592,16 +596,6 @@ class MappingEditor(QMainWindow):
             event.accept()
         else:
             event.ignore()
-
-    def apply_changes(self):
-        # update unsaved_modifications (and thus title) only if at least 1 change has been applied
-        if self.arraywidget.dirty:
-            self.unsaved_modifications = True
-        self.arraywidget.accept_changes()
-
-    def discard_changes(self):
-        self.arraywidget.reject_changes()
-        self.update_title()
 
     def get_value(self):
         """Return modified array -- this is *not* a copy"""
@@ -881,6 +875,7 @@ class MappingEditor(QMainWindow):
             session = Session({k: v for k, v in self.data.items() if self._display_in_grid(k, v)})
             session.save(filepath)
             self.set_current_file(filepath)
+            self.edit_undo_stack.clear()
             self.unsaved_modifications = False
             self.statusBar().showMessage("Arrays saved in file {}".format(filepath), 4000)
         except Exception as e:
@@ -1000,6 +995,7 @@ class MappingEditor(QMainWindow):
         QMessageBox.about(self, _("About LArray Editor"), message.format(**kwargs))
 
 
+# TODO: a menu bar is missing. We need a common abstract class for MappingEditor and ArrayEditor
 class ArrayEditor(QDialog):
     """Array Editor Dialog"""
     def __init__(self, parent=None):
@@ -1053,23 +1049,9 @@ class ArrayEditor(QDialog):
         # not using a QDialogButtonBox with standard Ok/Cancel buttons
         # because that makes it impossible to disable the AutoDefault on them
         # (Enter always "accepts"/close the dialog) which is annoying for edit()
-        if readonly:
-            close_button = QPushButton("Close")
-            close_button.clicked.connect(self.reject)
-            close_button.setAutoDefault(False)
-            btn_layout.addWidget(close_button)
-        else:
-            ok_button = QPushButton("&OK")
-            ok_button.clicked.connect(self.accept)
-            ok_button.setAutoDefault(False)
-            btn_layout.addWidget(ok_button)
-            cancel_button = QPushButton("Cancel")
-            cancel_button.clicked.connect(self.reject)
-            cancel_button.setAutoDefault(False)
-            btn_layout.addWidget(cancel_button)
-        # r_button = QPushButton("resize")
-        # r_button.clicked.connect(self.resize_to_contents)
-        # btn_layout.addWidget(r_button)
+        close_button = QPushButton("Close")
+        close_button.setAutoDefault(False)
+        btn_layout.addWidget(close_button)
         layout.addLayout(btn_layout, 2, 0)
 
         # Make the dialog act as a window
@@ -1078,18 +1060,6 @@ class ArrayEditor(QDialog):
 
     def autofit_columns(self):
         self.arraywidget.autofit_columns()
-
-    @Slot()
-    def accept(self):
-        """Reimplement Qt method"""
-        self.arraywidget.accept_changes()
-        QDialog.accept(self)
-
-    @Slot()
-    def reject(self):
-        """Reimplement Qt method"""
-        self.arraywidget.reject_changes()
-        QDialog.reject(self)
 
     def get_value(self):
         """Return modified array -- this is *not* a copy"""
