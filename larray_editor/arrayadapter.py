@@ -4,6 +4,7 @@ import numpy as np
 import larray as la
 
 from larray_editor.utils import Product, _LazyDimLabels, Axis, get_sample
+from larray_editor.commands import ArrayValueChange
 
 
 REGISTERED_ADAPTERS = {}
@@ -23,21 +24,20 @@ def register_adapter(type):
     return decorate_class
 
 
-def get_adapter(data, changes, bg_value):
+def get_adapter(data, bg_value):
     if data is None:
         return None
     data_type = type(data)
     if data_type not in REGISTERED_ADAPTERS:
         raise TypeError("No Adapter implemented for data with type {}".format(data_type))
     adapter_cls = REGISTERED_ADAPTERS[data_type]
-    return adapter_cls(data, changes, bg_value)
+    return adapter_cls(data, bg_value)
 
 
 class AbstractAdapter(object):
-    def __init__(self, data, changes, bg_value):
+    def __init__(self, data, bg_value):
         self.data = data
         self.bg_value = bg_value
-        self.changes = changes
         self.current_filter = {}
         self.update_filtered_data()
         self.ndim = None
@@ -64,18 +64,6 @@ class AbstractAdapter(object):
     @bg_value.setter
     def bg_value(self, bg_value):
         self._bg_value = self.prepare_bg_value(bg_value)
-
-    @property
-    def changes(self):
-        return self._changes
-
-    @changes.setter
-    def changes(self, changes):
-        if changes is None:
-            self._changes = {}
-        else:
-            assert isinstance(changes, dict), "{} only accept None or a dict as input changes".format(self.__class__)
-            self._changes = changes
 
     # ===================== #
     #  METHODS TO OVERRIDE  #
@@ -219,10 +207,6 @@ class AbstractAdapter(object):
         """
         raise NotImplementedError
 
-    def apply_changes(self, data, changes):
-        """Apply changes to the original data"""
-        raise NotImplementedError()
-
     # =========================== #
     #       OTHER METHODS         #
     # =========================== #
@@ -298,15 +282,6 @@ class AbstractAdapter(object):
         # return bg_value reshaped as 2D array if not None
         return np_bg_value.reshape(shape_2D)
 
-    def get_model_changes(self):
-        # we cannot apply the changes directly to data because it might be a view
-        changes_2D = {}
-        for key, value in self.changes.items():
-            local_key = self._map_global_to_filtered(self.data, self.filtered_data, self.current_filter, key)
-            if local_key is not None:
-                changes_2D[local_key] = value
-        return changes_2D
-
     def update_filtered_data(self):
         self.filtered_data = self.filter_data(self.data, self.current_filter)
 
@@ -334,27 +309,17 @@ class AbstractAdapter(object):
             else:
                 filter[axis_id] = axis.labels[indices]
 
-    def update_filter(self, axis, indices, data_model_changes):
-        # must be done before to call update_filter method of data_adapter
-        self.update_changes(data_model_changes)
+    def update_filter(self, axis, indices):
         self.change_filter(self.data, self.current_filter, axis, indices)
         self.update_filtered_data()
 
-    def update_changes(self, data_model_changes):
-        for key, value in data_model_changes.items():
-            self.changes[self._map_filtered_to_global(
-                self.filtered_data, self.data, self.current_filter, key)] = value
+    def translate_changes(self, data_model_changes):
+        def to_global(key):
+            return self._map_filtered_to_global(self.filtered_data, self.data, self.current_filter, key)
 
-    def clear_changes(self):
-        self.changes.clear()
-
-    def accept_changes(self):
-        """Accept changes"""
-        self.apply_changes(self.data, self.changes)
-        self.clear_changes()
-
-    def reject_changes(self):
-        self.clear_changes()
+        global_changes = [ArrayValueChange(to_global(key), old_value, new_value)
+                          for key, (old_value, new_value) in data_model_changes.items()]
+        return global_changes
 
     def selection_to_chain(self, raw_data, axes_names, vlabels, hlabels):
         """Return an itertools.chain object.
@@ -466,8 +431,8 @@ class AbstractAdapter(object):
 @register_adapter(np.ndarray)
 @register_adapter(la.LArray)
 class LArrayDataAdapter(AbstractAdapter):
-    def __init__(self, data, changes, bg_value):
-        AbstractAdapter.__init__(self, data=data, changes=changes, bg_value=bg_value)
+    def __init__(self, data, bg_value):
+        AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
         self.ndim = data.ndim
         self.size = data.size
         self.dtype = data.dtype
@@ -571,8 +536,3 @@ class LArrayDataAdapter(AbstractAdapter):
         # transform positional ND key to positional 2D key
         strides = np.append(1, np.cumprod(filtered_data.shape[1:-1][::-1], dtype=int))[::-1]
         return (index_key[:-1] * strides).sum(), index_key[-1]
-
-    def apply_changes(self, data, changes):
-        axes = data.axes
-        for k, v in changes.items():
-            data.i[axes.translate_full_key(k)] = v
