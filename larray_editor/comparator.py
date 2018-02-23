@@ -1,10 +1,11 @@
+import ast
 import numpy as np
 from qtpy.QtCore import Qt
+from qtpy.QtGui import QDoubleValidator
 from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QDialogButtonBox, QHBoxLayout,
-                            QDialog, QLabel, QCheckBox)
+                            QDialog, QLabel, QCheckBox, QLineEdit, QComboBox)
 
-from larray import (LArray, Session, Axis, X, stack, full, full_like, zeros_like,
-                    nan, isnan, larray_nan_equal, nan_equal)
+from larray import LArray, Session, Axis, stack, full_like, nan, larray_nan_equal, element_equal
 from larray_editor.utils import ima, replace_inf, _
 from larray_editor.arraywidget import ArrayEditorWidget
 
@@ -16,6 +17,7 @@ class ComparatorWidget(QWidget):
 
         layout = QVBoxLayout()
         self.setLayout(layout)
+
         # max diff label
         maxdiff_layout = QHBoxLayout()
         maxdiff_layout.addWidget(QLabel('maximum absolute relative difference:'))
@@ -26,36 +28,80 @@ class ComparatorWidget(QWidget):
 
         self.arraywidget = ArrayEditorWidget(self, data=None, readonly=True, bg_gradient='red-white-blue')
 
+        # show difference only
         diff_checkbox = QCheckBox(_('Differences Only'))
         diff_checkbox.stateChanged.connect(self.display)
         self.diff_checkbox = diff_checkbox
         self.arraywidget.btn_layout.addWidget(diff_checkbox)
 
+        # absolute/relative tolerance
+        tolerance_layout = QHBoxLayout()
+        tooltip = """Element i of two arrays are considered as equal if they satisfy the following equation:
+        abs(array1[i] - array2[i]) <= (absolute_tol + relative_tol * abs(array2[i]))"""
+
+        tolerance_label = QLabel("tolerance:")
+        tolerance_label.setToolTip(tooltip)
+        self.arraywidget.btn_layout.addWidget(tolerance_label)
+
+        tolerance_combobox = QComboBox()
+        tolerance_combobox.addItems(["absolute", "relative"])
+        tolerance_combobox.setToolTip(tooltip)
+        tolerance_combobox.currentTextChanged.connect(self.update_isequal)
+        tolerance_layout.addWidget(tolerance_combobox)
+        self.tolerance_combobox = tolerance_combobox
+
+        tolerance_line_edit = QLineEdit()
+        tolerance_line_edit.setValidator(QDoubleValidator())
+        tolerance_line_edit.setPlaceholderText("1e-8")
+        tolerance_line_edit.setMaximumWidth(80)
+        tolerance_line_edit.setToolTip("Press Enter to activate the new tolerance value")
+        tolerance_line_edit.editingFinished.connect(self.update_isequal)
+        tolerance_layout.addWidget(tolerance_line_edit)
+        self.tolerance_line_edit = tolerance_line_edit
+
+        self.arraywidget.btn_layout.addLayout(tolerance_layout)
+
+        # add local arraywidget to layout
+        self.arraywidget.btn_layout.addStretch()
         layout.addWidget(self.arraywidget)
 
         self.array = None
+        self.array0 = None
         self.isequal = None
         self.bg_value = None
         self.stack_axis = None
+
+    # override keyPressEvent to prevent pressing Enter after changing the tolerance value
+    # in associated QLineEdit to close the parent dialog box
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
+            return
+        QWidget.keyPressEvent(self, event)
 
     def set_data(self, arrays, stack_axis):
         assert all(np.isscalar(a) or isinstance(a, LArray) for a in arrays)
         self.stack_axis = stack_axis
         try:
             self.array = stack(arrays, stack_axis)
-            array0 = self.array[stack_axis.i[0]]
+            self.array0 = self.array[stack_axis.i[0]]
         except Exception as e:
             self.array = LArray(str(e))
-            array0 = self.array
+            self.array0 = self.array
+        self.update_isequal()
+
+    def update_isequal(self):
         try:
-            self.isequal = nan_equal(self.array, array0)
+            tol_str = self.tolerance_line_edit.text()
+            tol = ast.literal_eval(tol_str) if tol_str else 0
+            atol, rtol = (tol, 0) if self.tolerance_combobox.currentText() == "absolute" else (0, tol)
+            self.isequal = element_equal(self.array, self.array0, rtol=rtol, atol=atol, nan_equals=True)
         except TypeError:
-            self.isequal = self.array == array0
+            self.isequal = self.array == self.array0
 
         try:
             with np.errstate(divide='ignore', invalid='ignore'):
-                diff = self.array - array0
-                reldiff = diff / array0
+                diff = self.array - self.array0
+                reldiff = diff / self.array0
                 # this is necessary for nan, inf and -inf (because inf - inf = nan, not 0)
                 # this is more precise than divnot0, it only ignore 0 / 0, not x / 0
                 reldiff[self.isequal] = 0
