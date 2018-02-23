@@ -8,7 +8,7 @@ from larray_editor.utils import logger
 
 import numpy as np
 from larray import (Session, Axis, LArray, ndtest, ndrange, zeros, from_lists, union,
-                    sin, cos, radians, maximum, sqrt)
+                    sin, cos, radians, maximum, sqrt, where)
 
 
 logger.setLevel(logging.DEBUG)
@@ -154,4 +154,7 @@ edit()
 # print('\n open CSV')
 # edit('x_csv')
 
-# compare(arr3, arr4, arr5, arr6)
+arr1 = ndtest((3, 3))
+arr2 = 2 * arr1
+arr3 = where(arr1 % 2 == 0, arr1, -arr1)
+compare(arr1, arr2, arr3)
