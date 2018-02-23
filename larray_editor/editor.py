@@ -3,6 +3,7 @@ import re
 import matplotlib
 import numpy as np
 import logging
+import collections
 
 from larray import LArray, Session, zeros, empty
 from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
@@ -492,6 +493,9 @@ class MappingEditor(QMainWindow):
 
                     if isinstance(cur_output, matplotlib.axes.Subplot) and 'inline' not in matplotlib.get_backend():
                         show_figure(self, cur_output.figure)
+
+                    if isinstance(cur_output, collections.Iterable) and isinstance(np.ravel(cur_output)[0], matplotlib.axes.Subplot):
+                        show_figure(self, np.ravel(cur_output)[0].figure)
 
     def on_selection_changed(self):
         selected = self._listwidget.selectedItems()
