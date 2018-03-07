@@ -491,11 +491,12 @@ class MappingEditor(QMainWindow):
                     if self._display_in_grid('_', cur_output):
                         self.view_expr(cur_output)
 
+                    if isinstance(cur_output, collections.Iterable):
+                        cur_output = np.ravel(cur_output)[0]
+
                     if isinstance(cur_output, matplotlib.axes.Subplot) and 'inline' not in matplotlib.get_backend():
                         show_figure(self, cur_output.figure)
 
-                    if isinstance(cur_output, collections.Iterable) and isinstance(np.ravel(cur_output)[0], matplotlib.axes.Subplot):
-                        show_figure(self, np.ravel(cur_output)[0].figure)
 
     def on_selection_changed(self):
         selected = self._listwidget.selectedItems()
