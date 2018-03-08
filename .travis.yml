@@ -40,14 +40,22 @@ before_install:
     # - sudo rm -rf /dev/shm
     # - sudo ln -s /run/shm /dev/shm
 
+    # clone larray repository
+    - git clone https://github.com/liam2/larray.git larray
+
 install:
     # Setup environment
     # pandas will bring dateutil numpy pytz setuptools six and scipy, we
     # might want to avoid the later by installing all dependencies manually
     # except scipy and install pandas with --no-deps
     - conda create -n travisci --yes python=${TRAVIS_PYTHON_VERSION:0:3}
-            larray pyqt qtpy matplotlib pytest
+            pandas pyqt qtpy matplotlib pytest
     - source activate travisci
+    # install larray
+    - cd ./larray
+    - python setup.py install
+    - cd ..
+
 
 script:
     - pytest
