@@ -40,7 +40,7 @@ urls = {"fpb": "http://www.plan.be/index.php?lang=en",
         "doc_tutorial": "{}/tutorial.html".format(doc),
         "doc_api": "{}/api.html".format(doc),
         "new_issue_editor": "https://github.com/larray-project/larray-editor/issues/new",
-        "new_issue_larray": "https://github.com/liam2/larray/issues/new",
+        "new_issue_larray": "https://github.com/larray-project/larray/issues/new",
         "new_issue_larray_eurostat": "https://github.com/larray-project/larray_eurostat/issues/new",
         "announce_group": "https://groups.google.com/d/forum/larray-announce",
         "users_group": "https://groups.google.com/d/forum/larray-users"}
