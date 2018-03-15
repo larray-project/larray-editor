@@ -100,7 +100,8 @@ class AbstractEditor(QMainWindow):
 
         # resize
         self.resize(800, 600)
-        self.setMinimumSize(400, 300)
+        # This is more or less the minimum space required to display a 1D array
+        self.setMinimumSize(300, 180)
         return True
 
     def setup_menu_bar(self):
