@@ -7,7 +7,7 @@ from larray_editor.api import *
 from larray_editor.utils import logger
 
 import numpy as np
-from larray import (Session, Axis, LArray, ndtest, ndrange, zeros, from_lists, union,
+from larray import (Session, Axis, LArray, ndtest, zeros, from_lists, union,
                     sin, cos, radians, maximum, sqrt, where)
 
 
@@ -65,7 +65,7 @@ arr2 = LArray(data2, axes=(age, geo, sex, lipro))
 # view([])
 
 data3 = np.random.normal(0, 1, size=(2, 15))
-arr3 = ndrange((30, sex))
+arr3 = ndtest((30, sex))
 # data4 = np.random.normal(0, 1, size=(2, 15))
 # arr4 = LArray(data4, axes=(sex, lipro))
 
@@ -105,7 +105,7 @@ arr_empty = LArray([])
 arr_obj = ndtest((2, 3)).astype(object)
 arr_str = ndtest((2, 3)).astype(str)
 big = ndtest((1000, 1000, 500))
-big1d = ndrange(1000000)
+big1d = ndtest(1000000)
 # force big1d.axes[0]._mapping to be created so that we do not measure that delay in the editor
 big1d[{}]
 
@@ -154,7 +154,7 @@ edit()
 # print('\n open CSV')
 # edit('x_csv')
 
-arr1 = ndtest((3, 3))
-arr2 = 2 * arr1
-arr3 = where(arr1 % 2 == 0, arr1, -arr1)
-compare(arr1, arr2, arr3)
+# arr1 = ndtest((3, 3))
+# arr2 = 2 * arr1
+# arr3 = where(arr1 % 2 == 0, arr1, -arr1)
+# compare(arr1, arr2, arr3)
