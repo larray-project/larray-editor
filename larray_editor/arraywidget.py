@@ -1091,7 +1091,7 @@ class ArrayEditorWidget(QWidget):
         except StopIteration:
             # if there isn't any, assume 1d array
             pos_last = 0
-        if pos_last:
+        if pos_last or '\\' in list_data[0][0]:
             # ndim > 1
             list_data = [line[pos_last + 1:] for line in list_data[1:]]
         elif len(list_data) == 2 and list_data[1][0] == '':
