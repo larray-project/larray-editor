@@ -477,13 +477,20 @@ class LArrayDataAdapter(AbstractAdapter):
 
     # TODO: update this method the day LArray objects will also handle MultiIndex-like axes.
     def _from_selection(self, raw_data, axes_names, vlabels, hlabels):
-        axes = []
-        # combine the N-1 first axes
-        if len(axes_names) > 1:
+        if '\\' in axes_names[-1]:
+            axes_names = axes_names[:-1] + axes_names[-1].split('\\')
+        if len(axes_names) == 2:
+            axes = [la.Axis(vlabels[0], axes_names[0])]
+        elif len(axes_names) > 2:
+            # combine the N-1 first axes
             combined_axes_names = '_'.join(axes_names[:-1])
             combined_labels = ['_'.join([str(vlabels[i][j]) for i in range(len(vlabels))])
                                for j in range(len(vlabels[0]))]
             axes = [la.Axis(combined_labels, combined_axes_names)]
+        else:
+            # assuming selection represents a 1D array
+            axes = []
+            raw_data = raw_data[0]
         # last axis
         axes += [la.Axis(hlabels, axes_names[-1])]
         return la.LArray(raw_data, axes)
