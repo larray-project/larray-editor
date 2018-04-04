@@ -117,6 +117,67 @@ class AbstractArrayModel(QAbstractTableModel):
                             caller.function, basename(caller.filename), caller.lineno))
 
 
+class AxesArrayModel(AbstractArrayModel):
+    """Axes Table Model.
+
+    Parameters
+    ----------
+    parent : QWidget, optional
+        Parent Widget.
+    readonly : bool, optional
+        If True, data cannot be changed. False by default.
+    font : QFont, optional
+        Font. Default is `Calibri` with size 11.
+    """
+    def __init__(self, parent=None, readonly=False, font=None):
+        AbstractArrayModel.__init__(self, parent, readonly, font)
+        self.font.setBold(True)
+
+    def _set_data(self, data):
+        # TODO: use sequence instead
+        if not isinstance(data, (list, tuple)):
+            QMessageBox.critical(self.dialog, "Error", "Expected list or tuple")
+            data = []
+        self._data = data
+        self.total_rows = 1
+        self.total_cols = len(data)
+        self._compute_rows_cols_loaded()
+
+    def flags(self, index):
+        """Set editable flag"""
+        return Qt.ItemIsEnabled
+
+    def get_value(self, index):
+        i = index.column()
+        return str(self._data[i])
+
+    def get_values(self, left=0, right=None):
+        if right is None:
+            right = self.total_cols
+        values = self._data[left:right]
+        return values
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid():
+            return to_qvariant()
+
+        if role == Qt.TextAlignmentRole:
+            return to_qvariant(int(Qt.AlignCenter | Qt.AlignVCenter))
+        elif role == Qt.FontRole:
+            return self.font
+        elif role == Qt.BackgroundColorRole:
+            color = QColor(Qt.lightGray)
+            color.setAlphaF(.4)
+            return color
+        elif role == Qt.DisplayRole:
+            value = self.get_value(index)
+            return to_qvariant(value)
+        elif role == Qt.ToolTipRole:
+            return to_qvariant()
+        else:
+            return to_qvariant()
+
+
 class LabelsArrayModel(AbstractArrayModel):
     """Labels Table Model.
 
@@ -163,7 +224,6 @@ class LabelsArrayModel(AbstractArrayModel):
         return values
 
     def data(self, index, role=Qt.DisplayRole):
-        # print('data', index.column(), index.row(), self.rowCount(), self.columnCount(), '\n', self._data)
         if not index.isValid():
             return to_qvariant()
 
