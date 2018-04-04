@@ -83,7 +83,7 @@ from qtpy.QtWidgets import (QApplication, QTableView, QItemDelegate, QLineEdit, 
 from larray_editor.utils import (keybinding, create_action, clear_layout, get_font, from_qvariant, to_qvariant,
                                  is_number, is_float, _, ima, LinearGradient)
 from larray_editor.arrayadapter import get_adapter
-from larray_editor.arraymodel import LabelsArrayModel, DataArrayModel
+from larray_editor.arraymodel import LabelsArrayModel, AxesArrayModel, DataArrayModel
 from larray_editor.combo import FilterComboBox, FilterMenu
 
 
@@ -92,53 +92,56 @@ TOP, BOTTOM = 0, 1
 LEFT, RIGHT = 0, 1
 
 
-class LabelsView(QTableView):
-    """"Labels view class"""
-
-    allSelected = Signal()
-
-    def __init__(self, parent, model, position):
+class AbstractView(QTableView):
+    """Abstract view class"""
+    def __init__(self, parent, model, hpos, vpos):
         QTableView.__init__(self, parent)
-        # set model
-        if not isinstance(model, LabelsArrayModel):
-            raise TypeError("Expected model of type {}. Received {} instead"
-                            .format(LabelsArrayModel.__name__, type(model).__name__))
-        self.setModel(model)
-        # set position
-        if not (isinstance(position, (list, tuple)) and len(position) == 2):
-            raise TypeError("Expected tuple or list of length 2")
-        self.position = position
 
+        # set model
+        self.setModel(model)
+
+        # set position
+        if not (hpos == LEFT or hpos == RIGHT):
+            raise TypeError("Value of hpos must be {} or {}".format(LEFT, RIGHT))
+        self.hpos = hpos
+        if not (vpos == TOP or vpos == BOTTOM):
+            raise TypeError("Value of vpos must be {} or {}".format(TOP, BOTTOM))
+        self.vpos = vpos
+
+        # set selection mode
         self.setSelectionMode(QTableView.ContiguousSelection)
 
+        # prepare headers + cells size
         self.horizontalHeader().setFrameStyle(QFrame.NoFrame)
         self.verticalHeader().setFrameStyle(QFrame.NoFrame)
-
         self.set_default_size()
+        # hide horizontal/vertical headers
+        if hpos == RIGHT:
+            self.verticalHeader().hide()
+        if vpos == BOTTOM:
+            self.horizontalHeader().hide()
+
         # to fetch more rows/columns when required
         self.horizontalScrollBar().valueChanged.connect(self.on_horizontal_scroll_changed)
         self.verticalScrollBar().valueChanged.connect(self.on_vertical_scroll_changed)
-
-        # hide horizontal/vertical headers
-        if position == (TOP, RIGHT):
-            self.verticalHeader().hide()
-        elif position == (BOTTOM, LEFT):
-            self.horizontalHeader().hide()
-
         # Hide scrollbars
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
-        self.model().modelReset.connect(self.updateGeometry)
-        self.horizontalHeader().sectionResized.connect(self.updateGeometry)
-        self.verticalHeader().sectionResized.connect(self.updateGeometry)
+        # update geometry
+        if not (hpos == RIGHT and vpos == BOTTOM):
+            self.model().modelReset.connect(self.updateGeometry)
+            self.horizontalHeader().sectionResized.connect(self.updateGeometry)
+            self.verticalHeader().sectionResized.connect(self.updateGeometry)
 
     def set_default_size(self):
         # make the grid a bit more compact
         self.horizontalHeader().setDefaultSectionSize(64)
-        self.horizontalHeader().setFixedHeight(10)
         self.verticalHeader().setDefaultSectionSize(20)
-        self.verticalHeader().setFixedWidth(10)
+        if self.vpos == TOP:
+            self.horizontalHeader().setFixedHeight(10)
+        if self.hpos == LEFT:
+            self.verticalHeader().setFixedWidth(10)
 
     def on_vertical_scroll_changed(self, value):
         if value == self.verticalScrollBar().maximum():
@@ -164,17 +167,14 @@ class LabelsView(QTableView):
         self.resizeColumnsToContents()
         QApplication.restoreOverrideCursor()
 
-    def selectAll(self):
-        self.allSelected.emit()
-
     def updateGeometry(self):
         # Set maximum height
-        if self.position[0] == TOP:
+        if self.vpos == TOP:
             maximum_height = self.horizontalHeader().height() + \
                              sum(self.rowHeight(r) for r in range(self.model().rowCount()))
             self.setFixedHeight(maximum_height)
         # Set maximum width
-        if self.position[1] == LEFT:
+        if self.hpos == LEFT:
             maximum_width = self.verticalHeader().width() + \
                             sum(self.columnWidth(c) for c in range(self.model().columnCount()))
             self.setFixedWidth(maximum_width)
@@ -182,10 +182,36 @@ class LabelsView(QTableView):
         super(LabelsView, self).updateGeometry()
 
 
+class AxesView(AbstractView):
+    """"Axes view class"""
+
+    allSelected = Signal()
+
+    def __init__(self, parent, model):
+        # check model
+        if not isinstance(model, AxesArrayModel):
+            raise TypeError("Expected model of type {}. Received {} instead"
+                            .format(AxesArrayModel.__name__, type(model).__name__))
+        AbstractView.__init__(self, parent, model, LEFT, TOP)
+
+    def selectAll(self):
+        self.allSelected.emit()
+
+
+class LabelsView(AbstractView):
+    """"Labels view class"""
+
+    def __init__(self, parent, model, hpos, vpos):
+        # check model
+        if not isinstance(model, LabelsArrayModel):
+            raise TypeError("Expected model of type {}. Received {} instead"
+                            .format(LabelsArrayModel.__name__, type(model).__name__))
+        AbstractView.__init__(self, parent, model, hpos, vpos)
+
+
 class ArrayDelegate(QItemDelegate):
     """Array Editor Item Delegate"""
-    def __init__(self, dtype, parent=None, font=None,
-                 minvalue=None, maxvalue=None):
+    def __init__(self, dtype, parent=None, font=None, minvalue=None, maxvalue=None):
         QItemDelegate.__init__(self, parent)
         self.dtype = dtype
         if font is None:
@@ -259,7 +285,7 @@ class ArrayDelegate(QItemDelegate):
         editor.setText(text)
 
 
-class DataView(QTableView):
+class DataView(AbstractView):
     """Data array view class"""
 
     signal_copy = Signal()
@@ -268,14 +294,11 @@ class DataView(QTableView):
     signal_plot = Signal()
 
     def __init__(self, parent, model):
-        QTableView.__init__(self, parent)
-        # set model
+        # check model
         if not isinstance(model, DataArrayModel):
             raise TypeError("Expected model of type {}. Received {} instead"
                             .format(DataArrayModel.__name__, type(model).__name__))
-        self.setModel(model)
-
-        self.setSelectionMode(QTableView.ContiguousSelection)
+        AbstractView.__init__(self, parent, model, RIGHT, BOTTOM)
 
         self.context_menu = self.setup_context_menu()
 
@@ -294,55 +317,10 @@ class DataView(QTableView):
             shortcut = QShortcut(key_seq, self)
             shortcut.activated.connect(target)
 
-        self.horizontalHeader().setFrameStyle(QFrame.NoFrame)
-        self.verticalHeader().setFrameStyle(QFrame.NoFrame)
-
-        self.set_default_size()
-        # Hide horizontal+vertical headers
-        self.horizontalHeader().hide()
-        self.verticalHeader().hide()
-
-        # Hide scrollbars
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-
-        # to fetch more rows/columns when required
-        self.horizontalScrollBar().valueChanged.connect(self.on_horizontal_scroll_changed)
-        self.verticalScrollBar().valueChanged.connect(self.on_vertical_scroll_changed)
-
-        # self.horizontalHeader().sectionClicked.connect(self.on_horizontal_header_clicked)
-
     def set_dtype(self, dtype):
         model = self.model()
         delegate = ArrayDelegate(dtype, self, minvalue=model.minvalue, maxvalue=model.maxvalue)
         self.setItemDelegate(delegate)
-
-    def set_default_size(self):
-        # make the grid a bit more compact
-        self.horizontalHeader().setDefaultSectionSize(64)
-        self.verticalHeader().setDefaultSectionSize(20)
-
-    # def on_horizontal_header_clicked(self, section_index):
-    #     menu = FilterMenu(self)
-    #     header = self.horizontalHeader()
-    #     headerpos = self.mapToGlobal(header.pos())
-    #     posx = headerpos.x() + header.sectionPosition(section_index)
-    #     posy = headerpos.y() + header.height()
-    #     menu.exec_(QPoint(posx, posy))
-
-    def on_vertical_scroll_changed(self, value):
-        if value == self.verticalScrollBar().maximum():
-            self.model().fetch_more_rows()
-
-    def on_horizontal_scroll_changed(self, value):
-        if value == self.horizontalScrollBar().maximum():
-            self.model().fetch_more_columns()
-
-    def updateSectionHeight(self, logicalIndex, oldSize, newSize):
-        self.setRowHeight(logicalIndex, newSize)
-
-    def updateSectionWidth(self, logicalIndex, oldSize, newSize):
-        self.setColumnWidth(logicalIndex, newSize)
 
     def selectNewRow(self, row_index):
         # if not MultiSelection mode activated, selectRow will unselect previously
@@ -385,16 +363,6 @@ class DataView(QTableView):
         menu = QMenu(self)
         menu.addActions([self.copy_action, self.excel_action, self.plot_action, self.paste_action])
         return menu
-
-    def autofit_columns(self):
-        """Resize cells to contents"""
-        QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
-
-        # Spyder loads more columns before resizing, but since it does not
-        # load all columns anyway, I do not see the point
-        # self.model().fetch_more_columns()
-        self.resizeColumnsToContents()
-        QApplication.restoreOverrideCursor()
 
     def contextMenuEvent(self, event):
         """Reimplement Qt method"""
@@ -534,14 +502,14 @@ class ArrayEditorWidget(QWidget):
         self.readonly = readonly
 
         # prepare internal views and models
-        self.model_axes = LabelsArrayModel(parent=self, readonly=readonly)
-        self.view_axes = LabelsView(parent=self, model=self.model_axes, position=(TOP, LEFT))
+        self.model_axes = AxesArrayModel(parent=self, readonly=readonly)
+        self.view_axes = AxesView(parent=self, model=self.model_axes)
 
         self.model_hlabels = LabelsArrayModel(parent=self, readonly=readonly)
-        self.view_hlabels = LabelsView(parent=self, model=self.model_hlabels, position=(TOP, RIGHT))
+        self.view_hlabels = LabelsView(parent=self, model=self.model_hlabels, hpos=RIGHT, vpos=TOP)
 
         self.model_vlabels = LabelsArrayModel(parent=self, readonly=readonly)
-        self.view_vlabels = LabelsView(parent=self, model=self.model_vlabels, position=(BOTTOM, LEFT))
+        self.view_vlabels = LabelsView(parent=self, model=self.model_vlabels, hpos=LEFT, vpos=BOTTOM)
 
         self.model_data = DataArrayModel(parent=self, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
         self.view_data = DataView(parent=self, model=self.model_data)
@@ -1046,7 +1014,7 @@ class ArrayEditorWidget(QWidget):
         if headers:
             if not self.data_adapter.ndim:
                 return raw_data, None, None, None
-            axes_names = [axis_name[0] for axis_name in self.model_axes.get_values()]
+            axes_names = self.model_axes.get_values()
             hlabels = [label[0] for label in self.model_hlabels.get_values(top=col_min, bottom=col_max)]
             vlabels = self.model_vlabels.get_values(left=row_min, right=row_max) if self.data_adapter.ndim > 1 else []
             return raw_data, axes_names, vlabels, hlabels
