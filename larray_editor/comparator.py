@@ -2,12 +2,13 @@ import ast
 import numpy as np
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QDoubleValidator
-from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QDialogButtonBox, QHBoxLayout,
-                            QDialog, QLabel, QCheckBox, QLineEdit, QComboBox)
+from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QHBoxLayout,
+                            QLabel, QCheckBox, QLineEdit, QComboBox)
 
 from larray import LArray, Session, Axis, stack, full_like, nan, larray_nan_equal, element_equal
-from larray_editor.utils import ima, replace_inf, _
+from larray_editor.utils import replace_inf, _
 from larray_editor.arraywidget import ArrayEditorWidget
+from larray_editor.editor import AbstractEditor
 
 
 class ComparatorWidget(QWidget):
@@ -131,92 +132,53 @@ class ComparatorWidget(QWidget):
         self.arraywidget.set_data(array, bg_value=bg_value)
 
 
-class ArrayComparator(QDialog):
+class ArrayComparator(AbstractEditor):
     """Array Comparator Dialog"""
+
+    name = "Array Comparator"
+
     def __init__(self, parent=None):
-        QDialog.__init__(self, parent)
+        AbstractEditor.__init__(self, parent, editable=False, file_menu=False, help_menu=True)
+        self.setup_menu_bar()
 
-        # Destroying the C++ object right after closing the dialog box,
-        # otherwise it may be garbage-collected in another QThread
-        # (e.g. the editor's analysis thread in Spyder), thus leading to
-        # a segmentation fault on UNIX or an application crash on Windows
-        self.setAttribute(Qt.WA_DeleteOnClose)
-
-    def setup_and_check(self, arrays, names, title=''):
-        """
-        Setup ArrayComparator:
-        return False if data is not supported, True otherwise
-        """
-        icon = ima.icon('larray')
-        if icon is not None:
-            self.setWindowIcon(icon)
-
-        if not title:
-            title = _("Array comparator")
-        title += ' (' + _('read only') + ')'
-        self.setWindowTitle(title)
+    def _setup_and_check(self, widget, data, title, readonly, **kwargs):
+        """Setup ArrayComparator"""
+        arrays = data
+        names = kwargs.get('names', ["Array{}".format(i) for i in range(len(arrays))])
 
         layout = QVBoxLayout()
+        widget.setLayout(layout)
+
         comparator_widget = ComparatorWidget(self)
         comparator_widget.set_data(arrays, Axis(names, 'array'))
         layout.addWidget(comparator_widget)
 
-        # Buttons configuration
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
 
-        buttons = QDialogButtonBox.Ok
-        bbox = QDialogButtonBox(buttons)
-        bbox.accepted.connect(self.accept)
-        btn_layout.addWidget(bbox)
-        layout.addLayout(btn_layout)
-
-        self.setLayout(layout)
-        self.resize(800, 600)
-        self.setMinimumSize(400, 300)
-
-        # Make the dialog act as a window
-        self.setWindowFlags(Qt.Window)
-        return True
-
-
-# TODO: it should be possible to reuse both MappingEditor and ArrayComparator
-class SessionComparator(QDialog):
+class SessionComparator(AbstractEditor):
     """Session Comparator Dialog"""
-    def __init__(self, parent=None):
-        QDialog.__init__(self, parent)
 
-        # Destroying the C++ object right after closing the dialog box,
-        # otherwise it may be garbage-collected in another QThread
-        # (e.g. the editor's analysis thread in Spyder), thus leading to
-        # a segmentation fault on UNIX or an application crash on Windows
-        self.setAttribute(Qt.WA_DeleteOnClose)
+    name = "Session Comparator"
+
+    def __init__(self, parent=None):
+        AbstractEditor.__init__(self, parent, editable=False, file_menu=False, help_menu=True)
+        self.setup_menu_bar()
 
         self.sessions = None
         self.stack_axis = None
-        self.comparatorwidget = None
         self.listwidget = None
 
-    def setup_and_check(self, sessions, names, title='', colors='red-white-blue'):
-        """
-        Setup SessionComparator:
-        return False if data is not supported, True otherwise
-        """
+    def _setup_and_check(self, widget, data, title, readonly, **kwargs):
+        """Setup SessionComparator"""
+        sessions = data
+        names = kwargs.get('names', ["Session{}".format(i) for i in range(len(sessions))])
+        colors = kwargs.get('colors', 'red-white-blue')
+
         assert all(isinstance(s, Session) for s in sessions)
         self.sessions = sessions
         self.stack_axis = Axis(names, 'session')
 
-        icon = ima.icon('larray')
-        if icon is not None:
-            self.setWindowIcon(icon)
-
-        if not title:
-            title = _("Session comparator")
-        title += ' (' + _('read only') + ')'
-        self.setWindowTitle(title)
-
         layout = QVBoxLayout()
-        self.setLayout(layout)
+        widget.setLayout(layout)
 
         array_names = sorted(set.union(*[set(s.names) for s in self.sessions]))
         listwidget = QListWidget(self)
@@ -229,7 +191,7 @@ class SessionComparator(QDialog):
         self.listwidget = listwidget
 
         comparatorwidget = ComparatorWidget(self)
-        self.comparatorwidget = comparatorwidget
+        self.arraywidget = comparatorwidget
 
         main_splitter = QSplitter(Qt.Horizontal)
         main_splitter.addWidget(listwidget)
@@ -238,28 +200,11 @@ class SessionComparator(QDialog):
         main_splitter.setCollapsible(1, False)
 
         layout.addWidget(main_splitter)
-
-        # Buttons configuration
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
-
-        buttons = QDialogButtonBox.Ok
-        bbox = QDialogButtonBox(buttons)
-        bbox.accepted.connect(self.accept)
-        btn_layout.addWidget(bbox)
-        layout.addLayout(btn_layout)
-
-        self.resize(800, 600)
-        self.setMinimumSize(400, 300)
-
-        # Make the dialog act as a window
-        self.setWindowFlags(Qt.Window)
         self.listwidget.setCurrentRow(0)
-        return True
 
     def get_arrays(self, name):
         return [s.get(name, nan) for s in self.sessions]
 
     def on_item_changed(self, curr, prev):
         arrays = self.get_arrays(str(curr.text()))
-        self.comparatorwidget.set_data(arrays, self.stack_axis)
+        self.arraywidget.set_data(arrays, self.stack_axis)
