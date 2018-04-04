@@ -131,11 +131,8 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
         dlg = ArrayEditor(parent)
 
     if dlg.setup_and_check(obj, title=title, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue):
-        if parent or isinstance(dlg, QMainWindow):
-            dlg.show()
-            _app.exec_()
-        else:
-            dlg.exec_()
+        dlg.show()
+        _app.exec_()
 
     restore_except_hook()
 
@@ -224,10 +221,8 @@ def compare(*args, **kwargs):
         assert isinstance(names, list) and len(names) == len(args)
 
     if dlg.setup_and_check(args, names=names, title=title):
-        if parent:
-            dlg.show()
-        else:
-            dlg.exec_()
+        dlg.show()
+        _app.exec_()
 
     restore_except_hook()
 

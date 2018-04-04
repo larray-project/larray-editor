@@ -74,8 +74,7 @@ import math
 
 import numpy as np
 from qtpy.QtCore import Qt, QPoint, QItemSelection, QItemSelectionModel, Signal, QSize
-from qtpy.QtGui import (QDoubleValidator, QIntValidator, QKeySequence, QFontMetrics, QCursor, QPixmap, QPainter,
-                        QLinearGradient, QColor, QIcon)
+from qtpy.QtGui import QDoubleValidator, QIntValidator, QKeySequence, QFontMetrics, QCursor, QPixmap, QPainter, QIcon
 from qtpy.QtWidgets import (QApplication, QTableView, QItemDelegate, QLineEdit, QCheckBox,
                             QMessageBox, QMenu, QLabel, QSpinBox, QWidget, QToolTip, QShortcut, QScrollBar,
                             QHBoxLayout, QVBoxLayout, QGridLayout, QSizePolicy, QFrame, QComboBox)
@@ -84,7 +83,7 @@ from larray_editor.utils import (keybinding, create_action, clear_layout, get_fo
                                  is_number, is_float, _, ima, LinearGradient)
 from larray_editor.arrayadapter import get_adapter
 from larray_editor.arraymodel import LabelsArrayModel, AxesArrayModel, DataArrayModel
-from larray_editor.combo import FilterComboBox, FilterMenu
+from larray_editor.combo import FilterComboBox
 
 
 # XXX: define Enum instead ?
