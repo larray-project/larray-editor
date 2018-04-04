@@ -225,7 +225,6 @@ class AbstractAdapter(object):
         axes_names = [axis.name for axis in self.get_axes_filtered_data()]
         if fold_last_axis and len(axes_names) >= 2:
             axes_names = axes_names[:-2] + [axes_names[-2] + '\\' + axes_names[-1]]
-        axes_names = [[axis_name] for axis_name in axes_names] if len(axes_names) > 0 else [[]]
         return axes_names
 
     def get_vlabels(self):
