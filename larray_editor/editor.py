@@ -2,16 +2,15 @@ import os
 import re
 import matplotlib
 import numpy as np
-import logging
 import collections
 
-from larray import LArray, Session, zeros, empty
+from larray import LArray, Session, empty
 from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
-                                 get_versions, get_documentation_url, urls, RecentlyUsedList, logger)
+                                 get_versions, get_documentation_url, urls, RecentlyUsedList)
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor.commands import EditArrayCommand
 
-from qtpy.QtCore import Qt, QSettings, QUrl, Slot
+from qtpy.QtCore import Qt, QUrl
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
                             QDialogButtonBox, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QUndoStack,
@@ -52,11 +51,239 @@ history_vars_pattern = re.compile('_i?\d+')
 DISPLAY_IN_GRID = (LArray, np.ndarray)
 
 
-class MappingEditor(QMainWindow):
+class AbstractEditor(QMainWindow):
+    """Abstract Editor Window"""
+
+    name = "Editor"
+
+    def __init__(self, parent=None, editable=False, file_menu=False, help_menu=False):
+        QMainWindow.__init__(self, parent)
+        self._file_menu = file_menu
+        self._edit_menu = editable
+        self._help_menu = help_menu
+
+        # Destroying the C++ object right after closing the dialog box,
+        # otherwise it may be garbage-collected in another QThread
+        # (e.g. the editor's analysis thread in Spyder), thus leading to
+        # a segmentation fault on UNIX or an application crash on Windows
+        self.setAttribute(Qt.WA_DeleteOnClose)
+
+        self.data = None
+        self.arraywidget = None
+        if editable:
+            self.edit_undo_stack = QUndoStack(self)
+
+    def setup_and_check(self, data, title='', readonly=False, **kwargs):
+        """Return False if data is not supported, True otherwise"""
+        # set icon
+        icon = ima.icon('larray')
+        if icon is not None:
+            self.setWindowIcon(icon)
+
+        # set title
+        if not title:
+            title = _(self.name)
+        if readonly:
+            title += ' (' + _('read only') + ')'
+        self._title = title
+        self.setWindowTitle(title)
+
+        # display status message
+        self.statusBar().showMessage("Welcome to the {}".format(self.name), 4000)
+
+        # set central widget
+        widget = QWidget()
+        self.setCentralWidget(widget)
+
+        # setup central widget
+        self._setup_and_check(widget, data, title, readonly, **kwargs)
+
+        # resize
+        self.resize(800, 600)
+        self.setMinimumSize(400, 300)
+        return True
+
+    def setup_menu_bar(self):
+        """Setup menu bar"""
+        menu_bar = self.menuBar()
+        if self._file_menu:
+            self._setup_file_menu(menu_bar)
+        if self._edit_menu:
+            self._setup_edit_menu(menu_bar)
+        if self._help_menu:
+            self._setup_help_menu(menu_bar)
+
+    def _setup_file_menu(self, menu_bar):
+        file_menu = menu_bar.addMenu('&File')
+        file_menu.addAction(create_action(self, _('&Quit'), shortcut="Ctrl+Q", triggered=self.close))
+
+    def _setup_edit_menu(self, menu_bar):
+        if qtconsole_available:
+            edit_menu = menu_bar.addMenu('&Edit')
+            # UNDO
+            undo_action = self.edit_undo_stack.createUndoAction(self, "&Undo")
+            undo_action.setShortcuts(QKeySequence.Undo)
+            undo_action.triggered.connect(self.update_title)
+            edit_menu.addAction(undo_action)
+            # REDO
+            redo_action = self.edit_undo_stack.createRedoAction(self, "&Redo")
+            redo_action.setShortcuts(QKeySequence.Redo)
+            redo_action.triggered.connect(self.update_title)
+            edit_menu.addAction(redo_action)
+
+    def _setup_help_menu(self, menu_bar):
+        help_menu = menu_bar.addMenu('&Help')
+        #===============#
+        # DOCUMENTATION #
+        #===============#
+        help_menu.addAction(create_action(self, _('Online &Documentation'), shortcut="Ctrl+H",
+                                          triggered=self.open_documentation))
+        help_menu.addAction(create_action(self, _('Online &Tutorial'), triggered=self.open_tutorial))
+        help_menu.addAction(create_action(self, _('Online Objects and Functions (API) &Reference'),
+                                          triggered=self.open_api_documentation))
+        #======================#
+        # ISSUES/GOOGLE GROUPS #
+        #======================#
+        help_menu.addSeparator()
+        report_issue_menu = help_menu.addMenu("Report &Issue...")
+        report_issue_menu.addAction(create_action(self, _('Report &Editor Issue...'),
+                                                  triggered=self.report_issue('editor')))
+        report_issue_menu.addAction(create_action(self, _('Report &LArray Issue...'),
+                                                  triggered=self.report_issue('larray')))
+        report_issue_menu.addAction(create_action(self, _('Report &LArray Eurostat Issue...'),
+                                                  triggered=self.report_issue('larray_eurostat')))
+        help_menu.addAction(create_action(self, _('&Users Discussion...'), triggered=self.open_users_group))
+        help_menu.addAction(create_action(self, _('New Releases And &Announces Mailing List...'),
+                                          triggered=self.open_announce_group))
+        #=================#
+        #       ABOUT     #
+        #=================#
+        help_menu.addSeparator()
+        help_menu.addAction(create_action(self, _('&About'), triggered=self.about))
+
+    def open_documentation(self):
+        QDesktopServices.openUrl(QUrl(get_documentation_url('doc_index')))
+
+    def open_tutorial(self):
+        QDesktopServices.openUrl(QUrl(get_documentation_url('doc_tutorial')))
+
+    def open_api_documentation(self):
+        QDesktopServices.openUrl(QUrl(get_documentation_url('doc_api')))
+
+    def report_issue(self, package):
+        def _report_issue(*args, **kwargs):
+            if PY2:
+                from urllib import quote
+            else:
+                from urllib.parse import quote
+
+            versions = get_versions(package)
+            issue_template = """\
+## Description
+**What steps will reproduce the problem?**
+1. 
+2. 
+3.
+
+**What is the expected output? What do you see instead?**
+
+
+**Please provide any additional information below**
+
+
+## Version and main components
+* Python {python} on {system} {bitness:d}bits
+"""
+            issue_template += "* {package} {{{package}}}\n".format(package=package)
+            for dep in dependencies[package]:
+                issue_template += "* {dep} {{{dep}}}\n".format(dep=dep)
+            issue_template = issue_template.format(**versions)
+
+            url = QUrl(urls['new_issue_{}'.format(package)])
+            if PYQT5:
+                from qtpy.QtCore import QUrlQuery
+                query = QUrlQuery()
+                query.addQueryItem("body", quote(issue_template))
+                url.setQuery(query)
+            else:
+                url.addEncodedQueryItem("body", quote(issue_template))
+            QDesktopServices.openUrl(url)
+
+        return _report_issue
+
+    def open_users_group(self):
+        QDesktopServices.openUrl(QUrl(urls['users_group']))
+
+    def open_announce_group(self):
+        QDesktopServices.openUrl(QUrl(urls['announce_group']))
+
+    def about(self):
+        """About Editor"""
+        kwargs = get_versions('editor')
+        kwargs.update(urls)
+        message = """\
+<p><b>LArray Editor</b> {editor}
+<br>The Graphical User Interface for LArray
+<p>Licensed under the terms of the <a href="{GPL3}">GNU General Public License Version 3</a>.
+<p>Developed and maintained by the <a href="{fpb}">Federal Planning Bureau</a> (Belgium).
+<p>&nbsp;
+<p><b>Versions of underlying libraries</b>
+<ul>
+<li>Python {python} on {system} {bitness:d}bits</li>
+"""
+        for dep in dependencies['editor']:
+            if kwargs[dep] != 'N/A':
+                message += "<li>{dep} {{{dep}}}</li>\n".format(dep=dep)
+        message += "</ul>"
+        QMessageBox.about(self, _("About LArray Editor"), message.format(**kwargs))
+
+    def _update_title(self, title, array, name):
+        if title is None:
+            title = []
+
+        if array is not None:
+            dtype = array.dtype.name
+            # current file (if not None)
+            if isinstance(array, LArray):
+                # array info
+                shape = ['{} ({})'.format(display_name, len(axis))
+                         for display_name, axis in zip(array.axes.display_names, array.axes)]
+            else:
+                # if it's not an LArray, it must be a Numpy ndarray
+                assert isinstance(array, np.ndarray)
+                shape = [str(length) for length in array.shape]
+            # name + shape + dtype
+            array_info = ' x '.join(shape) + ' [{}]'.format(dtype)
+            if name:
+                title += [name + ': ' + array_info]
+            else:
+                title += [array_info]
+
+        # extra info
+        title += [self._title]
+        # set title
+        self.setWindowTitle(' - '.join(title))
+
+    def get_value(self):
+        """Return modified array -- this is *not* a copy"""
+        # It is import to avoid accessing Qt C++ object as it has probably
+        # already been destroyed, due to the Qt.WA_DeleteOnClose attribute
+        return self.data
+
+    def _setup_and_check(self, widget, data, title, readonly, **kwargs):
+        raise NotImplementedError()
+
+    def update_title(self):
+        raise NotImplementedError()
+
+
+class MappingEditor(AbstractEditor):
     """Session Editor Dialog"""
 
+    name = "Session Editor"
+
     def __init__(self, parent=None):
-        QMainWindow.__init__(self, parent)
+        AbstractEditor.__init__(self, parent, editable=True, file_menu=True, help_menu=True)
 
         # to handle recently opened data/script files
         self.recent_data_files = RecentlyUsedList("recentFileList", self, self.open_recent_file)
@@ -67,15 +294,6 @@ class MappingEditor(QMainWindow):
         self.current_array = None
         self.current_array_name = None
 
-        # Destroying the C++ object right after closing the dialog box,
-        # otherwise it may be garbage-collected in another QThread
-        # (e.g. the editor's analysis thread in Spyder), thus leading to
-        # a segmentation fault on UNIX or an application crash on Windows
-        self.setAttribute(Qt.WA_DeleteOnClose)
-
-        self.data = None
-        self.edit_undo_stack = QUndoStack(self)
-        self.arraywidget = None
         self._listwidget = None
         self.eval_box = None
         self.expressions = {}
@@ -84,27 +302,8 @@ class MappingEditor(QMainWindow):
 
         self.setup_menu_bar()
 
-    def setup_and_check(self, data, title='', readonly=False, minvalue=None, maxvalue=None):
-        """
-        Setup MappingEditor:
-        return False if data is not supported, True otherwise
-        """
-        icon = ima.icon('larray')
-        if icon is not None:
-            self.setWindowIcon(icon)
-
-        if not title:
-            title = _("Session viewer") if readonly else _("Session editor")
-        if readonly:
-            title += ' (' + _('read only') + ')'
-        self._title = title
-        self.setWindowTitle(title)
-
-        self.statusBar().showMessage("Welcome to the LArray Viewer", 4000)
-
-        widget = QWidget()
-        self.setCentralWidget(widget)
-
+    def _setup_and_check(self, widget, data, title, readonly, **kwargs):
+        """Setup MappingEditor"""
         layout = QVBoxLayout()
         widget.setLayout(layout)
 
@@ -191,12 +390,6 @@ class MappingEditor(QMainWindow):
 
         layout.addWidget(main_splitter)
 
-        self.resize(800, 600)
-        self.setMinimumSize(400, 300)
-
-        # Make the dialog act as a window
-        self.setWindowFlags(Qt.Window)
-
         # check if reopen last opened file
         if data is REOPEN_LAST_FILE:
             if len(self.recent_data_files.files) > 0:
@@ -219,7 +412,6 @@ class MappingEditor(QMainWindow):
             arrays = [k for k, v in self.data.items() if self._display_in_grid(k, v)]
             self.add_list_items(arrays)
         self._listwidget.setCurrentRow(0)
-        return True
 
     def _reset(self):
         self.data = Session()
@@ -235,15 +427,8 @@ class MappingEditor(QMainWindow):
             self.eval_box.setText('None')
             self.line_edit_update()
 
-    def setup_menu_bar(self):
-        """Setup menu bar"""
-        menu_bar = self.menuBar()
-
-        #################
-        #   FILE MENU   #
-        #################
+    def _setup_file_menu(self, menu_bar):
         file_menu = menu_bar.addMenu('&File')
-
         #===============#
         #      NEW      #
         #===============#
@@ -284,58 +469,6 @@ class MappingEditor(QMainWindow):
         #===============#
         file_menu.addSeparator()
         file_menu.addAction(create_action(self, _('&Quit'), shortcut="Ctrl+Q", triggered=self.close))
-
-        #################
-        #   EDIT MENU   #
-        #################
-        edit_menu = menu_bar.addMenu('&Edit')
-
-        #===============#
-        #   UNDO/REDO   #
-        #===============#
-        if qtconsole_available:
-            undo_action = self.edit_undo_stack.createUndoAction(self, "&Undo")
-            undo_action.setShortcuts(QKeySequence.Undo)
-            undo_action.triggered.connect(self.update_title)
-            edit_menu.addAction(undo_action)
-
-            redo_action = self.edit_undo_stack.createRedoAction(self, "&Redo")
-            redo_action.setShortcuts(QKeySequence.Redo)
-            redo_action.triggered.connect(self.update_title)
-            edit_menu.addAction(redo_action)
-
-        #################
-        #   HELP MENU   #
-        #################
-        help_menu = menu_bar.addMenu('&Help')
-
-        #===============#
-        # DOCUMENTATION #
-        #===============#
-        help_menu.addAction(create_action(self, _('Online &Documentation'), shortcut="Ctrl+H",
-                                          triggered=self.open_documentation))
-        help_menu.addAction(create_action(self, _('Online &Tutorial'), triggered=self.open_tutorial))
-        help_menu.addAction(create_action(self, _('Online Objects and Functions (API) &Reference'),
-                                          triggered=self.open_api_documentation))
-        #======================#
-        # ISSUES/GOOGLE GROUPS #
-        #======================#
-        help_menu.addSeparator()
-        report_issue_menu = help_menu.addMenu("Report &Issue...")
-        report_issue_menu.addAction(create_action(self, _('Report &Editor Issue...'),
-                                                  triggered=self.report_issue('editor')))
-        report_issue_menu.addAction(create_action(self, _('Report &LArray Issue...'),
-                                                  triggered=self.report_issue('larray')))
-        report_issue_menu.addAction(create_action(self, _('Report &LArray Eurostat Issue...'),
-                                                  triggered=self.report_issue('larray_eurostat')))
-        help_menu.addAction(create_action(self, _('&Users Discussion...'), triggered=self.open_users_group))
-        help_menu.addAction(create_action(self, _('New Releases And &Announces Mailing List...'),
-                                          triggered=self.open_announce_group))
-        #=================#
-        #       ABOUT     #
-        #=================#
-        help_menu.addSeparator()
-        help_menu.addAction(create_action(self, _('&About'), triggered=self.about))
 
     def push_changes(self, changes):
         self.edit_undo_stack.push(EditArrayCommand(self, self.current_array_name, changes))
@@ -518,9 +651,7 @@ class MappingEditor(QMainWindow):
                 self.eval_box.setText(expr)
 
     def update_title(self):
-        array = self.current_array
         name = self.current_array_name if self.current_array_name is not None else ''
-
         unsaved_marker = '*' if self.unsaved_modifications else ''
         if self.current_file is not None:
             basename = os.path.basename(self.current_file)
@@ -532,30 +663,10 @@ class MappingEditor(QMainWindow):
                 fname = basename
         else:
             fname = '<new>'
+
+        array = self.current_array
         title = ['{}{}'.format(unsaved_marker, fname)]
-
-        if array is not None:
-            dtype = array.dtype.name
-            # current file (if not None)
-            if isinstance(array, LArray):
-                # array info
-                shape = ['{} ({})'.format(display_name, len(axis))
-                         for display_name, axis in zip(array.axes.display_names, array.axes)]
-            else:
-                # if it's not an LArray, it must be a Numpy ndarray
-                assert isinstance(array, np.ndarray)
-                shape = [str(length) for length in array.shape]
-            # name + shape + dtype
-            array_info = ' x '.join(shape) + ' [{}]'.format(dtype)
-            if name:
-                title += [name + ': ' + array_info]
-            else:
-                title += [array_info]
-
-        # extra info
-        title += [self._title]
-        # set title
-        self.setWindowTitle(' - '.join(title))
+        self._update_title(title, array, name)
 
     def set_current_array(self, array, name):
         # we should NOT check that "array is not self.current_array" because this method is also called to
@@ -601,12 +712,6 @@ class MappingEditor(QMainWindow):
             event.accept()
         else:
             event.ignore()
-
-    def get_value(self):
-        """Return modified array -- this is *not* a copy"""
-        # It is import to avoid accessing Qt C++ object as it has probably
-        # already been destroyed, due to the Qt.WA_DeleteOnClose attribute
-        return self.data
 
     #########################################
     #               FILE MENU               #
@@ -919,155 +1024,32 @@ class MappingEditor(QMainWindow):
                 filepath = AVAILABLE_EXAMPLE_DATA[dataset_name]
                 self._open_file(filepath)
 
-    #########################################
-    #               HELP MENU               #
-    #########################################
 
-    def open_documentation(self):
-        QDesktopServices.openUrl(QUrl(get_documentation_url('doc_index')))
-
-    def open_tutorial(self):
-        QDesktopServices.openUrl(QUrl(get_documentation_url('doc_tutorial')))
-
-    def open_api_documentation(self):
-        QDesktopServices.openUrl(QUrl(get_documentation_url('doc_api')))
-
-    def report_issue(self, package):
-        def _report_issue(*args, **kwargs):
-            if PY2:
-                from urllib import quote
-            else:
-                from urllib.parse import quote
-
-            versions = get_versions(package)
-            issue_template = """\
-## Description
-**What steps will reproduce the problem?**
-1. 
-2. 
-3.
- 
-**What is the expected output? What do you see instead?**
-
-
-**Please provide any additional information below**
-
-
-## Version and main components
-* Python {python} on {system} {bitness:d}bits
-"""
-            issue_template += "* {package} {{{package}}}\n".format(package=package)
-            for dep in dependencies[package]:
-                issue_template += "* {dep} {{{dep}}}\n".format(dep=dep)
-            issue_template = issue_template.format(**versions)
-
-            url = QUrl(urls['new_issue_{}'.format(package)])
-            if PYQT5:
-                from qtpy.QtCore import QUrlQuery
-                query = QUrlQuery()
-                query.addQueryItem("body", quote(issue_template))
-                url.setQuery(query)
-            else:
-                url.addEncodedQueryItem("body", quote(issue_template))
-            QDesktopServices.openUrl(url)
-
-        return _report_issue
-
-    def open_users_group(self):
-        QDesktopServices.openUrl(QUrl(urls['users_group']))
-
-    def open_announce_group(self):
-        QDesktopServices.openUrl(QUrl(urls['announce_group']))
-
-    def about(self):
-        """About Editor"""
-        kwargs = get_versions('editor')
-        kwargs.update(urls)
-        message = """\
-<p><b>LArray Editor</b> {editor}
-<br>The Graphical User Interface for LArray
-<p>Licensed under the terms of the <a href="{GPL3}">GNU General Public License Version 3</a>.
-<p>Developed and maintained by the <a href="{fpb}">Federal Planning Bureau</a> (Belgium).
-<p>&nbsp;
-<p><b>Versions of underlying libraries</b>
-<ul>
-<li>Python {python} on {system} {bitness:d}bits</li>
-"""
-        for dep in dependencies['editor']:
-            if kwargs[dep] != 'N/A':
-                message += "<li>{dep} {{{dep}}}</li>\n".format(dep=dep)
-        message += "</ul>"
-        QMessageBox.about(self, _("About LArray Editor"), message.format(**kwargs))
-
-
-# TODO: a menu bar is missing. We need a common abstract class for MappingEditor and ArrayEditor
-class ArrayEditor(QDialog):
+class ArrayEditor(AbstractEditor):
     """Array Editor Dialog"""
+
+    name = "Array Editor"
+
     def __init__(self, parent=None):
-        QDialog.__init__(self, parent)
+        AbstractEditor.__init__(self, parent, editable=True)
+        self.setup_menu_bar()
 
-        # Destroying the C++ object right after closing the dialog box,
-        # otherwise it may be garbage-collected in another QThread
-        # (e.g. the editor's analysis thread in Spyder), thus leading to
-        # a segmentation fault on UNIX or an application crash on Windows
-        self.setAttribute(Qt.WA_DeleteOnClose)
+    def _setup_and_check(self, widget, data, title, readonly, **kwargs):
+        """Setup ArrayEditor"""
+        minvalue = kwargs.get('minvalue', None)
+        maxvalue = kwargs.get('maxvalue', None)
 
-        self.data = None
-        self.arraywidget = None
-
-    def setup_and_check(self, data, title='', readonly=False, minvalue=None, maxvalue=None):
-        """
-        Setup ArrayEditor:
-        return False if data is not supported, True otherwise
-        """
         if np.isscalar(data):
             readonly = True
-        if isinstance(data, LArray):
-            axes_info = ' x '.join("%s (%d)" % (display_name, len(axis))
-                                   for display_name, axis
-                                   in zip(data.axes.display_names, data.axes))
-            title = (title + ': ' + axes_info) if title else axes_info
+
+        layout = QVBoxLayout()
+        widget.setLayout(layout)
 
         self.data = data
-        layout = QGridLayout()
-        self.setLayout(layout)
-
-        icon = ima.icon('larray')
-        if icon is not None:
-            self.setWindowIcon(icon)
-
-        if not title:
-            title = _("Array viewer") if readonly else _("Array editor")
-        if readonly:
-            title += ' (' + _('read only') + ')'
-        self.setWindowTitle(title)
-        self.resize(800, 600)
-        self.setMinimumSize(400, 300)
-
         self.arraywidget = ArrayEditorWidget(self, data, readonly, minvalue=minvalue, maxvalue=maxvalue)
-        layout.addWidget(self.arraywidget, 1, 0)
+        self.arraywidget.model_data.dataChanged.connect(self.update_title)
+        self.update_title()
+        layout.addWidget(self.arraywidget)
 
-        # Buttons configuration
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
-
-        # not using a QDialogButtonBox with standard Ok/Cancel buttons
-        # because that makes it impossible to disable the AutoDefault on them
-        # (Enter always "accepts"/close the dialog) which is annoying for edit()
-        close_button = QPushButton("Close")
-        close_button.setAutoDefault(False)
-        btn_layout.addWidget(close_button)
-        layout.addLayout(btn_layout, 2, 0)
-
-        # Make the dialog act as a window
-        self.setWindowFlags(Qt.Window)
-        return True
-
-    def autofit_columns(self):
-        self.arraywidget.autofit_columns()
-
-    def get_value(self):
-        """Return modified array -- this is *not* a copy"""
-        # It is import to avoid accessing Qt C++ object as it has probably
-        # already been destroyed, due to the Qt.WA_DeleteOnClose attribute
-        return self.data
+    def update_title(self):
+        self._update_title(None, self.data, '')

@@ -132,10 +132,10 @@ edit()
 # edit('fake_path')
 # edit(REOPEN_LAST_FILE)
 
-# edit(arr2)
+edit(arr2)
 # compare(arr3, arr3 + ndrange(arr3.axes))
-# compare(Session(arr4=arr4, arr3=arr3),
-#         Session(arr4=arr4 + 1.0, arr3=arr3 * 2.0))
+compare(Session(arr4=arr4, arr3=arr3),
+        Session(arr4=arr4 + 1.0, arr3=arr3 * 2.0))
 # compare(Session(arr2=arr2, arr3=arr3),
 #         Session(arr2=arr2 + 1.0, arr3=arr3 * 2.0))
 
@@ -154,7 +154,9 @@ edit()
 # print('\n open CSV')
 # edit('x_csv')
 
-# arr1 = ndtest((3, 3))
-# arr2 = 2 * arr1
-# arr3 = where(arr1 % 2 == 0, arr1, -arr1)
-# compare(arr1, arr2, arr3)
+arr1 = ndtest((3, 3))
+arr2 = 2 * arr1
+arr3 = where(arr1 % 2 == 0, arr1, -arr1)
+compare(arr1, arr2, arr3)
+
+
