@@ -662,7 +662,9 @@ class ArrayEditorWidget(QWidget):
         # without this, we can crash python :)
         del painter, pixmap
         # select default gradient
-        gradient_chooser.setCurrentText(bg_gradient)
+        # requires Qt5+
+        # gradient_chooser.setCurrentText(bg_gradient)
+        gradient_chooser.setCurrentIndex(gradient_chooser.findText(bg_gradient))
         gradient_chooser.currentIndexChanged.connect(self.gradient_changed)
         self.btn_layout.addWidget(gradient_chooser)
         self.gradient_chooser = gradient_chooser
