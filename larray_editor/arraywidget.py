@@ -179,7 +179,7 @@ class LabelsView(QTableView):
                             sum(self.columnWidth(c) for c in range(self.model().columnCount()))
             self.setFixedWidth(maximum_width)
         # update geometry
-        super().updateGeometry()
+        super(LabelsView, self).updateGeometry()
 
 
 class ArrayDelegate(QItemDelegate):
