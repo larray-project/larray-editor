@@ -629,7 +629,7 @@ def get_sample_step(data, maxsize):
     size = data.size
     if not size:
         return None
-    return math.ceil(size / maxsize)
+    return int(math.ceil(size / maxsize))
 
 
 def get_sample(data, maxsize):
