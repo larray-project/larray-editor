@@ -178,7 +178,7 @@ class AbstractView(QTableView):
                             sum(self.columnWidth(c) for c in range(self.model().columnCount()))
             self.setFixedWidth(maximum_width)
         # update geometry
-        super(LabelsView, self).updateGeometry()
+        super(AbstractView, self).updateGeometry()
 
 
 class AxesView(AbstractView):
