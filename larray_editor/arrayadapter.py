@@ -355,7 +355,6 @@ class AbstractAdapter(object):
                 return
             self._to_excel(data)
         except NotImplementedError:
-            import xlwings as xw
             data = self.selection_to_chain(raw_data, axes_names, vlabels, hlabels)
             if data is None:
                 return
@@ -364,7 +363,9 @@ class AbstractAdapter(object):
             #       anyway. The problem is that our lists contains numpy types and especially np.str_ crashes xlwings.
             #       unsure how we should fix this properly: in xlwings, or change _selection_data to return only standard
             #       Python types.
-            xw.view(np.array([list(r) for r in data]))
+            array = np.array([list(r) for r in data])
+            wb = la.open_excel()
+            wb[0]['A1'] = array
 
     def plot(self, raw_data, axes_names, vlabels, hlabels):
         from matplotlib.figure import Figure
