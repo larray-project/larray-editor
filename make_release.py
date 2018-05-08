@@ -7,11 +7,13 @@
 from __future__ import print_function, unicode_literals
 
 import sys
-from os.path import abspath, dirname
-from releaser import make_release
+import json
+from os.path import abspath, dirname, join
+from releaser import make_release, insert_step_func, echocall, doechocall, no
 from releaser import update_feedstock
 from releaser.make_release import steps_funcs as make_release_steps
 from releaser.update_feedstock import steps_funcs as update_feedstock_steps
+from releaser.utils import chdir, short
 
 
 TMP_PATH = r"c:\tmp\editor_new_release"
@@ -23,6 +25,32 @@ SRC_DOC = None
 GITHUB_REP = "https://github.com/larray-project/larray-editor"
 CONDA_FEEDSTOCK_REP = "https://github.com/larray-project/larray-editor-feedstock.git"
 ONLINE_DOC = None
+
+
+def update_version_in_json_used_by_menuinst(config):
+    chdir(config['build_dir'])
+
+    version = short(config['release_name'])
+    package_name = config['package_name']
+    menuinst_file = join('condarecipe', package_name, 'larray-editor.json')
+
+    with open(menuinst_file) as mf:
+        data = json.load(mf)
+    menu_items = data['menu_items']
+    for i, menu_item in enumerate(menu_items):
+        if 'webbrowser' in menu_item:
+            menu_items[i]['webbrowser'] = 'http://larray.readthedocs.io/en/{}'.format(version)
+    with open(menuinst_file, mode='w') as mf:
+        json.dump(data, mf, indent=4)
+
+    # check and add to next commit
+    print(echocall(['git', 'diff', menuinst_file]))
+    if no('Do the version update changes look right?'):
+        exit(1)
+    doechocall('Adding', ['git', 'add', menuinst_file])
+
+
+insert_step_func(update_version_in_json_used_by_menuinst, '', before='update_version')
 
 
 if __name__ == '__main__':
