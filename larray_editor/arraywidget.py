@@ -471,6 +471,7 @@ class ScrollBar(QScrollBar):
 
 
 available_gradients = [
+    ('white', None),
     # Hue, Saturation, Value, Alpha-channel
     ('red-blue', LinearGradient([(0, [0.99, 0.7, 1.0, 0.6]), (1, [0.66, 0.7, 1.0, 0.6])])),
     ('blue-red', LinearGradient([(0, [0.66, 0.7, 1.0, 0.6]), (1, [0.99, 0.7, 1.0, 0.6])])),
@@ -616,7 +617,7 @@ class ArrayEditorWidget(QWidget):
 
         pixmap.fill(Qt.transparent)
         painter = QPainter(pixmap)
-        for name, gradient in available_gradients:
+        for name, gradient in available_gradients[1:]:
             qgradient = gradient.as_qgradient()
 
             # * fill with white because gradient can be transparent and if we do not "start from whilte", it skews the
