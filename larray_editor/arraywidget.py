@@ -494,7 +494,7 @@ class ArrayEditorWidget(QWidget):
     dataChanged = Signal(list)
 
     def __init__(self, parent, data=None, readonly=False, bg_value=None, bg_gradient='blue-red',
-                 minvalue=None, maxvalue=None):
+                 minvalue=None, maxvalue=None, digits=None):
         QWidget.__init__(self, parent)
         assert bg_gradient in gradient_map
         if data is not None and np.isscalar(data):
@@ -650,7 +650,7 @@ class ArrayEditorWidget(QWidget):
 
         # set data
         if data is not None:
-            self.set_data(data, bg_value=bg_value)
+            self.set_data(data, bg_value=bg_value, digits=digits)
 
         # See http://doc.qt.io/qt-4.8/qt-draganddrop-fridgemagnets-dragwidget-cpp.html for an example
         self.setAcceptDrops(True)
@@ -760,7 +760,7 @@ class ArrayEditorWidget(QWidget):
         if reset_model_data:
             self.model_data.reset()
 
-    def set_data(self, data, bg_value=None):
+    def set_data(self, data, bg_value=None, digits=None):
         # get new adapter instance + set data
         self.data_adapter = get_adapter(data=data, bg_value=bg_value)
         # update filters
@@ -770,7 +770,7 @@ class ArrayEditorWidget(QWidget):
         #       set_format which reset the data_model
         self._update_models(reset_model_data=False, reset_minmax=True)
         # update data format
-        self._update_digits_scientific()
+        self._update_digits_scientific(digits=digits)
         # update gradient_chooser
         self.gradient_chooser.setEnabled(self.model_data.bgcolor_possible)
         # reset default size
@@ -824,7 +824,7 @@ class ArrayEditorWidget(QWidget):
     # two cases:
     # * set_data should update both scientific and ndigits
     # * toggling scientific checkbox should update only ndigits
-    def _update_digits_scientific(self, scientific=None):
+    def _update_digits_scientific(self, scientific=None, digits=None):
         dtype = self.data_adapter.dtype
         if dtype.type in (np.str, np.str_, np.bool_, np.bool, np.object_):
             scientific = False
@@ -853,20 +853,23 @@ class ArrayEditorWidget(QWidget):
             # determine best number of decimals to display
             # ============================================
             # TODO: ndecimals vs self.digits => rename self.digits to either frac_digits or ndecimals
-            data_frac_digits = self._data_digits(data)
-            if scientific:
-                int_digits = 2 if has_negative else 1
-                exp_digits = 4
+            if digits is not None:
+                ndecimals = digits
             else:
-                exp_digits = 0
-            # - 1 for the dot
-            ndecimals = avail_digits - 1 - int_digits - exp_digits
+                data_frac_digits = self._data_digits(data)
+                if scientific:
+                    int_digits = 2 if has_negative else 1
+                    exp_digits = 4
+                else:
+                    exp_digits = 0
+                # - 1 for the dot
+                ndecimals = avail_digits - 1 - int_digits - exp_digits
 
-            if ndecimals < 0:
-                ndecimals = 0
+                if ndecimals < 0:
+                    ndecimals = 0
 
-            if data_frac_digits < ndecimals:
-                ndecimals = data_frac_digits
+                if data_frac_digits < ndecimals:
+                    ndecimals = data_frac_digits
 
         self.digits = ndecimals
         self.use_scientific = scientific
