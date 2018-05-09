@@ -50,7 +50,7 @@ def update_version_in_json_used_by_menuinst(config):
     doechocall('Adding', ['git', 'add', menuinst_file])
 
 
-insert_step_func(update_version_in_json_used_by_menuinst, '', before='update_version')
+insert_step_func(update_version_in_json_used_by_menuinst, before='update_version')
 
 
 if __name__ == '__main__':
