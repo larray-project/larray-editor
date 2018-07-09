@@ -99,6 +99,7 @@ def make_demo(width=20, ball_radius=5, path_radius=5, steps=30):
 
 demo = make_demo(9, 2.5, 1.5)
 sphere = make_sphere(9, 4)
+# TODO: use inf and nan from la namespace
 extreme_array = LArray([-np.inf, -1, 0, np.nan, 1, np.inf])
 scalar = LArray(0)
 arr_empty = LArray([])
