@@ -140,12 +140,12 @@ edit()
 # edit('fake_path')
 # edit(REOPEN_LAST_FILE)
 
-edit(arr2)
+# edit(arr2)
 
-compare(arr3, arr3 + 1.0)
-compare(np.random.normal(0, 1, size=(10, 2)), np.random.normal(0, 1, size=(10, 2)))
-compare(la.Session(arr4=arr4, arr3=arr3, data=data3),
-        la.Session(arr4=arr4 + 1.0, arr3=arr3 * 2.0, data=data3 * 1.05))
+# compare(arr3, arr3 + 1.0)
+# compare(np.random.normal(0, 1, size=(10, 2)), np.random.normal(0, 1, size=(10, 2)))
+# compare(la.Session(arr4=arr4, arr3=arr3, data=data3),
+#         la.Session(arr4=arr4 + 1.0, arr3=arr3 * 2.0, data=data3 * 1.05))
 # compare(la.Session(arr2=arr2, arr3=arr3),
 #         la.Session(arr2=arr2 + 1.0, arr3=arr3 * 2.0))
 
@@ -164,20 +164,20 @@ compare(la.Session(arr4=arr4, arr3=arr3, data=data3),
 # print('\n open CSV')
 # edit('x_csv')
 
-arr1 = la.ones((geo, sex))
-arr2 = la.random.normal(axes=(geo, sex))
-compare(arr1, arr2, atol=0.5)
-compare(arr1, arr2, rtol=0.3)
-
-arr2 = la.where(arr2 > 1, arr1, -arr1)
-arr1['M'] = la.nan
-arr2['M'] = la.nan
-compare(arr1, arr2, nans_equal=False)
-
-arr1 = la.ndtest((3, 3))
-arr2 = 2 * arr1
-arr3 = la.where(arr1 % 2 == 0, arr1, -arr1)
-compare(arr1, arr2, arr3, bg_gradient='blue-red')
+# arr1 = la.ones((geo, sex))
+# arr2 = la.random.normal(axes=(geo, sex))
+# compare(arr1, arr2, atol=0.5)
+# compare(arr1, arr2, rtol=0.3)
+#
+# arr2 = la.where(arr2 > 1, arr1, -arr1)
+# arr1['M'] = la.nan
+# arr2['M'] = la.nan
+# compare(arr1, arr2, nans_equal=False)
+#
+# arr1 = la.ndtest((3, 3))
+# arr2 = 2 * arr1
+# arr3 = la.where(arr1 % 2 == 0, arr1, -arr1)
+# compare(arr1, arr2, arr3, bg_gradient='blue-red')
 
 
 def test_run_editor_on_exception(local_arr1):

@@ -69,6 +69,7 @@ Array Editor Dialog based on Qt
 #   worth it for a while.
 
 import math
+import logging
 
 import numpy as np
 
@@ -79,7 +80,7 @@ from qtpy.QtWidgets import (QApplication, QTableView, QItemDelegate, QLineEdit, 
                             QHBoxLayout, QVBoxLayout, QGridLayout, QSizePolicy, QFrame, QComboBox)
 
 from larray_editor.utils import (keybinding, create_action, clear_layout, get_default_font, is_number, is_float, _,
-                                 ima, LinearGradient)
+                                 ima, LinearGradient, logger, cached_property)
 from larray_editor.arrayadapter import get_adapter
 from larray_editor.arraymodel import LabelsArrayModel, AxesArrayModel, DataArrayModel
 from larray_editor.combo import FilterComboBox
@@ -432,28 +433,25 @@ class DataView(AbstractView):
         return row_min, row_max + 1, col_min, col_max + 1
 
 
-def ndigits(value):
+def num_int_digits(value):
     """
-    number of integer digits
+    Number of integer digits. Completely ignores the fractional part. Does not take sign into account.
 
-    >>> ndigits(1)
+    >>> num_int_digits(1)
     1
-    >>> ndigits(99)
+    >>> num_int_digits(99)
     2
-    >>> ndigits(-99.1)
-    3
+    >>> num_int_digits(-99.1)
+    2
     """
-    negative = value < 0
     value = abs(value)
     log10 = math.log10(value) if value > 0 else 0
     if log10 == np.inf:
-        int_digits = 308
+        return 308
     else:
         # max(1, ...) because there is at least one integer digit.
         # explicit conversion to int for Python2.x
-        int_digits = max(1, int(math.floor(log10)) + 1)
-    # one digit for sign if negative
-    return int_digits + negative
+        return max(1, int(math.floor(log10)) + 1)
 
 
 class ScrollBar(QScrollBar):
@@ -493,8 +491,61 @@ available_gradients = [
 gradient_map = dict(available_gradients)
 
 
-class ArrayEditorWidget(QWidget):
+# this whole class assumes the font is the same for all the data model cells
+# XXX: move all this to AbstractArrayModel?
+class FontMetrics:
+    def __init__(self, data_model):
+        self.data_model = data_model
+        self._used_font = data_model.font
 
+    def font_changed(self):
+        model_font = self.data_model.font
+        changed = model_font is not self._used_font and model_font != self._used_font
+        if changed:
+            self._used_font = model_font
+        return changed
+
+    @cached_property(font_changed)
+    def str_width(self):
+        # font_metrics = QFontMetrics(self._used_font)
+        # def str_width(c):
+        #     return font_metrics.size(Qt.TextSingleLine, c).width()
+        # return str_width
+        return QFontMetrics(self._used_font).width
+
+    @cached_property(font_changed)
+    def digit_width(self):
+        str_width = self.str_width
+        return max(str_width(str(i)) for i in range(10))
+
+    @cached_property(font_changed)
+    def sign_width(self):
+        return max(self.str_width('+'), self.str_width('-'))
+
+    @cached_property(font_changed)
+    def dot_width(self):
+        return self.str_width('.')
+
+    @cached_property(font_changed)
+    def exp_width(self):
+        return self.str_width('e')
+
+    def get_numbers_width(self, int_digits, frac_digits=0, need_sign=False, scientific=False):
+        if scientific:
+            int_digits = 1
+        margin_width = 8  # empirically measured
+        digit_width = self.digit_width
+        width = margin_width + int_digits * digit_width
+        if frac_digits > 0:
+            width += self.dot_width + frac_digits * digit_width
+        if need_sign:
+            width += self.sign_width
+        if scientific:
+            width += self.exp_width + self.sign_width + 2 * self.digit_width
+        return width
+
+
+class ArrayEditorWidget(QWidget):
     dataChanged = Signal(list)
 
     def __init__(self, parent, data=None, readonly=False, bg_value=None, bg_gradient='blue-red',
@@ -517,6 +568,8 @@ class ArrayEditorWidget(QWidget):
 
         self.model_data = DataArrayModel(parent=self, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
         self.view_data = DataView(parent=self, model=self.model_data)
+
+        self.font_metrics = FontMetrics(self.model_data)
 
         # in case data is None
         self.data_adapter = None
@@ -597,13 +650,14 @@ class ArrayEditorWidget(QWidget):
         self.btn_layout = QHBoxLayout()
         self.btn_layout.setAlignment(Qt.AlignLeft)
 
-        label = QLabel("Digits")
+        # sometimes also called "Fractional digits" or "scale"
+        label = QLabel("Decimal Places")
         self.btn_layout.addWidget(label)
         spin = QSpinBox(self)
-        spin.valueChanged.connect(self.digits_changed)
+        spin.valueChanged.connect(self.frac_digits_changed)
         self.digits_spinbox = spin
         self.btn_layout.addWidget(spin)
-        self.digits = 0
+        self.frac_digits = 0
 
         scientific = QCheckBox(_('Scientific'))
         scientific.stateChanged.connect(self.scientific_changed)
@@ -654,7 +708,7 @@ class ArrayEditorWidget(QWidget):
 
         # set data
         if data is not None:
-            self.set_data(data, bg_value=bg_value, digits=digits)
+            self.set_data(data, bg_value=bg_value, frac_digits=digits)
 
         # See http://doc.qt.io/qt-4.8/qt-draganddrop-fridgemagnets-dragwidget-cpp.html for an example
         self.setAcceptDrops(True)
@@ -761,21 +815,20 @@ class ArrayEditorWidget(QWidget):
         if reset_model_data:
             self.model_data.reset()
 
-    def set_data(self, data, bg_value=None, digits=None):
+    def set_data(self, data, bg_value=None, frac_digits=None):
         # get new adapter instance + set data
         self.data_adapter = get_adapter(data=data, bg_value=bg_value)
         # update filters
         self._update_filter()
         # update models
-        # Note: model_data is reset by call of _update_digits_scientific below which call
-        #       set_format which reset the data_model
+        # Note: model_data is reset by call of set_format below
         self._update_models(reset_model_data=False, reset_minmax=True)
-        # update data format
-        self._update_digits_scientific(digits=digits)
-        # update gradient_chooser
-        self.gradient_chooser.setEnabled(self.model_data.bgcolor_possible)
         # reset default size
         self._reset_default_size()
+        # update data format
+        self.set_format(frac_digits=frac_digits, scientific=None)
+        # update gradient_chooser
+        self.gradient_chooser.setEnabled(self.model_data.bgcolor_possible)
         # update dtype in view_data
         self.view_data.set_dtype(self.data_adapter.dtype)
 
@@ -802,139 +855,131 @@ class ArrayEditorWidget(QWidget):
                     filters_layout.addWidget(QLabel("too big to be filtered"))
             filters_layout.addStretch()
 
-    def set_format(self, digits, scientific, reset=True):
+    def set_format(self, frac_digits=None, scientific=None):
         """Set format.
 
         Parameters
         ----------
-        digits : int
-            Number of digits to display.
-        scientific : boolean
-            Whether or not to display values in scientific format.
-        reset: boolean, optional
-            Whether or not to reset the data model. Defaults to True.
+        frac_digits : int, optional
+            Number of decimals to display. Defaults to None (autodetect).
+        scientific : boolean, optional
+            Whether or not to display values in scientific format. Defaults to None (autodetect).
         """
-        type = self.data_adapter.dtype.type
-        if type in (np.str, np.str_, np.bool_, np.bool, np.object_):
-            fmt = '%s'
-        else:
-            format_letter = 'e' if scientific else 'f'
-            fmt = '%%.%d%s' % (digits, format_letter)
-        self.model_data.set_format(fmt, reset)
+        assert frac_digits is None or isinstance(frac_digits, int)
+        assert scientific is None or isinstance(scientific, bool)
+        scientific_toggled = scientific is not None and scientific != self.use_scientific
+        compute_new_width = not scientific_toggled
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"ArrayEditorWidget.set_format(frac_digits={frac_digits}, scientific={scientific})")
 
-    # two cases:
-    # * set_data should update both scientific and ndigits
-    # * toggling scientific checkbox should update only ndigits
-    def _update_digits_scientific(self, scientific=None, digits=None):
-        dtype = self.data_adapter.dtype
-        if dtype.type in (np.str, np.str_, np.bool_, np.bool, np.object_):
-            scientific = False
-            ndecimals = 0
-        else:
-            data = self.data_adapter.get_sample()
+        data_sample = self.data_adapter.get_finite_sample()
+        is_number_dtype = np.issubdtype(data_sample.dtype, np.number)
+        cur_colwidth = self._get_current_min_col_width()
+        if is_number_dtype and data_sample.size:
+            # TODO: this should come from the adapter or from the data_model (were it is already computed!!!)
+            #       (but modified whenever the data changes)
+            vmin, vmax = np.min(data_sample), np.max(data_sample)
+            int_digits = max(num_int_digits(vmin), num_int_digits(vmax))
+            has_negative = vmin < 0
 
-            # max_digits = self.get_max_digits()
-            # default width can fit 8 chars
-            # FIXME: use max_digits?
-            avail_digits = 8
-            frac_zeros, int_digits, has_negative = self.format_helper(data)
+            font_metrics = self.font_metrics
 
             # choose whether or not to use scientific notation
             # ================================================
             if scientific is None:
-                # use scientific format if there are more integer digits than we can display or if we can display more
-                # information that way (scientific format "uses" 4 digits, so we have a net win if we have >= 4 zeros --
-                # *including the integer one*)
+                # use scientific format if there are more integer digits than we can display or if we can display
+                # more information that way (scientific format "uses" 4 digits, so we have a net win if we have
+                # >= 4 zeros -- *including the integer one*)
                 # TODO: only do so if we would actually display more information
                 # 0.00001 can be displayed with 8 chars
                 # 1e-05
                 # would
-                scientific = int_digits > avail_digits or frac_zeros >= 4
+                absmax = max(abs(vmin), abs(vmax))
+                logabsmax = math.log10(absmax) if absmax else 0
+                # minimum number of zeros before meaningful fractional part
+                frac_zeros = math.ceil(-logabsmax) - 1 if logabsmax < 0 else 0
+                non_scientific_int_width = font_metrics.get_numbers_width(int_digits, need_sign=has_negative)
+                scientific = non_scientific_int_width > cur_colwidth or frac_zeros >= 4
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f" -> detected scientific={scientific}")
 
             # determine best number of decimals to display
             # ============================================
-            # TODO: ndecimals vs self.digits => rename self.digits to either frac_digits or ndecimals
-            if digits is not None:
-                ndecimals = digits
-            else:
-                data_frac_digits = self._data_digits(data)
-                if scientific:
-                    int_digits = 2 if has_negative else 1
-                    exp_digits = 4
-                else:
-                    exp_digits = 0
-                # - 1 for the dot
-                ndecimals = avail_digits - 1 - int_digits - exp_digits
+            if frac_digits is None:
+                int_part_width = font_metrics.get_numbers_width(int_digits, need_sign=has_negative,
+                                                                scientific=scientific)
+                # since we are computing the number of frac digits, we always need the dot
+                avail_width_for_frac_part = max(cur_colwidth - int_part_width - font_metrics.dot_width, 0)
+                max_frac_digits = avail_width_for_frac_part // font_metrics.digit_width
+                frac_digits = self._data_frac_digits(data_sample, max_frac_digits=max_frac_digits)
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f" -> detected frac_digits={frac_digits}")
 
-                if ndecimals < 0:
-                    ndecimals = 0
+            format_letter = 'e' if scientific else 'f'
+            fmt = '%%.%d%s' % (frac_digits, format_letter)
+            data_colwidth = font_metrics.get_numbers_width(int_digits, frac_digits, need_sign=has_negative,
+                                                           scientific=scientific)
+        else:
+            frac_digits = 0
+            scientific = False
+            fmt = '%s'
+            # TODO: compute actual column width using data
+            data_colwidth = 60
 
-                if data_frac_digits < ndecimals:
-                    ndecimals = data_frac_digits
+        self.model_data.set_format(fmt, reset=True)
 
-        self.digits = ndecimals
+        self.frac_digits = frac_digits
         self.use_scientific = scientific
 
-        # avoid triggering digits_changed which would cause a useless redraw
+        # avoid triggering frac_digits_changed which would cause a useless redraw
         self.digits_spinbox.blockSignals(True)
-        self.digits_spinbox.setValue(ndecimals)
-        self.digits_spinbox.setEnabled(is_number(dtype))
+        self.digits_spinbox.setValue(frac_digits)
+        self.digits_spinbox.setEnabled(is_number_dtype)
         self.digits_spinbox.blockSignals(False)
 
         # avoid triggering scientific_changed which would call this function a second time
         self.scientific_checkbox.blockSignals(True)
         self.scientific_checkbox.setChecked(scientific)
-        self.scientific_checkbox.setEnabled(is_number(dtype))
+        self.scientific_checkbox.setEnabled(is_number_dtype)
         self.scientific_checkbox.blockSignals(False)
 
-        # 1) setting the format explicitly instead of relying on digits_spinbox.digits_changed to set it because
-        #    digits_changed is only triggered when digits actually changed, not when passing from
-        #    scientific -> non scientific or number -> object
-        # 2) data model is reset in set_format by default
-        self.set_format(ndecimals, scientific)
+        if not scientific_toggled or data_colwidth > cur_colwidth:
+            header = self.view_hlabels.horizontalHeader()
 
-    def format_helper(self, data):
-        if not data.size:
-            return 0, 0, False
-        data = np.where(np.isfinite(data), data, 0)
-        vmin, vmax = np.min(data), np.max(data)
-        absmax = max(abs(vmin), abs(vmax))
-        logabsmax = math.log10(absmax) if absmax else 0
-        # minimum number of zeros before meaningful fractional part
-        frac_zeros = math.ceil(-logabsmax) - 1 if logabsmax < 0 else 0
-        int_digits = max(ndigits(vmin), ndigits(vmax))
-        return frac_zeros, int_digits, vmin < 0
+            # FIXME: this will set width of the 40 first columns (otherwise it gets very slow, eg. big1d)
+            #        but I am not eager to fix this before merging the buffer branch
+            num_cols = min(header.count(), 40)
+            hlabels = self.model_hlabels.get_values(bottom=num_cols)
+            str_width = FontMetrics(self.model_hlabels).str_width
 
-    def get_max_digits(self, need_sign=False, need_dot=False, scientific=False):
-        font = get_font("arreditor")  # QApplication.font()
-        col_width = 60
-        margin_width = 6  # a wild guess
-        avail_width = col_width - margin_width
-        metrics = QFontMetrics(font)
+            MIN_COLWITH = 30
+            data_colwidth = max(data_colwidth, MIN_COLWITH)
 
-        def str_width(c):
-            return metrics.size(Qt.TextSingleLine, c).width()
+            MARGIN_WIDTH = 8  # empirically measured
 
-        digit_width = max(str_width(str(i)) for i in range(10))
-        dot_width = str_width('.')
-        sign_width = max(str_width('+'), str_width('-'))
-        if need_sign:
-            avail_width -= sign_width
-        if need_dot:
-            avail_width -= dot_width
-        if scientific:
-            avail_width -= str_width('e') + sign_width + 2 * digit_width
-        return avail_width // digit_width
+            def get_header_width(i):
+                return MARGIN_WIDTH + max(str_width(str(label)) for label in hlabels[i])
 
-    def _data_digits(self, data, maxdigits=6):
+            for i in range(num_cols):
+                colwidth = max(get_header_width(i), data_colwidth)
+                header.resizeSection(i, colwidth)
+
+    def _get_current_min_col_width(self):
+        header = self.view_hlabels.horizontalHeader()
+        if header.count():
+            return min(header.sectionSize(i) for i in range(header.count()))
+        else:
+            return 0
+
+    def _data_frac_digits(self, data, max_frac_digits):
         if not data.size:
             return 0
-        threshold = 10 ** -(maxdigits + 1)
-        for ndigits in range(maxdigits):
-            maxdiff = np.max(np.abs(data - np.round(data, ndigits)))
+        threshold = 10 ** -(max_frac_digits + 1)
+        for frac_digits in range(max_frac_digits):
+            maxdiff = np.max(np.abs(data - np.round(data, frac_digits)))
             if maxdiff < threshold:
-                return ndigits
-        return maxdigits
+                return frac_digits
+        return max_frac_digits
 
     def autofit_columns(self):
         self.view_axes.autofit_columns()
@@ -973,10 +1018,10 @@ class ArrayEditorWidget(QWidget):
         self.view_vlabels.verticalHeader().resizeSection(row, height)
 
     def scientific_changed(self, value):
-        self._update_digits_scientific(scientific=value)
+        # auto-detect frac_digits
+        self.set_format(frac_digits=None, scientific=bool(value))
 
-    def digits_changed(self, value):
-        self.digits = value
+    def frac_digits_changed(self, value):
         self.set_format(value, self.use_scientific)
 
     def change_filter(self, axis, indices):

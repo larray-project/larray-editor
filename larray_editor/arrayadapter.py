@@ -212,12 +212,15 @@ class AbstractAdapter:
     def get_axes_filtered_data(self):
         return self.get_axes(self.filtered_data)
 
-    def get_sample(self):
+    def get_finite_sample(self):
         """Return a sample of the internal data"""
         data = self._get_raw_data(self.filtered_data)
         # this will yield a data sample of max 200
         sample = get_sample(data, 200)
-        return sample[np.isfinite(sample)]
+        if np.issubdtype(sample.dtype, np.number):
+            return sample[np.isfinite(sample)]
+        else:
+            return sample
 
     def get_axes_names(self, fold_last_axis=False):
         axes_names = [axis.name for axis in self.get_axes_filtered_data()]
