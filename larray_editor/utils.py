@@ -631,3 +631,21 @@ class RecentlyUsedList:
             # if we have less recent files than actions, hide the remaining actions
             for action in self.actions[len(recent_files):]:
                 action.setVisible(False)
+
+
+def cached_property(must_invalidate_cache_method):
+    """A decorator to cache class properties."""
+    def getter_decorator(original_getter):
+        def caching_getter(self):
+            if must_invalidate_cache_method(self) or not hasattr(self, '_cached_property_values'):
+                self._cached_property_values = {}
+            try:
+                # cache hit
+                return self._cached_property_values[original_getter]
+            except KeyError:
+                # property not computed yet (cache miss)
+                value = original_getter(self)
+                self._cached_property_values[original_getter] = value
+                return value
+        return property(caching_getter)
+    return getter_decorator

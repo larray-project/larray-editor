@@ -17,6 +17,9 @@ Backward incompatible changes
 New features
 ^^^^^^^^^^^^
 
+* the initial column width is now set depending on the content and resized automatically when changing the number of
+  digits (closes :editor_issue:`145`).
+
 * added a feature (see the :ref:`miscellaneous section <misc_editor>` for details).
 
 * added another feature in the editor (closes :editor_issue:`1`).
