@@ -378,12 +378,13 @@ class AbstractAdapter(object):
             if raw_data is None:
                 return
 
-            axes_names = [axis_name[0] for axis_name in self.get_axes_names()]
-            # transpose ylabels
-            ylabels = [[str(vlabels[i][j]) for i in range(len(vlabels))] for j in range(len(vlabels[0]))]
+            axes_names = self.get_axes_names()
             # if there is only one dimension, ylabels is empty
-            if not ylabels:
+            if not vlabels:
                 ylabels = [[]]
+            else:
+                # transpose ylabels
+                ylabels = [[str(vlabels[i][j]) for i in range(len(vlabels))] for j in range(len(vlabels[0]))]
 
             assert raw_data.ndim == 2
 
