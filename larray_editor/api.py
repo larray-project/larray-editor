@@ -7,7 +7,7 @@ from collections import OrderedDict
 from qtpy.QtWidgets import QApplication, QMainWindow
 import larray as la
 
-from larray_editor.editor import REOPEN_LAST_FILE
+from larray_editor.editor import REOPEN_LAST_FILE, MappingEditor, ArrayEditor
 
 __all__ = ['view', 'edit', 'compare', 'REOPEN_LAST_FILE']
 
@@ -124,13 +124,14 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
         title = get_title(obj, depth=depth + 1)
 
     if obj is REOPEN_LAST_FILE or isinstance(obj, (str, la.Session)):
-        from larray_editor.editor import MappingEditor
         dlg = MappingEditor(parent)
+        assert minvalue is None and maxvalue is None
+        setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly)
     else:
-        from larray_editor.editor import ArrayEditor
         dlg = ArrayEditor(parent)
+        setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
 
-    if dlg.setup_and_check(obj, title=title, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue):
+    if setup_ok:
         dlg.show()
         _app.exec_()
 
