@@ -8,7 +8,7 @@ from larray import LArray, Session, empty
 from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
                                  get_versions, get_documentation_url, urls, RecentlyUsedList)
 from larray_editor.arraywidget import ArrayEditorWidget
-from larray_editor.commands import EditArrayCommand
+from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayCommand
 
 from qtpy.QtCore import Qt, QUrl
 from qtpy.QtGui import QDesktopServices, QKeySequence
@@ -471,7 +471,7 @@ class MappingEditor(AbstractEditor):
         file_menu.addAction(create_action(self, _('&Quit'), shortcut="Ctrl+Q", triggered=self.close))
 
     def push_changes(self, changes):
-        self.edit_undo_stack.push(EditArrayCommand(self, self.current_array_name, changes))
+        self.edit_undo_stack.push(EditSessionArrayCommand(self, self.current_array_name, changes))
 
     @property
     def unsaved_modifications(self):
@@ -1044,9 +1044,13 @@ class ArrayEditor(AbstractEditor):
 
         self.data = data
         self.arraywidget = ArrayEditorWidget(self, data, readonly, minvalue=minvalue, maxvalue=maxvalue)
+        self.arraywidget.dataChanged.connect(self.push_changes)
         self.arraywidget.model_data.dataChanged.connect(self.update_title)
         self.update_title()
         layout.addWidget(self.arraywidget)
 
     def update_title(self):
         self._update_title(None, self.data, '')
+
+    def push_changes(self, changes):
+        self.edit_undo_stack.push(EditCurrentArrayCommand(self, self.data, changes))
