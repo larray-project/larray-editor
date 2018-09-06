@@ -477,8 +477,22 @@ class DataArrayModel(AbstractArrayModel):
             return None
         return res
 
+    # TODO: I wonder if set_values should not actually change the data. In that case, ArrayEdtiorWidget.paste
+    # and DataArrayModel.setData should call another method "queueValueChange" or something like that. In any case
+    # it must be absolutely clear from either the method name, an argument (eg. update_data=False) or from the
+    # class name that the data is not changed directly.
+    # I am also unsure how this all thing will interect with the big adapter/model refactor in the buffer branch.
     def set_values(self, left, top, right, bottom, values):
         """
+        This does NOT actually change any data directly. It will emit a signal that the data was changed,
+        which is intercepted by the undo-redo system which creates a command to change the values, execute it and
+        call .reset() on this model, which fetches and displays the new data. It is apparently NOT possible to add a
+        QUndoCommand onto the QUndoStack without executing it.
+
+        To add to the strangeness, this method updates self.vmin and self.vmax immediately, which leads to very odd
+        results (the color is updated but not the value) if one forgets to connect the newChanges signal to the
+        undo-redo system.
+
         Parameters
         ----------
         left : int
@@ -516,9 +530,9 @@ class DataArrayModel(AbstractArrayModel):
                 pos = left + i, top + j
                 old_value = self._data[pos]
                 oldvalues[i, j] = old_value
-                val = newvalues[i, j]
-                if val != old_value:
-                    changes[pos] = (old_value, val)
+                new_value = newvalues[i, j]
+                if new_value != old_value:
+                    changes[pos] = (old_value, new_value)
 
         # Update vmin/vmax if necessary
         if self.vmin is not None and self.vmax is not None:
@@ -543,6 +557,7 @@ class DataArrayModel(AbstractArrayModel):
         if len(changes) > 0:
             self.newChanges.emit(changes)
 
+        # XXX: I wonder if emitting dataChanged makes any sense since data has not actually changed!
         top_left = self.index(left, top)
         # -1 because Qt index end bounds are inclusive
         bottom_right = self.index(right - 1, bottom - 1)

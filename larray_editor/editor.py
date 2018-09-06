@@ -302,7 +302,7 @@ class MappingEditor(AbstractEditor):
 
         self.setup_menu_bar()
 
-    def _setup_and_check(self, widget, data, title, readonly, **kwargs):
+    def _setup_and_check(self, widget, data, title, readonly):
         """Setup MappingEditor"""
         layout = QVBoxLayout()
         widget.setLayout(layout)
@@ -629,7 +629,6 @@ class MappingEditor(AbstractEditor):
 
                     if isinstance(cur_output, matplotlib.axes.Subplot) and 'inline' not in matplotlib.get_backend():
                         show_figure(self, cur_output.figure)
-
 
     def on_selection_changed(self):
         selected = self._listwidget.selectedItems()
@@ -1034,10 +1033,8 @@ class ArrayEditor(AbstractEditor):
         AbstractEditor.__init__(self, parent, editable=True)
         self.setup_menu_bar()
 
-    def _setup_and_check(self, widget, data, title, readonly, **kwargs):
+    def _setup_and_check(self, widget, data, title, readonly, minvalue=None, maxvalue=None):
         """Setup ArrayEditor"""
-        minvalue = kwargs.get('minvalue', None)
-        maxvalue = kwargs.get('maxvalue', None)
 
         if np.isscalar(data):
             readonly = True

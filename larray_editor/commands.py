@@ -14,10 +14,10 @@ class ArrayValueChange(object):
     ----------
     key: list/tuple of str
         Key associated with the value
-    new_value: scalar
-        New value
     old_value: scalar
         Previous value
+    new_value: scalar
+        New value
     """
     def __init__(self, key, old_value, new_value):
         self.key = key
@@ -35,6 +35,8 @@ class EditArrayCommand(QUndoCommand):
     ----------
     editor: MappingEditor
         Instance of MappingEditor
+    array_name : str
+        name of array to edit
     changes: (list of) instance(s) of ArrayValueChange
         List of changes
     """
