@@ -95,7 +95,7 @@ class ComparatorWidget(QWidget):
             tol_str = self.tolerance_line_edit.text()
             tol = ast.literal_eval(tol_str) if tol_str else 0
             atol, rtol = (tol, 0) if self.tolerance_combobox.currentText() == "absolute" else (0, tol)
-            self.isequal = element_equal(self.array, self.array0, rtol=rtol, atol=atol, nan_equals=True)
+            self.isequal = self.array.eq(self.array0, rtol=rtol, atol=atol, nans_equal=True)
         except TypeError:
             self.isequal = self.array == self.array0
 
@@ -186,7 +186,8 @@ class SessionComparator(AbstractEditor):
         listwidget.currentItemChanged.connect(self.on_item_changed)
         for i, name in enumerate(array_names):
             arrays = self.get_arrays(name)
-            if not all(larray_nan_equal(a, arrays[0]) for a in arrays[1:]):
+            first_array = arrays[0]
+            if not all(a.equals(first_array, nans_equal=True) for a in arrays[1:]):
                 listwidget.item(i).setForeground(Qt.red)
         self.listwidget = listwidget
 
