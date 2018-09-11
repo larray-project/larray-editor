@@ -1,4 +1,4 @@
-"%PYTHON%" setup.py install
+"%PYTHON%" -m pip install . --no-deps --ignore-installed -vvv
 if errorlevel 1 exit 1
 :: Add more build steps here, if they are necessary.
 
@@ -10,5 +10,5 @@ copy "%SRC_DIR%\larray_editor\images\larray.ico" "%PREFIX%\Menu"
 copy "%SRC_DIR%\larray_editor\images\larray-help.ico" "%PREFIX%\Menu"
 
 :: See
-:: http://docs.continuum.io/conda/build.html
+:: https://conda.io/docs/user-guide/tasks/build-packages/environment-variables.html
 :: for a list of environment variables that are set during the build process.
