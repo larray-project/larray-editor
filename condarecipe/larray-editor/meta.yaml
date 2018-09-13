@@ -8,11 +8,13 @@ source:
 #  git_tag: master
 #  git_url: file://c:/Users/gdm/devel/larray-editor/.git
 
-#build:
-#  # If this is a new build for the same version, increment the build number
-#  number: 0
-#  # this is not used since we provide explicit build scripts (bld.bat and build.sh)
+build:
+  # If this is a new build for the same version, increment the build number
+  number: 1
+  # this is not used since we provide explicit build scripts (bld.bat and build.sh)
 #  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vvv"
+  entry_points:
+    - larray-editor = larray_editor.start:main
 
 requirements:
   build:
