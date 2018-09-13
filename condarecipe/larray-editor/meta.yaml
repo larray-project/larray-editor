@@ -40,14 +40,19 @@ test:
 #    # You can also put a file called run_test.py in the recipe that will be run at test time.
 #    - pytest --pyargs larray_editor
 
+app:
+  entry: larray-editor
+  # I can't seem to make this work
+  # icon: larray.png
+  summary: Graphical User Interface for LArray
+  type: desk
+
 about:
-  home:  https://github.com/larray-project/larray-editor
+  home: https://github.com/larray-project/larray-editor
   license: GPL-3.0
   license_family: GPL
   license_file: LICENSE
-  summary: "Graphical User Interface for LArray"
-#  doc_url:
-#  dev_url:
+  summary: Graphical User Interface for LArray
 
 extra:
   recipe-maintainers:
