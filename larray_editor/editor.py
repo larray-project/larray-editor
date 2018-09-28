@@ -355,23 +355,8 @@ class MappingEditor(AbstractEditor):
             self.eval_box = ipython_widget
             self.eval_box.setMinimumHeight(20)
 
-            arraywidget = self.arraywidget
-            if not readonly:
-                # Buttons configuration
-                btn_layout = QHBoxLayout()
-                btn_layout.addStretch()
-
-                arraywidget_layout = QVBoxLayout()
-                arraywidget_layout.addWidget(self.arraywidget)
-                arraywidget_layout.addLayout(btn_layout)
-                arraywidget_layout.setContentsMargins(0, 0, 0, 0)
-
-                # you cant add a layout directly in a splitter, so we have to wrap it in a widget
-                arraywidget = QWidget()
-                arraywidget.setLayout(arraywidget_layout)
-
             right_panel_widget = QSplitter(Qt.Vertical)
-            right_panel_widget.addWidget(arraywidget)
+            right_panel_widget.addWidget(self.arraywidget)
             right_panel_widget.addWidget(self.eval_box)
             right_panel_widget.setSizes([90, 10])
         else:
