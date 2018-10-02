@@ -160,4 +160,4 @@ compare(Session(arr4=arr4, arr3=arr3, data=data2),
 arr1 = ndtest((3, 3))
 arr2 = 2 * arr1
 arr3 = where(arr1 % 2 == 0, arr1, -arr1)
-compare(arr1, arr2, arr3)
+compare(arr1, arr2, arr3, bg_gradient='blue-red')

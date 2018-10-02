@@ -244,7 +244,7 @@ def compare(*args, **kwargs):
     else:
         assert isinstance(names, list) and len(names) == len(args)
 
-    if dlg.setup_and_check(args, names=names, title=title, caller_info=caller_info):
+    if dlg.setup_and_check(args, names=names, title=title, caller_info=caller_info, **kwargs):
         dlg.show()
         _app.exec_()
 

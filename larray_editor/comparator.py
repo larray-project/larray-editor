@@ -13,7 +13,7 @@ from larray_editor.editor import AbstractEditor, DISPLAY_IN_GRID
 
 class ComparatorWidget(QWidget):
     """Comparator Widget"""
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, bg_gradient='red-white-blue'):
         QWidget.__init__(self, parent)
 
         layout = QVBoxLayout()
@@ -27,7 +27,7 @@ class ComparatorWidget(QWidget):
         maxdiff_layout.addStretch()
         layout.addLayout(maxdiff_layout)
 
-        self.arraywidget = ArrayEditorWidget(self, data=None, readonly=True, bg_gradient='red-white-blue')
+        self.arraywidget = ArrayEditorWidget(self, data=None, readonly=True, bg_gradient=bg_gradient)
 
         # show difference only
         diff_checkbox = QCheckBox(_('Differences Only'))
@@ -175,11 +175,12 @@ class ArrayComparator(AbstractEditor):
         """
         arrays = [aslarray(array) for array in data if isinstance(array, DISPLAY_IN_GRID)]
         names = kwargs.get('names', ["Array{}".format(i) for i in range(len(arrays))])
+        bg_gradient = kwargs.get('bg_gradient', 'red-white-blue')
 
         layout = QVBoxLayout()
         widget.setLayout(layout)
 
-        comparator_widget = ComparatorWidget(self)
+        comparator_widget = ComparatorWidget(self, bg_gradient=bg_gradient)
         comparator_widget.set_data(arrays, Axis(names, 'array'))
         layout.addWidget(comparator_widget)
 
@@ -217,7 +218,7 @@ class SessionComparator(AbstractEditor):
         """
         sessions = data
         names = kwargs.get('names', ["Session{}".format(i) for i in range(len(sessions))])
-        colors = kwargs.get('colors', 'red-white-blue')
+        bg_gradient = kwargs.get('bg_gradient', 'red-white-blue')
 
         assert all(isinstance(s, Session) for s in sessions)
         self.sessions = sessions
@@ -237,7 +238,7 @@ class SessionComparator(AbstractEditor):
                 listwidget.item(i).setForeground(Qt.red)
         self.listwidget = listwidget
 
-        comparatorwidget = ComparatorWidget(self)
+        comparatorwidget = ComparatorWidget(self, bg_gradient=bg_gradient)
         self.arraywidget = comparatorwidget
 
         main_splitter = QSplitter(Qt.Horizontal)
