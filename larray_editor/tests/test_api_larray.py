@@ -6,7 +6,7 @@ import logging
 
 import numpy as np
 from larray import (Session, Axis, LArray, ndtest, zeros, from_lists, union,
-                    sin, cos, radians, maximum, sqrt, where)
+                    sin, cos, radians, maximum, sqrt, where, random, inf, nan)
 
 from larray_editor.api import *
 from larray_editor.utils import logger
@@ -26,8 +26,7 @@ belgium = union(vla, wal, bru)
 
 geo = Axis(belgium, 'geo')
 
-# data1 = np.arange(30).reshape(2, 15)
-# arr1 = la.LArray(data1, axes=(sex, lipro))
+# arr1 = ndtest((sex, lipro))
 # edit(arr1)
 
 # data2 = np.arange(116 * 44 * 2 * 15).reshape(116, 44, 2, 15) \
@@ -37,8 +36,7 @@ geo = Axis(belgium, 'geo')
 # data2 = (np.random.randint(10, size=(116, 44, 2, 15)) - 5) / 17
 # data2 = np.random.randint(10, size=(116, 44, 2, 15)) / 100 + 1567
 # data2 = np.random.normal(51000000, 10000000, size=(116, 44, 2, 15))
-data2 = np.random.normal(0, 1, size=(116, 44, 2, 15))
-arr2 = LArray(data2, axes=(age, geo, sex, lipro))
+arr2 = random.normal(axes=(age, geo, sex, lipro))
 # arr2 = ndrange([100, 100, 100, 100, 5])
 # arr2 = arr2['F', 'A11', 1]
 
@@ -56,9 +54,7 @@ arr2 = LArray(data2, axes=(age, geo, sex, lipro))
 # edit(arr2, minvalue=-99, maxvalue=25.123456)
 # print(arr2[0, 'A11', :, 'P01'])
 
-# data2 = np.random.normal(0, 10.0, size=(5000, 20))
-# arr2 = LArray(data2, axes=(Axis(list(range(5000)), 'd0'),
-#                            Axis(list(range(20)), 'd1')))
+# arr2 = random.normal(0, 10, axes="d0=0..4999;d1=0..19")
 # edit(arr2)
 
 # view(['a', 'bb', 5599])
@@ -104,8 +100,7 @@ def make_demo(width=20, ball_radius=5, path_radius=5, steps=30):
 
 demo = make_demo(9, 2.5, 1.5)
 sphere = make_sphere(9, 4)
-# TODO: use inf and nan from la namespace
-extreme_array = LArray([-np.inf, -1, 0, np.nan, 1, np.inf])
+extreme_array = LArray([-inf, -1, 0, nan, 1, inf])
 scalar = LArray(0)
 arr_empty = LArray([])
 arr_obj = ndtest((2, 3)).astype(object)
