@@ -3,12 +3,13 @@ from __future__ import absolute_import, division, print_function
 """Array editor test"""
 
 import logging
-from larray_editor.api import *
-from larray_editor.utils import logger
 
 import numpy as np
 from larray import (Session, Axis, LArray, ndtest, zeros, from_lists, union,
                     sin, cos, radians, maximum, sqrt, where)
+
+from larray_editor.api import *
+from larray_editor.utils import logger
 
 
 logger.setLevel(logging.DEBUG)
@@ -79,15 +80,18 @@ arr6 = arr3.mean(sex)
 arr7 = from_lists([['a',                   1,                    2,                    3],
                    [ '', 1664780726569649730, -9196963249083393206, -7664327348053294350]])
 
+
 def make_circle(width=20, radius=9):
     x, y = Axis(width, 'x'), Axis(width, 'y')
     center = (width - 1) / 2
     return maximum(radius - sqrt((x - center) ** 2 + (y - center) ** 2), 0)
 
+
 def make_sphere(width=20, radius=9):
     x, y, z = Axis(width, 'x'), Axis(width, 'y'), Axis(width, 'z')
     center = (width - 1) / 2
     return maximum(radius - sqrt((x - center) ** 2 + (y - center) ** 2 + (z - center) ** 2), 0)
+
 
 def make_demo(width=20, ball_radius=5, path_radius=5, steps=30):
     x, y = Axis(width, 'x'), Axis(width, 'y')
@@ -96,6 +100,7 @@ def make_demo(width=20, ball_radius=5, path_radius=5, steps=30):
     ball_center_x = sin(radians(t * 360 / steps)) * path_radius + center
     ball_center_y = cos(radians(t * 360 / steps)) * path_radius + center
     return maximum(ball_radius - sqrt((x - ball_center_x) ** 2 + (y - ball_center_y) ** 2), 0).transpose(x, y)
+
 
 demo = make_demo(9, 2.5, 1.5)
 sphere = make_sphere(9, 4)
@@ -161,5 +166,3 @@ arr1 = ndtest((3, 3))
 arr2 = 2 * arr1
 arr3 = where(arr1 % 2 == 0, arr1, -arr1)
 compare(arr1, arr2, arr3)
-
-
