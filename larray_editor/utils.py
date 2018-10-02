@@ -391,12 +391,14 @@ class Axis(object):
 
 class Product(object):
     """
-    Represents the `cartesian product` of several arrays.
+    Represents the `cartesian product` of several sequences.
+
+    This is very similar to itertools.product but can be indexed.
 
     Parameters
     ----------
-    arrays : iterable of array
-        List of arrays on which to apply the cartesian product.
+    sequences : Iterable of Sequence
+        Sequences on which to apply the cartesian product.
 
     Examples
     --------
@@ -411,43 +413,38 @@ class Product(object):
     ('c', 2)
     >>> p[1:4]
     [('a', 2), ('b', 1), ('b', 2)]
+    >>> p[-3:]
+    [('b', 2), ('c', 1), ('c', 2)]
     >>> list(p)
     [('a', 1), ('a', 2), ('b', 1), ('b', 2), ('c', 1), ('c', 2)]
     """
-    def __init__(self, arrays):
-        self.arrays = arrays
-        assert len(arrays)
-        shape = [len(a) for a in self.arrays]
-        self.div_mod = [(int(np.prod(shape[i + 1:])), shape[i])
-                        for i in range(len(shape))]
-        self.length = np.prod(shape)
-
-    def to_tuple(self, key):
-        if key >= self.length:
-            raise IndexError("index %d out of range for Product of length %d" % (key, self.length))
-        return tuple(key // div % mod for div, mod in self.div_mod)
+    def __init__(self, sequences):
+        self.sequences = sequences
+        assert len(sequences)
+        shape = [len(a) for a in self.sequences]
+        self._div_mod = [(int(np.prod(shape[i + 1:])), shape[i])
+                         for i in range(len(shape))]
+        self._length = np.prod(shape)
 
     def __len__(self):
-        return self.length
+        return self._length
 
     def __getitem__(self, key):
         if isinstance(key, (int, np.integer)):
-            return tuple(array[i]
-                         for array, i in zip(self.arrays, self.to_tuple(key)))
+            if key >= self._length:
+                raise IndexError("index %d out of range for Product of length %d" % (key, self._length))
+            # this is similar to np.unravel_index but a tad faster for scalars
+            return tuple(array[key // div % mod]
+                         for array, (div, mod) in zip(self.sequences, self._div_mod))
         else:
             assert isinstance(key, slice), \
                 "key (%s) has invalid type (%s)" % (key, type(key))
-            start, stop, step = key.start, key.stop, key.step
-            if start is None:
-                start = 0
-            if stop is None:
-                stop = self.length
-            if step is None:
-                step = 1
-
-            return [tuple(array[i]
-                          for array, i in zip(self.arrays, self.to_tuple(i)))
-                    for i in range(start, stop, step)]
+            start, stop, step = key.indices(self._length)
+            div_mod = self._div_mod
+            arrays = self.sequences
+            return [tuple(array[idx // div % mod]
+                          for array, (div, mod) in zip(arrays, div_mod))
+                    for idx in range(start, stop, step)]
 
 
 class _LazyLabels(object):
