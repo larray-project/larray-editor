@@ -1,11 +1,13 @@
 import os
 import re
+
 import matplotlib
 import numpy as np
 import collections
 
 import larray as la
 
+from larray_editor.traceback_tools import StackSummary
 from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
                                  get_versions, get_documentation_url, urls, RecentlyUsedList)
 from larray_editor.arraywidget import ArrayEditorWidget
@@ -14,7 +16,7 @@ from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayComm
 from qtpy.QtCore import Qt, QUrl, QSettings
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
-                            QDialogButtonBox, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QUndoStack,
+                            QDialogButtonBox, QShortcut, QVBoxLayout, QGridLayout, QLineEdit, QUndoStack,
                             QCheckBox, QComboBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton)
 
 try:
@@ -338,7 +340,7 @@ class MappingEditor(AbstractEditor):
 
         self.setup_menu_bar()
 
-    def _setup_and_check(self, widget, data, title, readonly, **kwargs):
+    def _setup_and_check(self, widget, data, title, readonly, stack_pos=None):
         """Setup MappingEditor"""
         layout = QVBoxLayout()
         widget.setLayout(layout)
@@ -363,6 +365,7 @@ class MappingEditor(AbstractEditor):
             kernel = kernel_manager.kernel
 
             # TODO: use self._reset() instead
+            # FIXME: when using the editor as a debugger this is annoying
             kernel.shell.run_cell('from larray import *')
             text_formatter = kernel.shell.display_formatter.formatters['text/plain']
 
@@ -405,9 +408,34 @@ class MappingEditor(AbstractEditor):
             right_panel_widget.setLayout(right_panel_layout)
 
         main_splitter = QSplitter(Qt.Horizontal)
-        main_splitter.addWidget(self._listwidget)
+        debug = isinstance(data, StackSummary)
+        if debug:
+            self._stack_frame_widget = QListWidget(self)
+            stack_frame_widget = self._stack_frame_widget
+            stack_frame_widget.itemSelectionChanged.connect(self.on_stack_frame_changed)
+            stack_frame_widget.setMinimumWidth(60)
+
+            for frame_summary in data:
+                funcname = frame_summary.name
+                filename = os.path.basename(frame_summary.filename)
+                listitem = QListWidgetItem(stack_frame_widget)
+                listitem.setText("{}, {}:{}".format(funcname, filename, frame_summary.lineno))
+                # we store the frame summary object in the user data of the list
+                listitem.setData(Qt.UserRole, frame_summary)
+                listitem.setToolTip(frame_summary.line)
+            row = stack_pos if stack_pos is not None else len(data) - 1
+            stack_frame_widget.setCurrentRow(row)
+
+            left_panel_widget = QSplitter(Qt.Vertical)
+            left_panel_widget.addWidget(self._listwidget)
+            left_panel_widget.addWidget(stack_frame_widget)
+            left_panel_widget.setSizes([500, 200])
+            data = self.data
+        else:
+            left_panel_widget = self._listwidget
+        main_splitter.addWidget(left_panel_widget)
         main_splitter.addWidget(right_panel_widget)
-        main_splitter.setSizes([10, 90])
+        main_splitter.setSizes([180, 620])
         main_splitter.setCollapsible(1, False)
         self.widget_state_settings['main_splitter'] = main_splitter
 
@@ -427,8 +455,7 @@ class MappingEditor(AbstractEditor):
             else:
                 QMessageBox.critical(self, "Error", "File {} could not be found".format(data))
                 self.new()
-        # convert input data to Session if not
-        else:
+        elif not debug:
             self._push_data(data)
 
     def _push_data(self, data):
@@ -438,6 +465,28 @@ class MappingEditor(AbstractEditor):
         arrays = [k for k, v in self.data.items() if self._display_in_grid(k, v)]
         self.add_list_items(arrays)
         self._listwidget.setCurrentRow(0)
+
+    def on_stack_frame_changed(self):
+        selected = self._stack_frame_widget.selectedItems()
+        if selected:
+            assert len(selected) == 1
+            selected_item = selected[0]
+            assert isinstance(selected_item, QListWidgetItem)
+
+            frame_summary = selected_item.data(Qt.UserRole)
+            frame_globals, frame_locals = frame_summary.globals, frame_summary.locals
+            data = collections.OrderedDict()
+            data.update([(k, frame_globals[k]) for k in sorted(frame_globals.keys())])
+            data.update([(k, frame_locals[k]) for k in sorted(frame_locals.keys())])
+
+            # CHECK:
+            # * This clears the undo/redo stack, which is safer but is not ideal.
+            #   When inspecting, for all frames except the last one the editor should be readonly (we should allow
+            #   creating new temporary variables but not change existing ones).
+            # * Does changing the last frame values has any effect after quitting the editor?
+            #   It would be nice if we could do that (possibly with a warning when quitting the debug window)
+            self._reset()
+            self._push_data(data)
 
     def _reset(self):
         self.data = la.Session()
@@ -521,9 +570,9 @@ class MappingEditor(AbstractEditor):
 
     def delete_list_item(self, to_delete):
         deleted_items = self._listwidget.findItems(to_delete, Qt.MatchExactly)
-        assert len(deleted_items) == 1
-        deleted_item_idx = self._listwidget.row(deleted_items[0])
-        self._listwidget.takeItem(deleted_item_idx)
+        if len(deleted_items) == 1:
+            deleted_item_idx = self._listwidget.row(deleted_items[0])
+            self._listwidget.takeItem(deleted_item_idx)
 
     def select_list_item(self, to_display):
         changed_items = self._listwidget.findItems(to_display, Qt.MatchExactly)
@@ -644,7 +693,7 @@ class MappingEditor(AbstractEditor):
                 # last command. Which means that if the last command did not produce any output, _ is not modified.
                 cur_output = user_ns['_oh'].get(cur_input_num)
                 if cur_output is not None:
-                    if self._display_in_grid('_', cur_output):
+                    if self._display_in_grid('<expr>', cur_output):
                         self.view_expr(cur_output)
 
                     if isinstance(cur_output, collections.Iterable):

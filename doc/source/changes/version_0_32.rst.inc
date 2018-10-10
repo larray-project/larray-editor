@@ -1,6 +1,11 @@
 ﻿.. py:currentmodule:: larray_editor
 
-.. _misc_editor:
+New features
+^^^^^^^^^^^^
+
+* added :py:obj:`debug()` function which opens an editor window with an extra widget to navigate back in the call
+  stack (the chain of functions called to reach the current line of code).
+
 
 Miscellaneous improvements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -10,6 +15,9 @@ Miscellaneous improvements
 
 * Sizes of the main window and the resizable components are saved when closing the viewer and restored
   when the viewer is reopened (closes :editor_issue:`165`).
+
+* :py:obj:`run_editor_on_exception()` now uses :py:obj:`debug()` so that one can inspect what the state was in all
+  functions traversed to reach the code which triggered the exception.
 
 
 Fixes
