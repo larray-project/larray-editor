@@ -11,8 +11,9 @@ from qtpy.QtWidgets import QApplication
 import larray as la
 
 from larray_editor.editor import REOPEN_LAST_FILE, MappingEditor, ArrayEditor
+from larray_editor.traceback_tools import extract_stack, extract_tb, StackSummary
 
-__all__ = ['view', 'edit', 'compare', 'REOPEN_LAST_FILE', 'run_editor_on_exception']
+__all__ = ['view', 'edit', 'debug', 'compare', 'REOPEN_LAST_FILE', 'run_editor_on_exception']
 
 
 def qapplication():
@@ -104,7 +105,10 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     >>> # will open an editor for a1 only
     >>> edit(a1)                                                                                       # doctest: +SKIP
     """
-    install_except_hook()
+    # we don't use install_except_hook/restore_except_hook so that we can restore the hook actually used when
+    # this function is called instead of the one which was used when the module was loaded.
+    orig_except_hook = sys.excepthook
+    sys.excepthook = _qt_except_hook
 
     _app = QApplication.instance()
     if _app is None:
@@ -147,7 +151,7 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
         dlg.show()
         _app.exec_()
 
-    restore_except_hook()
+    sys.excepthook = orig_except_hook
 
 
 def view(obj=None, title='', depth=0, display_caller_info=True):
@@ -180,6 +184,45 @@ def view(obj=None, title='', depth=0, display_caller_info=True):
     >>> view(a1)                                                                                       # doctest: +SKIP
     """
     edit(obj, title=title, readonly=True, depth=depth + 1, display_caller_info=display_caller_info)
+
+
+def _debug(stack_summary, stack_pos=None):
+    # we don't use install_except_hook/restore_except_hook so that we can restore the hook actually used when
+    # this function is called instead of the one which was used when the module was loaded.
+    orig_except_hook = sys.excepthook
+    sys.excepthook = _qt_except_hook
+
+    _app = QApplication.instance()
+    if _app is None:
+        _app = qapplication()
+        _app.setOrganizationName("LArray")
+        _app.setApplicationName("Debugger")
+        parent = None
+    else:
+        parent = _app.activeWindow()
+
+    assert isinstance(stack_summary, StackSummary)
+    dlg = MappingEditor(parent)
+    setup_ok = dlg.setup_and_check(stack_summary, stack_pos=stack_pos)
+    if setup_ok:
+        dlg.show()
+        _app.exec_()
+
+    sys.excepthook = orig_except_hook
+
+
+def debug(depth=0):
+    r"""
+    Opens a new debug window.
+
+    Parameters
+    ----------
+    depth : int, optional
+        Stack depth where to look for variables. Defaults to 0 (where this function was called).
+    """
+    caller_frame = sys._getframe(depth + 1)
+    stack_summary = extract_stack(caller_frame)
+    _debug(stack_summary)
 
 
 def compare(*args, **kwargs):
@@ -223,7 +266,10 @@ def compare(*args, **kwargs):
     >>> compare(a1, a2, title='first comparison')                                                      # doctest: +SKIP
     >>> compare(a1 + 1, a2, title='second comparison', names=['a1+1', 'a2'])                           # doctest: +SKIP
     """
-    install_except_hook()
+    # we don't use install_except_hook/restore_except_hook so that we can restore the hook actually used when
+    # this function is called instead of the one which was used when the module was loaded.
+    orig_except_hook = sys.excepthook
+    sys.excepthook = _qt_except_hook
 
     title = kwargs.pop('title', '')
     names = kwargs.pop('names', None)
@@ -268,7 +314,8 @@ def compare(*args, **kwargs):
         dlg.show()
         _app.exec_()
 
-    restore_except_hook()
+    sys.excepthook = orig_except_hook
+
 
 _orig_except_hook = sys.excepthook
 
@@ -308,15 +355,7 @@ def _trace_code_file(tb):
     return os.path.normpath(tb.tb_frame.f_code.co_filename)
 
 
-def _get_vars_from_frame(frame):
-    frame_globals, frame_locals = frame.f_globals, frame.f_locals
-    d = collections.OrderedDict()
-    d.update([(k, frame_globals[k]) for k in sorted(frame_globals.keys())])
-    d.update([(k, frame_locals[k]) for k in sorted(frame_locals.keys())])
-    return d
-
-
-def _get_debug_except_hook(root_path=None, usercode_traceback=True):
+def _get_debug_except_hook(root_path=None, usercode_traceback=True, usercode_frame=True):
     try:
         main_file = os.path.abspath(sys.modules['__main__'].__file__)
     except AttributeError:
@@ -334,29 +373,31 @@ def _get_debug_except_hook(root_path=None, usercode_traceback=True):
 
         main_tb = current_tb if _trace_code_file(current_tb) == main_file else tback
 
-        if usercode_traceback:
+        user_tb_length = None
+        if usercode_traceback or usercode_frame:
             if main_tb != current_tb:
                 print("Warning: couldn't find frame corresponding to user code, showing the full traceback "
                       "and inspect last frame instead (which might be in library code)",
                       file=sys.stderr)
-                limit = None
             else:
                 user_tb_length = 1
                 # continue as long as the next tb is still in the current project
                 while current_tb.tb_next and _trace_code_file(current_tb.tb_next).startswith(root_path):
                     current_tb = current_tb.tb_next
                     user_tb_length += 1
-                limit = user_tb_length
-        else:
-            limit = None
-        traceback.print_exception(type, value, main_tb, limit=limit)
+
+        tb_limit = user_tb_length if usercode_traceback else None
+        traceback.print_exception(type, value, main_tb, limit=tb_limit)
+
+        stack = extract_tb(main_tb, limit=tb_limit)
+        stack_pos = user_tb_length - 1 if user_tb_length is not None and usercode_frame else None
         print("\nlaunching larray editor to debug...", file=sys.stderr)
-        edit(_get_vars_from_frame(current_tb.tb_frame))
+        _debug(stack, stack_pos=stack_pos)
 
     return excepthook
 
 
-def run_editor_on_exception(root_path=None, usercode_traceback=True):
+def run_editor_on_exception(root_path=None, usercode_traceback=True, usercode_frame=True):
     """
     Run the editor when an unhandled exception (a fatal error) happens.
 
@@ -367,9 +408,13 @@ def run_editor_on_exception(root_path=None, usercode_traceback=True):
     usercode_traceback : bool, optional
         Whether or not to show only the part of the traceback (error log) which corresponds to the user code.
         Otherwise, it will show the complete traceback, including code inside libraries. Defaults to True.
+    usercode_frame : bool, optional
+        Whether or not to start the debug window in the frame corresponding to the user code.
+        This argument is ignored (it is always True) if usercode_traceback is True. Defaults to True.
 
     Notes
     -----
     sets sys.excepthook
     """
-    sys.excepthook = _get_debug_except_hook(root_path=root_path, usercode_traceback=usercode_traceback)
+    sys.excepthook = _get_debug_except_hook(root_path=root_path, usercode_traceback=usercode_traceback,
+                                            usercode_frame=usercode_frame)
