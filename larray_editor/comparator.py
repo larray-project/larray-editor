@@ -143,7 +143,7 @@ class ArrayComparator(AbstractEditor):
 
     def _setup_and_check(self, widget, data, title, readonly, **kwargs):
         """Setup ArrayComparator"""
-        arrays = data
+        arrays = [array for array in data if isinstance(array, LArray)]
         names = kwargs.get('names', ["Array{}".format(i) for i in range(len(arrays))])
 
         layout = QVBoxLayout()
@@ -180,7 +180,7 @@ class SessionComparator(AbstractEditor):
         layout = QVBoxLayout()
         widget.setLayout(layout)
 
-        array_names = sorted(set.union(*[set(s.names) for s in self.sessions]))
+        array_names = sorted(set.union(*[set(s.filter(kind=LArray).names) for s in self.sessions]))
         listwidget = QListWidget(self)
         listwidget.addItems(array_names)
         listwidget.currentItemChanged.connect(self.on_item_changed)
