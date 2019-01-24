@@ -3,9 +3,9 @@ import numpy as np
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QDoubleValidator
 from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QHBoxLayout,
-                            QLabel, QCheckBox, QLineEdit, QComboBox)
+                            QLabel, QCheckBox, QLineEdit, QComboBox, QMessageBox)
 
-from larray import LArray, Session, Axis, stack, full_like, nan
+from larray import LArray, Session, Axis, stack, full_like, aslarray, nan
 from larray_editor.utils import replace_inf, _
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor.editor import AbstractEditor, DISPLAY_IN_GRID
@@ -88,13 +88,14 @@ class ComparatorWidget(QWidget):
         stack_axis: Axis
             Names of arrays.
         """
-        assert all(np.isscalar(a) or isinstance(a, DISPLAY_IN_GRID) for a in arrays)
+        assert all(np.isscalar(a) or isinstance(a, LArray) for a in arrays)
         self.stack_axis = stack_axis
         try:
             self.array = stack(arrays, stack_axis)
             self.array0 = self.array[stack_axis.i[0]]
         except Exception as e:
-            self.array = LArray(str(e))
+            QMessageBox.critical(self, "Error", str(e))
+            self.array = LArray([''])
             self.array0 = self.array
         self.update_isequal()
 
@@ -172,7 +173,7 @@ class ArrayComparator(AbstractEditor):
 
           * names: list of str
         """
-        arrays = [array for array in data if isinstance(array, DISPLAY_IN_GRID)]
+        arrays = [aslarray(array) for array in data if isinstance(array, DISPLAY_IN_GRID)]
         names = kwargs.get('names', ["Array{}".format(i) for i in range(len(arrays))])
 
         layout = QVBoxLayout()
@@ -249,7 +250,7 @@ class SessionComparator(AbstractEditor):
         self.listwidget.setCurrentRow(0)
 
     def get_arrays(self, name):
-        return [s.get(name, nan) for s in self.sessions]
+        return [aslarray(s.get(name, nan)) for s in self.sessions]
 
     def on_item_changed(self, curr, prev):
         arrays = self.get_arrays(str(curr.text()))
