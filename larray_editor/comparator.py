@@ -80,6 +80,14 @@ class ComparatorWidget(QWidget):
         QWidget.keyPressEvent(self, event)
 
     def set_data(self, arrays, stack_axis):
+        """
+        Parameters
+        ----------
+        arrays: list or tuple of scalar, LArray, ndarray
+            Arrays to compare.
+        stack_axis: Axis
+            Names of arrays.
+        """
         assert all(np.isscalar(a) or isinstance(a, DISPLAY_IN_GRID) for a in arrays)
         self.stack_axis = stack_axis
         try:
@@ -123,6 +131,12 @@ class ComparatorWidget(QWidget):
         self.display(self.diff_checkbox.isChecked())
 
     def display(self, diff_only):
+        """
+        Parameters
+        ----------
+        diff_only: bool
+            Whether or not to show only differences.
+        """
         array = self.array
         bg_value = self.bg_value
         if diff_only and self.isequal.ndim > 0:
@@ -142,7 +156,22 @@ class ArrayComparator(AbstractEditor):
         self.setup_menu_bar()
 
     def _setup_and_check(self, widget, data, title, readonly, **kwargs):
-        """Setup ArrayComparator"""
+        """
+        Setup ArrayComparator.
+
+        Parameters
+        ----------
+        widget: QWidget
+            Parent widget.
+        data: list or tuple of LArray, ndarray
+            Arrays to compare.
+        title: str
+            Title.
+        readonly: bool
+        kwargs:
+
+          * names: list of str
+        """
         arrays = [array for array in data if isinstance(array, DISPLAY_IN_GRID)]
         names = kwargs.get('names', ["Array{}".format(i) for i in range(len(arrays))])
 
@@ -168,7 +197,23 @@ class SessionComparator(AbstractEditor):
         self.listwidget = None
 
     def _setup_and_check(self, widget, data, title, readonly, **kwargs):
-        """Setup SessionComparator"""
+        """
+        Setup SessionComparator.
+
+        Parameters
+        ----------
+        widget: QWidget
+            Parent widget.
+        data: list or tuple of Session
+            Sessions to compare.
+        title: str
+            Title.
+        readonly: bool
+        kwargs:
+
+          * names: list of str
+          * colors: str
+        """
         sessions = data
         names = kwargs.get('names', ["Session{}".format(i) for i in range(len(sessions))])
         colors = kwargs.get('colors', 'red-white-blue')
