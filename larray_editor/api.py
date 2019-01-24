@@ -65,14 +65,15 @@ def get_title(obj, depth=0, maxnames=3):
     return ', '.join(names)
 
 
+# TODO: update doccstring
 def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0):
     """
     Opens a new editor window.
 
     Parameters
     ----------
-    obj : np.ndarray, LArray, Session, dict, str or REOPEN_LAST_FILE, optional
-        Object to visualize. If string, array(s) will be loaded from the file given as argument.
+    obj : (dict of) np.ndarray, LArray, Session, dict, str or REOPEN_LAST_FILE, optional
+        Object(s) to visualize. If string, array(s) will be loaded from the file given as argument.
         Passing the constant REOPEN_LAST_FILE loads the last opened file.
         Defaults to the collection of all local variables where the function was called.
     title : str, optional
@@ -138,14 +139,16 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     restore_except_hook()
 
 
+# TODO: update doccstring
 def view(obj=None, title='', depth=0):
     """
     Opens a new viewer window. Arrays are loaded in readonly mode and their content cannot be modified.
 
     Parameters
     ----------
-    obj : np.ndarray, LArray, Session, dict or str, optional
-        Object to visualize. If string, array(s) will be loaded from the file given as argument.
+    obj : (dict of) np.ndarray, LArray, Session, dict, str or REOPEN_LAST_FILE, optional
+        Object(s) to visualize. If string, array(s) will be loaded from the file given as argument.
+        Passing the constant REOPEN_LAST_FILE loads the last opened file.
         Defaults to the collection of all local variables where the function was called.
     title : str, optional
         Title for the current object. Defaults to the name of the first object found in the caller namespace which
