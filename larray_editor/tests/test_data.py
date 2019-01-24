@@ -1,17 +1,8 @@
 from __future__ import absolute_import, division, print_function
 
-"""Array editor test"""
-
-import logging
-from larray_editor.api import *
-from larray_editor.utils import logger
-
 import numpy as np
-from larray import (Session, Axis, LArray, ndtest, zeros, from_lists, union,
-                    sin, cos, radians, maximum, sqrt, where)
+from larray import Axis, LArray, Session, ndtest, zeros, from_lists, union, sin, cos, radians, maximum, sqrt
 
-
-logger.setLevel(logging.DEBUG)
 
 lipro = Axis(['P%02d' % i for i in range(1, 16)], 'lipro')
 age = Axis('age=0..115')
@@ -41,6 +32,10 @@ arr2 = LArray(data2, axes=(age, geo, sex, lipro))
 # arr2 = ndrange([100, 100, 100, 100, 5])
 # arr2 = arr2['F', 'A11', 1]
 
+ses2 = Session()
+ses2['data'] = data2
+ses2['arr'] = arr2
+
 # view(arr2[0, 'A11', 'F', 'P01'])
 # view(arr1)
 # view(arr2[0, 'A11'])
@@ -68,6 +63,10 @@ data3 = np.random.normal(0, 1, size=(2, 15))
 arr3 = ndtest((30, sex))
 # data4 = np.random.normal(0, 1, size=(2, 15))
 # arr4 = LArray(data4, axes=(sex, lipro))
+
+ses3 = Session()
+ses3['data'] = data3
+ses3['arr'] = arr3
 
 # arr4 = arr3.copy()
 # arr4['F'] /= 2
@@ -113,53 +112,3 @@ big1d[{}]
 # test autoresizing
 long_labels = zeros('a=a_long_label,another_long_label; b=this_is_a_label,this_is_another_one')
 long_axes_names = zeros('first_axis=a0,a1; second_axis=b0,b1')
-
-# compare(arr3, arr4, arr5, arr6)
-
-# view(stack((arr3, arr4), Axis('arrays=arr3,arr4')))
-# ses = Session(arr2=arr2, arr3=arr3, arr4=arr4, arr5=arr5, arr6=arr6, arr7=arr7, long_labels=long_labels,
-#                  long_axes_names=long_axes_names, data2=data2, data3=data3)
-
-# from larray.tests.common import abspath
-# file = abspath('test_session.xlsx')
-# ses.save(file)
-
-# import cProfile as profile
-# profile.runctx('edit(Session(arr2=arr2))', vars(), {},
-#                'c:\\tmp\\edit.profile')
-edit()
-# edit(ses)
-# edit(file)
-# edit('fake_path')
-# edit(REOPEN_LAST_FILE)
-
-edit(arr2)
-
-compare(arr3, arr3 + 1.0)
-compare(np.random.normal(0, 1, size=(10, 2)), np.random.normal(0, 1, size=(10, 2)))
-compare(Session(arr4=arr4, arr3=arr3, data=data2),
-        Session(arr4=arr4 + 1.0, arr3=arr3 * 2.0, data=data2 * 1.05))
-# compare(Session(arr2=arr2, arr3=arr3),
-#         Session(arr2=arr2 + 1.0, arr3=arr3 * 2.0))
-
-# s = local_arrays()
-# view(s)
-# print('HDF')
-# s.save('x.h5')
-# print('\nEXCEL')
-# s.save('x.xlsx')
-# print('\nCSV')
-# s.save('x_csv')
-# print('\n open HDF')
-# edit('x.h5')
-# print('\n open EXCEL')
-# edit('x.xlsx')
-# print('\n open CSV')
-# edit('x_csv')
-
-arr1 = ndtest((3, 3))
-arr2 = 2 * arr1
-arr3 = where(arr1 % 2 == 0, arr1, -arr1)
-compare(arr1, arr2, arr3)
-
-
