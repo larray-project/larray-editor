@@ -5,10 +5,10 @@ from qtpy.QtGui import QDoubleValidator
 from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QHBoxLayout,
                             QLabel, QCheckBox, QLineEdit, QComboBox)
 
-from larray import LArray, Session, Axis, stack, full_like, nan, larray_nan_equal, element_equal
+from larray import LArray, Session, Axis, stack, full_like, nan
 from larray_editor.utils import replace_inf, _
 from larray_editor.arraywidget import ArrayEditorWidget
-from larray_editor.editor import AbstractEditor
+from larray_editor.editor import AbstractEditor, DISPLAY_IN_GRID
 
 
 class ComparatorWidget(QWidget):
@@ -80,7 +80,7 @@ class ComparatorWidget(QWidget):
         QWidget.keyPressEvent(self, event)
 
     def set_data(self, arrays, stack_axis):
-        assert all(np.isscalar(a) or isinstance(a, LArray) for a in arrays)
+        assert all(np.isscalar(a) or isinstance(a, DISPLAY_IN_GRID) for a in arrays)
         self.stack_axis = stack_axis
         try:
             self.array = stack(arrays, stack_axis)
@@ -143,7 +143,7 @@ class ArrayComparator(AbstractEditor):
 
     def _setup_and_check(self, widget, data, title, readonly, **kwargs):
         """Setup ArrayComparator"""
-        arrays = [array for array in data if isinstance(array, LArray)]
+        arrays = [array for array in data if isinstance(array, DISPLAY_IN_GRID)]
         names = kwargs.get('names', ["Array{}".format(i) for i in range(len(arrays))])
 
         layout = QVBoxLayout()
@@ -180,7 +180,7 @@ class SessionComparator(AbstractEditor):
         layout = QVBoxLayout()
         widget.setLayout(layout)
 
-        array_names = sorted(set.union(*[set(s.filter(kind=LArray).names) for s in self.sessions]))
+        array_names = sorted(set.union(*[set(s.filter(kind=DISPLAY_IN_GRID).names) for s in self.sessions]))
         listwidget = QListWidget(self)
         listwidget.addItems(array_names)
         listwidget.currentItemChanged.connect(self.on_item_changed)
