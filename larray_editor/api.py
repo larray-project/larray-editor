@@ -117,13 +117,13 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
         obj.update([(k, global_vars[k]) for k in sorted(global_vars.keys())])
         obj.update([(k, local_vars[k]) for k in sorted(local_vars.keys())])
 
-    if not isinstance(obj, la.Session) and hasattr(obj, 'keys'):
-        obj = la.Session(obj)
+    if hasattr(obj, 'keys'):
+        obj = OrderedDict(obj)
 
     if not title and obj is not REOPEN_LAST_FILE:
         title = get_title(obj, depth=depth + 1)
 
-    if obj is REOPEN_LAST_FILE or isinstance(obj, (str, la.Session)):
+    if obj is REOPEN_LAST_FILE or isinstance(obj, (str, OrderedDict)):
         dlg = MappingEditor(parent)
         assert minvalue is None and maxvalue is None
         setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly)
