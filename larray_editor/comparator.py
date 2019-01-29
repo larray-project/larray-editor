@@ -3,12 +3,12 @@ import numpy as np
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QDoubleValidator
 from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QHBoxLayout,
-                            QLabel, QCheckBox, QLineEdit, QComboBox)
+                            QLabel, QCheckBox, QLineEdit, QComboBox, QMessageBox)
 
-from larray import LArray, Session, Axis, stack, full_like, nan, larray_nan_equal, element_equal
+from larray import LArray, Session, Axis, stack, full_like, aslarray, nan
 from larray_editor.utils import replace_inf, _
 from larray_editor.arraywidget import ArrayEditorWidget
-from larray_editor.editor import AbstractEditor
+from larray_editor.editor import AbstractEditor, DISPLAY_IN_GRID
 
 
 class ComparatorWidget(QWidget):
@@ -80,13 +80,22 @@ class ComparatorWidget(QWidget):
         QWidget.keyPressEvent(self, event)
 
     def set_data(self, arrays, stack_axis):
+        """
+        Parameters
+        ----------
+        arrays: list or tuple of scalar, LArray, ndarray
+            Arrays to compare.
+        stack_axis: Axis
+            Names of arrays.
+        """
         assert all(np.isscalar(a) or isinstance(a, LArray) for a in arrays)
         self.stack_axis = stack_axis
         try:
             self.array = stack(arrays, stack_axis)
             self.array0 = self.array[stack_axis.i[0]]
         except Exception as e:
-            self.array = LArray(str(e))
+            QMessageBox.critical(self, "Error", str(e))
+            self.array = LArray([''])
             self.array0 = self.array
         self.update_isequal()
 
@@ -123,6 +132,12 @@ class ComparatorWidget(QWidget):
         self.display(self.diff_checkbox.isChecked())
 
     def display(self, diff_only):
+        """
+        Parameters
+        ----------
+        diff_only: bool
+            Whether or not to show only differences.
+        """
         array = self.array
         bg_value = self.bg_value
         if diff_only and self.isequal.ndim > 0:
@@ -142,8 +157,23 @@ class ArrayComparator(AbstractEditor):
         self.setup_menu_bar()
 
     def _setup_and_check(self, widget, data, title, readonly, **kwargs):
-        """Setup ArrayComparator"""
-        arrays = data
+        """
+        Setup ArrayComparator.
+
+        Parameters
+        ----------
+        widget: QWidget
+            Parent widget.
+        data: list or tuple of LArray, ndarray
+            Arrays to compare.
+        title: str
+            Title.
+        readonly: bool
+        kwargs:
+
+          * names: list of str
+        """
+        arrays = [aslarray(array) for array in data if isinstance(array, DISPLAY_IN_GRID)]
         names = kwargs.get('names', ["Array{}".format(i) for i in range(len(arrays))])
 
         layout = QVBoxLayout()
@@ -168,7 +198,23 @@ class SessionComparator(AbstractEditor):
         self.listwidget = None
 
     def _setup_and_check(self, widget, data, title, readonly, **kwargs):
-        """Setup SessionComparator"""
+        """
+        Setup SessionComparator.
+
+        Parameters
+        ----------
+        widget: QWidget
+            Parent widget.
+        data: list or tuple of Session
+            Sessions to compare.
+        title: str
+            Title.
+        readonly: bool
+        kwargs:
+
+          * names: list of str
+          * colors: str
+        """
         sessions = data
         names = kwargs.get('names', ["Session{}".format(i) for i in range(len(sessions))])
         colors = kwargs.get('colors', 'red-white-blue')
@@ -180,7 +226,7 @@ class SessionComparator(AbstractEditor):
         layout = QVBoxLayout()
         widget.setLayout(layout)
 
-        array_names = sorted(set.union(*[set(s.names) for s in self.sessions]))
+        array_names = sorted(set.union(*[set(s.filter(kind=DISPLAY_IN_GRID).names) for s in self.sessions]))
         listwidget = QListWidget(self)
         listwidget.addItems(array_names)
         listwidget.currentItemChanged.connect(self.on_item_changed)
@@ -204,7 +250,7 @@ class SessionComparator(AbstractEditor):
         self.listwidget.setCurrentRow(0)
 
     def get_arrays(self, name):
-        return [s.get(name, nan) for s in self.sessions]
+        return [aslarray(s.get(name, nan)) for s in self.sessions]
 
     def on_item_changed(self, curr, prev):
         arrays = self.get_arrays(str(curr.text()))
