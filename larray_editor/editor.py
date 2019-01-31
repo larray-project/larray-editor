@@ -3,6 +3,7 @@ import re
 import matplotlib
 import numpy as np
 import collections
+from collections import OrderedDict
 
 from larray import LArray, Session, empty
 from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
@@ -12,9 +13,10 @@ from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayComm
 
 from qtpy.QtCore import Qt, QUrl
 from qtpy.QtGui import QDesktopServices, QKeySequence
-from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
-                            QDialogButtonBox, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QUndoStack,
-                            QCheckBox, QComboBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton)
+from qtpy.QtWidgets import (QMainWindow, QWidget, QTreeWidget, QTreeWidgetItem,
+                            QSplitter, QFileDialog, QPushButton, QDialogButtonBox, QShortcut,
+                            QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QUndoStack, QCheckBox,
+                            QComboBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton)
 
 try:
     from qtconsole.rich_jupyter_widget import RichJupyterWidget
@@ -49,6 +51,8 @@ history_vars_pattern = re.compile('_i?\d+')
 # (long) strings are not handled correctly so should NOT be in this list
 # tuple, list
 DISPLAY_IN_GRID = (LArray, np.ndarray)
+EXPANDABLE_OBJ = (dict, Session)
+DISPLAY_IN_TREEWIDGET = EXPANDABLE_OBJ + DISPLAY_IN_GRID
 
 
 class AbstractEditor(QMainWindow):
@@ -278,6 +282,293 @@ class AbstractEditor(QMainWindow):
         raise NotImplementedError()
 
 
+def _display_in_grid(k, v):
+    return not k.startswith('__') and isinstance(v, DISPLAY_IN_GRID)
+
+
+def _display_in_treewidget(k, v):
+    return not k.startswith('__') and isinstance(v, DISPLAY_IN_TREEWIDGET)
+
+
+class MapItem:
+    def __init__(self, obj, treeitem, parent=None):
+        """
+        Parameters
+        ----------
+        obj: (dict-like of) displayable object(s)
+        treeitem: QTreeWidgetItem
+        parent: MapItem
+        """
+        self._children = OrderedDict()
+        self.parent = parent
+        self.treeitem = treeitem
+        self.obj = obj
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @parent.setter
+    def parent(self, parent):
+        assert parent is None or isinstance(parent, MapItem)
+        self._parent = parent
+
+    @property
+    def treeitem(self):
+        return self._treeitem
+
+    @treeitem.setter
+    def treeitem(self, treeitem):
+        assert isinstance(treeitem, QTreeWidgetItem)
+        self._treeitem = treeitem
+
+    @property
+    def obj(self):
+        return self._obj
+
+    @obj.setter
+    def obj(self, obj):
+        assert _display_in_treewidget('', obj)
+        self._obj = obj
+        if isinstance(obj, EXPANDABLE_OBJ):
+            self.add_children(obj)
+
+    def add_child(self, name, value):
+        """
+        Parameters
+        ----------
+        name: str
+        value: displayable obj
+        """
+        if _display_in_grid(name, value):
+            if name in self._children:
+                treeitem = self._children[name].treeitem
+            else:
+                treeitem = QTreeWidgetItem(self._treeitem, [name])
+                if isinstance(value, LArray):
+                    treeitem.setToolTip(0, str(value.info))
+            item = MapItem(value, treeitem, self)
+            self._children[name] = item
+        else:
+            item = None
+        return item
+
+    def add_children(self, children):
+        """
+        Parameters
+        ----------
+        children: expandable obj
+        """
+        assert isinstance(children, EXPANDABLE_OBJ)
+        for k, v in children.items():
+            self.add_child(k, v)
+
+    def take_child(self, name):
+        """
+        Parameters
+        ----------
+        name: str
+        """
+        assert name in self._children
+        child = self._children[name]
+        self._treeitem.removeChild(child.treeitem)
+        del self._children[name]
+        return child
+
+    def get_child(self, name):
+        """
+        Parameters
+        ----------
+        name: str
+        """
+        return self._children.get(name)
+
+    def child_count(self):
+        return len(self._children)
+
+
+class MapItems(OrderedDict):
+    def __init__(self, treewidget):
+        OrderedDict.__init__(self)
+        self._treewidget = treewidget
+
+    def set_items(self, data):
+        """
+        Parameters
+        ----------
+        data: OrderedDict
+        """
+        if not isinstance(data, OrderedDict):
+            data = OrderedDict(data)
+        # set the map
+        for k, v in data.items():
+            self.add_item(k, v)
+        # display the first array if any
+        if self._treewidget.topLevelItemCount():
+            self._treewidget.setCurrentItem(self._treewidget.topLevelItem(0))
+
+    def add_item(self, name, value, parent_name=None):
+        """
+        Parameters
+        ----------
+        name: str
+        value: (dict-like of) array-like object(s)
+        parent_name: str
+        """
+        if _display_in_treewidget(name, value):
+            # displayable object
+            if isinstance(value, DISPLAY_IN_GRID):
+                if parent_name is not None:
+                    parent_item = self[parent_name]
+                    parent_item.add_child(name, value)
+                else:
+                    if name in self:
+                        # update existing item
+                        self[name].obj = value
+                    else:
+                        # add new item
+                        treeitem = QTreeWidgetItem([name])
+                        if isinstance(value, LArray):
+                            treeitem.setToolTip(0, str(value.info))
+                        self._treewidget.addTopLevelItem(treeitem)
+                        self[name] = MapItem(value, treeitem)
+            # dict-like object
+            else:
+                if name in self:
+                    # update existing item
+                    self[name].obj = value
+                else:
+                    # add new item
+                    treeitem = QTreeWidgetItem([name])
+                    self._treewidget.addTopLevelItem(treeitem)
+                    treeitem.setExpanded(True)
+                    self[name] = MapItem(value, treeitem)
+
+    def take_item(self, name, parent_name=None):
+        """
+        Parameters
+        ----------
+        name: str
+        parent_name: str
+        """
+        if parent_name is not None:
+            assert parent_name in self
+            parent_item = self[parent_name]
+            item = parent_item.take_child(name)
+        else:
+            assert name in self
+            item = self[name]
+            index = self._treewidget.indexOfTopLevelItem(item.treeitem)
+            self._treewidget.takeTopLevelItem(index)
+            del self[name]
+        return item
+
+    def update_mapping(self, objects):
+        _self_objects = self.to_map_objects()
+        # XXX: use ordered set so that the order is non-random if the underlying container is ordered?
+        keys_before = set(_self_objects.keys())
+        keys_after = set(objects.keys())
+        # Contains both new and keys for which the object id changed (but not deleted keys nor inplace modified keys).
+        # Inplace modified arrays should be already handled in ipython_cell_executed by the setitem_pattern.
+        changed_keys = [k for k in keys_after if objects[k] is not _self_objects.get(k)]
+
+        # when a key is re-assigned, it can switch from being displayable to non-displayable or vice versa
+        displayable_keys_before = set(k for k in keys_before if _display_in_treewidget(k, _self_objects[k]))
+        displayable_keys_after = set(k for k in keys_after if _display_in_treewidget(k, objects[k]))
+        deleted_displayable_keys = displayable_keys_before - displayable_keys_after
+        new_displayable_keys = displayable_keys_after - displayable_keys_before
+        # this can contain more keys than new_displayble_keys (because of existing keys which changed value)
+        changed_displayable_keys = [k for k in changed_keys if _display_in_treewidget(k, objects[k])]
+
+        # 1) deleted old keys
+        for k in deleted_displayable_keys:
+            self.take_item(k)
+        # 2) add new/modify existing keys
+        for k in changed_displayable_keys:
+            self.add_item(k, objects[k])
+
+        # 3) mark session as dirty if needed
+        if len(changed_displayable_keys) + len(deleted_displayable_keys) > 0:
+            self.unsaved_modifications = True
+
+        # 4) change displayed array in the array widget
+        # only display first result if there are more than one
+        if changed_displayable_keys:
+            to_display = changed_displayable_keys[0]
+            if not _display_in_grid(to_display, objects[to_display]):
+                to_display = None
+        else:
+            to_display = None
+        return to_display
+
+    def get_map_item(self, name, parent_name=None):
+        """
+        Parameters
+        ----------
+        name: str
+        parent_name: str
+
+        Returns
+        -------
+        MapItem
+        """
+        if parent_name is not None:
+            if parent_name not in self:
+                return None
+            parent_item = self[parent_name]
+            return parent_item.get_child(name)
+        else:
+            return self.get(name)
+
+    def get_object(self, name, parent_name=None):
+        """
+        Parameters
+        ----------
+        name: str
+        parent_name: str
+        """
+        item = self.get_map_item(name, parent_name)
+        if item is not None:
+            return item.obj
+
+    def get_tree_item(self, name, parent_name=None):
+        """
+        Parameters
+        ----------
+        name: str
+        parent_name: str
+
+        Returns
+        -------
+        QTreeWidgetItem
+        """
+        item = self.get_map_item(name, parent_name)
+        if item is not None:
+            return item.treeitem
+
+    def get_selected_item(self):
+        selected = self._treewidget.selectedItems()
+        if selected:
+            assert len(selected) == 1
+            selected_item = selected[0]
+            assert isinstance(selected_item, QTreeWidgetItem)
+            item_name = str(selected_item.text(0))
+            if selected_item.parent() is not None:
+                parent_name = str(selected_item.parent().text(0))
+            else:
+                parent_name = None
+            selected_item = self.get_map_item(item_name, parent_name)
+            return item_name, selected_item
+        else:
+            return (None, None)
+
+    def to_map_objects(self):
+        return OrderedDict([(k, v.obj) for k, v in self.items()])
+
+    def to_map_treeitems(self):
+        return OrderedDict([(k, v.treeitem) for k, v in self.items()])
+
+
 class MappingEditor(AbstractEditor):
     """Session Editor Dialog"""
 
@@ -295,7 +586,8 @@ class MappingEditor(AbstractEditor):
         self.current_array = None
         self.current_array_name = None
 
-        self._listwidget = None
+        self._treewidget = None
+        self._mapitems = None
         self.eval_box = None
         self.expressions = {}
         self.kernel = None
@@ -308,18 +600,20 @@ class MappingEditor(AbstractEditor):
         layout = QVBoxLayout()
         widget.setLayout(layout)
 
-        self._listwidget = QListWidget(self)
+        self._treewidget = QTreeWidget(self)
+        self._treewidget.headerItem().setHidden(True)
         # this is a bit more reliable than currentItemChanged which is not emitted when no item was selected before
-        self._listwidget.itemSelectionChanged.connect(self.on_selection_changed)
-        self._listwidget.setMinimumWidth(45)
+        self._treewidget.itemSelectionChanged.connect(self.on_selection_changed)
+        self._treewidget.setMinimumWidth(45)
 
-        del_item_shortcut = QShortcut(QKeySequence(Qt.Key_Delete), self._listwidget)
+        del_item_shortcut = QShortcut(QKeySequence(Qt.Key_Delete), self._treewidget)
         del_item_shortcut.activated.connect(self.delete_current_item)
 
-        self.data = Session()
         self.arraywidget = ArrayEditorWidget(self, readonly=readonly)
         self.arraywidget.dataChanged.connect(self.push_changes)
         self.arraywidget.model_data.dataChanged.connect(self.update_title)
+
+        self._mapitems = MapItems(self._treewidget)
 
         if qtconsole_available:
             # Create an in-process kernel
@@ -384,7 +678,7 @@ class MappingEditor(AbstractEditor):
             right_panel_widget.setLayout(right_panel_layout)
 
         main_splitter = QSplitter(Qt.Horizontal)
-        main_splitter.addWidget(self._listwidget)
+        main_splitter.addWidget(self._treewidget)
         main_splitter.addWidget(right_panel_widget)
         main_splitter.setSizes([10, 90])
         main_splitter.setCollapsible(1, False)
@@ -396,7 +690,7 @@ class MappingEditor(AbstractEditor):
             if len(self.recent_data_files.files) > 0:
                 data = self.recent_data_file.files[0]
             else:
-                data = Session()
+                data = OrderedDict()
 
         # load file if any
         if isinstance(data, str):
@@ -405,28 +699,8 @@ class MappingEditor(AbstractEditor):
             else:
                 QMessageBox.critical(self, "Error", "File {} could not be found".format(data))
                 self.new()
-        # convert input data to Session if not
         else:
-            self.data = data if isinstance(data, Session) else Session(data)
-            if qtconsole_available:
-                self.kernel.shell.push(dict(self.data.items()))
-            arrays = [k for k, v in self.data.items() if self._display_in_grid(k, v)]
-            self.add_list_items(arrays)
-        self._listwidget.setCurrentRow(0)
-
-    def _reset(self):
-        self.data = Session()
-        self._listwidget.clear()
-        self.current_array = None
-        self.current_array_name = None
-        self.edit_undo_stack.clear()
-        if qtconsole_available:
-            self.kernel.shell.reset()
-            self.kernel.shell.run_cell('from larray import *')
-            self.ipython_cell_executed()
-        else:
-            self.eval_box.setText('None')
-            self.line_edit_update()
+            self.set_data(data)
 
     def _setup_file_menu(self, menu_bar):
         file_menu = menu_bar.addMenu('&File')
@@ -483,103 +757,92 @@ class MappingEditor(AbstractEditor):
         self._unsaved_modifications = unsaved_modifications
         self.update_title()
 
-    def add_list_item(self, name):
-        listitem = QListWidgetItem(self._listwidget)
-        listitem.setText(name)
-        value = self.data[name]
-        if isinstance(value, LArray):
-            listitem.setToolTip(str(value.info))
-
-    def add_list_items(self, names):
-        for name in names:
-            self.add_list_item(name)
-
-    def delete_list_item(self, to_delete):
-        deleted_items = self._listwidget.findItems(to_delete, Qt.MatchExactly)
-        assert len(deleted_items) == 1
-        deleted_item_idx = self._listwidget.row(deleted_items[0])
-        self._listwidget.takeItem(deleted_item_idx)
-
-    def select_list_item(self, to_display):
-        changed_items = self._listwidget.findItems(to_display, Qt.MatchExactly)
-        assert len(changed_items) == 1
-        prev_selected = self._listwidget.selectedItems()
-        assert len(prev_selected) <= 1
-        # if the currently selected item (value) need to be refreshed (e.g it was modified)
-        if prev_selected and prev_selected[0] == changed_items[0]:
-            # we need to update the array widget explicitly
-            self.set_current_array(self.data[to_display], to_display)
+    def _reset(self):
+        self._treewidget.clear()
+        self._mapitems = MapItems(self._treewidget)
+        self.current_array = None
+        self.current_array_name = None
+        self.edit_undo_stack.clear()
+        if qtconsole_available:
+            self.kernel.shell.reset()
+            self.kernel.shell.run_cell('from larray import *')
+            self.ipython_cell_executed()
         else:
-            self._listwidget.setCurrentItem(changed_items[0])
+            self.eval_box.setText('None')
+            self.line_edit_update()
 
-    def update_mapping(self, value):
-        # XXX: use ordered set so that the order is non-random if the underlying container is ordered?
-        keys_before = set(self.data.keys())
-        keys_after = set(value.keys())
-        # Contains both new and keys for which the object id changed (but not deleted keys nor inplace modified keys).
-        # Inplace modified arrays should be already handled in ipython_cell_executed by the setitem_pattern.
-        changed_keys = [k for k in keys_after if value[k] is not self.data.get(k)]
-
-        # when a key is re-assigned, it can switch from being displayable to non-displayable or vice versa
-        displayable_keys_before = set(k for k in keys_before if self._display_in_grid(k, self.data[k]))
-        displayable_keys_after = set(k for k in keys_after if self._display_in_grid(k, value[k]))
-        deleted_displayable_keys = displayable_keys_before - displayable_keys_after
-        new_displayable_keys = displayable_keys_after - displayable_keys_before
-        # this can contain more keys than new_displayble_keys (because of existing keys which changed value)
-        changed_displayable_keys = [k for k in changed_keys if self._display_in_grid(k, value[k])]
-
-        # 1) update session/mapping
-        # a) deleted old keys
-        for k in keys_before - keys_after:
-            del self.data[k]
-        # b) add new/modify existing keys
-        for k in changed_keys:
-            self.data[k] = value[k]
-
-        # 2) update list widget
-        for k in deleted_displayable_keys:
-            self.delete_list_item(k)
-        self.add_list_items(new_displayable_keys)
-
-        # 3) mark session as dirty if needed
-        if len(changed_displayable_keys) > 0 or deleted_displayable_keys:
-            self.unsaved_modifications = True
-
-        # 4) change displayed array in the array widget
-        # only display first result if there are more than one
-        to_display = changed_displayable_keys[0] if changed_displayable_keys else None
-        if to_display is not None:
-            self.select_list_item(to_display)
-        return to_display
+    def set_data(self, data):
+        """
+        Parameters
+        ----------
+        data: dict-like
+        """
+        assert hasattr(data, 'keys')
+        self._reset()
+        if not isinstance(data, OrderedDict):
+            data = OrderedDict(data)
+        if qtconsole_available:
+            self.kernel.shell.push(data)
+        self._mapitems.set_items(data)
 
     def delete_current_item(self):
-        current_item = self._listwidget.currentItem()
-        name = str(current_item.text())
-        del self.data[name]
+        current_item = self._treewidget.currentItem()
+        name = current_item.text(0)
+        parent_name = str(current_item.parent().text(0)) if current_item.parent() is not None else None
+        # delete in tree view
+        item = self._mapitems.take_item(name, parent_name)
+        # delete in kernel
         if qtconsole_available:
-            self.kernel.shell.del_var(name)
+            if parent_name is not None:
+                parent_obj = item.parent.obj
+                del parent_obj[name]
+                self.kernel.shell.push({parent_name: parent_obj})
+            else:
+                self.kernel.shell.del_var(name)
         self.unsaved_modifications = True
-        self._listwidget.takeItem(self._listwidget.row(current_item))
+
+    def select_array_item(self, to_display, parent_name=None):
+        """
+        Parameters
+        ----------
+        to_display: str
+        parent_name: str
+        """
+        array_item = self._mapitems.get_map_item(to_display, parent_name)
+        prev_selected = self._treewidget.selectedItems()
+        assert len(prev_selected) <= 1
+        # if the currently selected item (value) need to be refreshed (e.g it was modified)
+        if prev_selected and prev_selected[0] == array_item:
+            # we need to update the array widget explicitly
+            self.set_current_array(array_item.obj, to_display)
+        else:
+            self._treewidget.setCurrentItem(array_item.treeitem)
+
+    def update_mapping(self, objects):
+        to_display = self._mapitems.update_mapping(objects)
+        if to_display is not None:
+            self.select_array_item(to_display)
+        return to_display
 
     def line_edit_update(self):
         import larray as la
         s = self.eval_box.text()
+        map_objects = OrderedDict([(k, i.obj) for k, i in self._mapitems.items()])
         if assignment_pattern.match(s):
-            context = self.data._objects.copy()
+            context = map_objects.copy()
             exec(s, la.__dict__, context)
             varname = self.update_mapping(context)
             if varname is not None:
                 self.expressions[varname] = s
         else:
-            self.view_expr(eval(s, la.__dict__, self.data))
+            self.view_expr(eval(s, la.__dict__, map_objects))
 
     def view_expr(self, array):
-        self._listwidget.clearSelection()
+        self._treewidget.clearSelection()
         self.set_current_array(array, '<expr>')
 
-    def _display_in_grid(self, k, v):
-        return not k.startswith('__') and isinstance(v, DISPLAY_IN_GRID)
-
+    # TODO: find a way to detect when an array is added to/deleted from a Session or modified
+    # TODO: find a way to detect when an array (from the user namespace) is modified
     def ipython_cell_executed(self):
         user_ns = self.kernel.shell.user_ns
         ip_keys = set(['In', 'Out', '_', '__', '___',
@@ -599,17 +862,17 @@ class MappingEditor(AbstractEditor):
             varname = m.group(1)
             # otherwise it should have failed at this point, but let us be sure
             if varname in clean_ns:
-                if self._display_in_grid(varname, clean_ns[varname]):
+                if _display_in_grid(varname, clean_ns[varname]):
                     # XXX: this completely refreshes the array, including detecting scientific & ndigits, which might
                     # not be what we want in this case
-                    self.select_list_item(varname)
+                    self.select_array_item(varname)
         else:
             # not setitem => assume expr or normal assignment
             if last_input in clean_ns:
-                # the name exists in the session (variable)
-                if self._display_in_grid('', self.data[last_input]):
+                # the name exists in the default session (variable)
+                if _display_in_grid('', clean_ns[last_input]):
                     # select and display it
-                    self.select_list_item(last_input)
+                    self.select_array_item(last_input)
             else:
                 # any statement can contain a call to a function which updates globals
                 # this will select (or refresh) the "first" changed array
@@ -622,7 +885,7 @@ class MappingEditor(AbstractEditor):
                 # last command. Which means that if the last command did not produce any output, _ is not modified.
                 cur_output = user_ns['_oh'].get(cur_input_num)
                 if cur_output is not None:
-                    if self._display_in_grid('_', cur_output):
+                    if _display_in_grid('_', cur_output):
                         self.view_expr(cur_output)
 
                     if isinstance(cur_output, collections.Iterable):
@@ -632,14 +895,9 @@ class MappingEditor(AbstractEditor):
                         show_figure(self, cur_output.figure)
 
     def on_selection_changed(self):
-        selected = self._listwidget.selectedItems()
-        if selected:
-            assert len(selected) == 1
-            selected_item = selected[0]
-            assert isinstance(selected_item, QListWidgetItem)
-            name = str(selected_item.text())
-            array = self.data[name]
-            self.set_current_array(array, name)
+        name, item = self._mapitems.get_selected_item()
+        if item is not None and isinstance(item.obj, DISPLAY_IN_GRID):
+            self.set_current_array(item.obj, name)
             expr = self.expressions.get(name, name)
             if qtconsole_available:
                 # this does not work because it updates the NEXT input, not the
@@ -680,13 +938,6 @@ class MappingEditor(AbstractEditor):
         self.recent_data_files.add(filepath)
         self.current_file = filepath
         self.update_title()
-
-    def _add_arrays(self, arrays):
-        for k, v in arrays.items():
-            self.data[k] = v
-            self.add_list_item(k)
-        if qtconsole_available:
-            self.kernel.shell.push(dict(arrays))
 
     def _ask_to_save_if_unsaved_modifications(self):
         """
@@ -921,8 +1172,9 @@ class MappingEditor(AbstractEditor):
     #  METHODS TO SAVE/LOAD DATA  #
     #=============================#
 
+    # TODO: implement _open_directory or _open_files in case we want to load several sessions (and additional arrays)
     def _open_file(self, filepath):
-        session = Session()
+        data = Session()
         # a list => .csv files. Possibly a single .csv file.
         if isinstance(filepath, (list, tuple)):
             fpaths = filepath
@@ -942,10 +1194,8 @@ class MappingEditor(AbstractEditor):
             current_file_name = filepath
             display_name = os.path.basename(filepath)
         try:
-            session.load(filepath, names)
-            self._reset()
-            self._add_arrays(session)
-            self._listwidget.setCurrentRow(0)
+            data.load(filepath, names)
+            self.set_data(data)
             self.set_current_file(current_file_name)
             self.unsaved_modifications = False
             self.statusBar().showMessage("Loaded: {}".format(display_name), 4000)
@@ -953,6 +1203,7 @@ class MappingEditor(AbstractEditor):
             QMessageBox.critical(self, "Error", "Something went wrong during load of file(s) {}:\n{}"
                                  .format(display_name, e))
 
+    # TODO: find a way to load several sessions at once
     def open_data(self):
         if self._ask_to_save_if_unsaved_modifications():
             filter = "All (*.xls *xlsx *.h5 *.csv);;Excel Files (*.xls *xlsx);;HDF Files (*.h5);;CSV Files (*.csv)"
@@ -974,15 +1225,16 @@ class MappingEditor(AbstractEditor):
         if self._ask_to_save_if_unsaved_modifications():
             action = self.sender()
             if action:
-                filepath = action.data()
+                filepath = action._mapitems()
                 if os.path.exists(filepath):
                     self._open_file(filepath)
                 else:
                     QMessageBox.warning(self, "Warning", "File {} could not be found".format(filepath))
 
+    # TODO: find a way to save several sessions (and additional arrays) at once
     def _save_data(self, filepath):
         try:
-            session = Session({k: v for k, v in self.data.items() if self._display_in_grid(k, v)})
+            session = Session({k: v for k, v in self._mapitems.items() if _display_in_grid(k, v)})
             session.save(filepath)
             self.set_current_file(filepath)
             self.edit_undo_stack.clear()
