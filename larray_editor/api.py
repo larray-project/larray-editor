@@ -2,10 +2,10 @@ from __future__ import absolute_import, division, print_function
 
 import sys
 import traceback
-from inspect import getframeinfo, stack
+from inspect import getframeinfo
 from collections import OrderedDict
 
-from qtpy.QtWidgets import QApplication, QMainWindow
+from qtpy.QtWidgets import QApplication
 import larray as la
 
 from larray_editor.editor import REOPEN_LAST_FILE, MappingEditor, ArrayEditor
@@ -72,7 +72,6 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
 
     Parameters
     ----------
-    print_caller_info
     obj : np.ndarray, LArray, Session, dict, str or REOPEN_LAST_FILE, optional
         Object to visualize. If string, array(s) will be loaded from the file given as argument.
         Passing the constant REOPEN_LAST_FILE loads the last opened file.
