@@ -195,6 +195,9 @@ def compare(*args, **kwargs):
         namespace which correspond to the passed objects.
     depth : int, optional
         Stack depth where to look for variables. Defaults to 0 (where this function was called).
+    display_caller_info: bool, optional
+        Whether or not to display the filename and line number where the Editor has been called.
+        Defaults to True.
 
     Examples
     --------
@@ -208,12 +211,19 @@ def compare(*args, **kwargs):
     title = kwargs.pop('title', '')
     names = kwargs.pop('names', None)
     depth = kwargs.pop('depth', 0)
+    display_caller_info = kwargs.pop('display_caller_info', True)
     _app = QApplication.instance()
     if _app is None:
         _app = qapplication()
         parent = None
     else:
         parent = _app.activeWindow()
+
+    caller_frame = sys._getframe(depth + 1)
+    if display_caller_info:
+        caller_info = getframeinfo(caller_frame)
+    else:
+        caller_info = None
 
     if any(isinstance(a, la.Session) for a in args):
         from larray_editor.comparator import SessionComparator
@@ -234,7 +244,7 @@ def compare(*args, **kwargs):
     else:
         assert isinstance(names, list) and len(names) == len(args)
 
-    if dlg.setup_and_check(args, names=names, title=title):
+    if dlg.setup_and_check(args, names=names, title=title, caller_info=caller_info):
         dlg.show()
         _app.exec_()
 
