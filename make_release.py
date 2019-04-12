@@ -20,7 +20,7 @@ TMP_PATH = r"c:\tmp\editor_new_release"
 TMP_PATH_CONDA = r"c:\tmp\editor_conda_new_release"
 PACKAGE_NAME = "larray-editor"
 SRC_CODE = "larray_editor"
-SRC_DOC = None
+SRC_DOC = join('doc', 'source')
 
 GITHUB_REP = "https://github.com/larray-project/larray-editor"
 CONDA_FEEDSTOCK_REP = "https://github.com/larray-project/larray-editor-feedstock.git"
