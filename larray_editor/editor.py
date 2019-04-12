@@ -73,7 +73,7 @@ class AbstractEditor(QMainWindow):
         if editable:
             self.edit_undo_stack = QUndoStack(self)
 
-    def setup_and_check(self, data, title='', readonly=False, **kwargs):
+    def setup_and_check(self, data, title='', readonly=False, caller_info=None, **kwargs):
         """Return False if data is not supported, True otherwise"""
         # set icon
         icon = ima.icon('larray')
@@ -88,7 +88,11 @@ class AbstractEditor(QMainWindow):
         self._title = title
         self.setWindowTitle(title)
 
-        # display status message
+        # permanently display caller info in the status bar
+        if caller_info is not None:
+            caller_info = 'launched from file {} at line {}'.format(caller_info.filename, caller_info.lineno)
+            self.statusBar().addPermanentWidget(QLabel(caller_info))
+        # display welcome message
         self.statusBar().showMessage("Welcome to the {}".format(self.name), 4000)
 
         # set central widget
@@ -99,7 +103,7 @@ class AbstractEditor(QMainWindow):
         self._setup_and_check(widget, data, title, readonly, **kwargs)
 
         # resize
-        self.resize(800, 600)
+        self.resize(1000, 600)
         # This is more or less the minimum space required to display a 1D array
         self.setMinimumSize(300, 180)
         return True
@@ -303,7 +307,7 @@ class MappingEditor(AbstractEditor):
 
         self.setup_menu_bar()
 
-    def _setup_and_check(self, widget, data, title, readonly):
+    def _setup_and_check(self, widget, data, title, readonly, **kwargs):
         """Setup MappingEditor"""
         layout = QVBoxLayout()
         widget.setLayout(layout)

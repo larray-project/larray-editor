@@ -2,9 +2,10 @@ from __future__ import absolute_import, division, print_function
 
 import sys
 import traceback
+from inspect import getframeinfo
 from collections import OrderedDict
 
-from qtpy.QtWidgets import QApplication, QMainWindow
+from qtpy.QtWidgets import QApplication
 import larray as la
 
 from larray_editor.editor import REOPEN_LAST_FILE, MappingEditor, ArrayEditor
@@ -65,7 +66,7 @@ def get_title(obj, depth=0, maxnames=3):
     return ', '.join(names)
 
 
-def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0):
+def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0, display_caller_info=True):
     """
     Opens a new editor window.
 
@@ -87,6 +88,9 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
         Whether or not editing array values is forbidden. Defaults to False.
     depth : int, optional
         Stack depth where to look for variables. Defaults to 0 (where this function was called).
+    display_caller_info: bool, optional
+        Whether or not to display the filename and line number where the Editor has been called.
+        Defaults to True.
 
     Examples
     --------
@@ -109,8 +113,13 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     else:
         parent = _app.activeWindow()
 
+    caller_frame = sys._getframe(depth + 1)
+    if display_caller_info:
+        caller_info = getframeinfo(caller_frame)
+    else:
+        caller_info = None
+
     if obj is None:
-        caller_frame = sys._getframe(depth + 1)
         global_vars = caller_frame.f_globals
         local_vars = caller_frame.f_locals
         obj = OrderedDict()
@@ -126,10 +135,11 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     if obj is REOPEN_LAST_FILE or isinstance(obj, (str, la.Session)):
         dlg = MappingEditor(parent)
         assert minvalue is None and maxvalue is None
-        setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly)
+        setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, caller_info=caller_info)
     else:
         dlg = ArrayEditor(parent)
-        setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
+        setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue,
+                                       caller_info=caller_info)
 
     if setup_ok:
         dlg.show()
@@ -138,7 +148,7 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     restore_except_hook()
 
 
-def view(obj=None, title='', depth=0):
+def view(obj=None, title='', depth=0, display_caller_info=True):
     """
     Opens a new viewer window. Arrays are loaded in readonly mode and their content cannot be modified.
 
@@ -153,6 +163,9 @@ def view(obj=None, title='', depth=0):
         object).
     depth : int, optional
         Stack depth where to look for variables. Defaults to 0 (where this function was called).
+    display_caller_info: bool, optional
+        Whether or not to display the filename and line number where the Editor has been called.
+        Defaults to True.
 
     Examples
     --------
@@ -164,7 +177,7 @@ def view(obj=None, title='', depth=0):
     >>> # will open a viewer showing only a1
     >>> view(a1)                                                                                       # doctest: +SKIP
     """
-    edit(obj, title=title, readonly=True, depth=depth + 1)
+    edit(obj, title=title, readonly=True, depth=depth + 1, display_caller_info=display_caller_info)
 
 
 def compare(*args, **kwargs):
@@ -182,6 +195,9 @@ def compare(*args, **kwargs):
         namespace which correspond to the passed objects.
     depth : int, optional
         Stack depth where to look for variables. Defaults to 0 (where this function was called).
+    display_caller_info: bool, optional
+        Whether or not to display the filename and line number where the Editor has been called.
+        Defaults to True.
 
     Examples
     --------
@@ -195,12 +211,19 @@ def compare(*args, **kwargs):
     title = kwargs.pop('title', '')
     names = kwargs.pop('names', None)
     depth = kwargs.pop('depth', 0)
+    display_caller_info = kwargs.pop('display_caller_info', True)
     _app = QApplication.instance()
     if _app is None:
         _app = qapplication()
         parent = None
     else:
         parent = _app.activeWindow()
+
+    caller_frame = sys._getframe(depth + 1)
+    if display_caller_info:
+        caller_info = getframeinfo(caller_frame)
+    else:
+        caller_info = None
 
     if any(isinstance(a, la.Session) for a in args):
         from larray_editor.comparator import SessionComparator
@@ -221,7 +244,7 @@ def compare(*args, **kwargs):
     else:
         assert isinstance(names, list) and len(names) == len(args)
 
-    if dlg.setup_and_check(args, names=names, title=title):
+    if dlg.setup_and_check(args, names=names, title=title, caller_info=caller_info):
         dlg.show()
         _app.exec_()
 
