@@ -1038,7 +1038,7 @@ class ArrayEditor(AbstractEditor):
         AbstractEditor.__init__(self, parent, editable=True)
         self.setup_menu_bar()
 
-    def _setup_and_check(self, widget, data, title, readonly, caller_info, minvalue=None, maxvalue=None):
+    def _setup_and_check(self, widget, data, title, readonly, minvalue=None, maxvalue=None):
         """Setup ArrayEditor"""
 
         if np.isscalar(data):
