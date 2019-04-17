@@ -1,10 +1,12 @@
-﻿Miscellaneous improvements
---------------------------
+﻿.. py:currentmodule:: larray_editor
+
+Miscellaneous improvements
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * improved something.
 
 
 Fixes
------
+^^^^^
 
-* fixed something (closes :issue:`1`).
+* fixed something (closes :editor_issue:`1`).
