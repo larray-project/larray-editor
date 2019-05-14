@@ -45,7 +45,8 @@ except ImportError:
 REOPEN_LAST_FILE = object()
 
 assignment_pattern = re.compile('[^\[\]]+[^=]=[^=].+')
-setitem_pattern = re.compile('(.+)\[.+\][^=]=[^=].+')
+getitem_pattern = re.compile('(\w+)\[(.+?)\].*')
+getattr_pattern = re.compile('(\w+)\.(\w+).*')
 history_vars_pattern = re.compile('_i?\d+')
 # XXX: add all scalars except strings (from numpy or plain Python)?
 # (long) strings are not handled correctly so should NOT be in this list
@@ -857,42 +858,64 @@ class MappingEditor(AbstractEditor):
         # 'In' and '_ih' point to the same object (but '_ih' is supposed to be the non-overridden one)
         cur_input_num = len(user_ns['_ih']) - 1
         last_input = user_ns['_ih'][-1]
-        if setitem_pattern.match(last_input):
-            m = setitem_pattern.match(last_input)
+        print('last_input', last_input)
+        last_input = last_input.strip()
+
+        # check if simply selecting a displayable object in grid
+        if last_input in clean_ns:
+            # the name exists in the default session (variable)
+            if _display_in_grid('', clean_ns[last_input]):
+                # select and display it
+                self.select_array_item(last_input)
+            return
+
+        # check if expression of the kind '<varname>[(...)] (...)' or '<varname>.<attribute> (...)'
+        varname = itemname = None
+        m = getitem_pattern.match(last_input)
+        if m:
             varname = m.group(1)
+            itemname = m.group(2).replace("'", "").replace('"', '')
+        m = getattr_pattern.match(last_input)
+        if m:
+            varname = m.group(1)
+            itemname = m.group(2)
+
+        if varname:
             # otherwise it should have failed at this point, but let us be sure
             if varname in clean_ns:
-                if _display_in_grid(varname, clean_ns[varname]):
-                    # XXX: this completely refreshes the array, including detecting scientific & ndigits, which might
-                    # not be what we want in this case
-                    self.select_array_item(varname)
+                var = clean_ns[varname]
+                if _display_in_treewidget(varname, var):
+                    # check if var is a dictionary or session
+                    if isinstance(var, EXPANDABLE_OBJ):
+                        if itemname in var.keys() and _display_in_grid(itemname, var[itemname]):
+                            self.select_array_item(itemname, varname)
+                        else:
+                            self.update_mapping(clean_ns)
+                    else:
+                        # XXX: this completely refreshes the array, including detecting scientific & ndigits,
+                        # which might not be what we want in this case
+                        self.select_array_item(varname)
         else:
-            # not setitem => assume expr or normal assignment
-            if last_input in clean_ns:
-                # the name exists in the default session (variable)
-                if _display_in_grid('', clean_ns[last_input]):
-                    # select and display it
-                    self.select_array_item(last_input)
-            else:
-                # any statement can contain a call to a function which updates globals
-                # this will select (or refresh) the "first" changed array
-                self.update_mapping(clean_ns)
+            # not (get/set)(item/attribute) => assume expr or normal assignment
+            # any statement can contain a call to a function which updates globals
+            # this will select (or refresh) the "first" changed array
+            self.update_mapping(clean_ns)
 
-                # if the statement produced any output (probably because it is a simple expression), display it.
+            # if the statement produced any output (probably because it is a simple expression), display it.
 
-                # _oh and Out are supposed to be synonyms but "_ih" is supposed to be the non-overridden one.
-                # It would be easier to use '_' instead but that refers to the last output, not the output of the
-                # last command. Which means that if the last command did not produce any output, _ is not modified.
-                cur_output = user_ns['_oh'].get(cur_input_num)
-                if cur_output is not None:
-                    if _display_in_grid('_', cur_output):
-                        self.view_expr(cur_output)
+            # _oh and Out are supposed to be synonyms but "_ih" is supposed to be the non-overridden one.
+            # It would be easier to use '_' instead but that refers to the last output, not the output of the
+            # last command. Which means that if the last command did not produce any output, _ is not modified.
+            cur_output = user_ns['_oh'].get(cur_input_num)
+            if cur_output is not None:
+                if _display_in_grid('_', cur_output):
+                    self.view_expr(cur_output)
 
-                    if isinstance(cur_output, collections.Iterable):
-                        cur_output = np.ravel(cur_output)[0]
+                if isinstance(cur_output, collections.Iterable):
+                    cur_output = np.ravel(cur_output)[0]
 
-                    if isinstance(cur_output, matplotlib.axes.Subplot) and 'inline' not in matplotlib.get_backend():
-                        show_figure(self, cur_output.figure)
+                if isinstance(cur_output, matplotlib.axes.Subplot) and 'inline' not in matplotlib.get_backend():
+                    show_figure(self, cur_output.figure)
 
     def on_selection_changed(self):
         name, item = self._mapitems.get_selected_item()
