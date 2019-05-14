@@ -886,7 +886,8 @@ class MappingEditor(AbstractEditor):
                 if _display_in_treewidget(varname, var):
                     # check if var is a dictionary or session
                     if isinstance(var, EXPANDABLE_OBJ):
-                        if itemname in var.keys() and _display_in_grid(itemname, var[itemname]):
+                        if '=' not in last_input and itemname in var.keys() \
+                                and _display_in_grid(itemname, var[itemname]):
                             self.select_array_item(itemname, varname)
                         else:
                             self.update_mapping(clean_ns)
