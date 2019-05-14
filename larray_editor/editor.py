@@ -858,7 +858,6 @@ class MappingEditor(AbstractEditor):
         # 'In' and '_ih' point to the same object (but '_ih' is supposed to be the non-overridden one)
         cur_input_num = len(user_ns['_ih']) - 1
         last_input = user_ns['_ih'][-1]
-        print('last_input', last_input)
         last_input = last_input.strip()
 
         # check if simply selecting a displayable object in grid
