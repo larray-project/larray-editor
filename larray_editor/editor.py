@@ -464,14 +464,19 @@ class MapItems(OrderedDict):
             del self[name]
         return item
 
-    def update_mapping(self, objects):
+    def update_mapping(self, objects, changed_expandable_obj_keys=None):
         _self_objects = self.to_map_objects()
         # XXX: use ordered set so that the order is non-random if the underlying container is ordered?
         keys_before = set(_self_objects.keys())
         keys_after = set(objects.keys())
         # Contains both new and keys for which the object id changed (but not deleted keys nor inplace modified keys).
-        # Inplace modified arrays should be already handled in ipython_cell_executed by the setitem_pattern.
+        # Inplace modified arrays should be already handled in ipython_cell_executed.
         changed_keys = [k for k in keys_after if objects[k] is not _self_objects.get(k)]
+        # objects and _self_objects contain references to the same expandable objects in memory so
+        # we have no way to know if an expandable object has been modified except by checking if
+        # the operator '=' has been used in the console
+        if changed_expandable_obj_keys:
+            changed_keys += changed_expandable_obj_keys
 
         # when a key is re-assigned, it can switch from being displayable to non-displayable or vice versa
         displayable_keys_before = set(k for k in keys_before if _display_in_treewidget(k, _self_objects[k]))
@@ -819,8 +824,8 @@ class MappingEditor(AbstractEditor):
         else:
             self._treewidget.setCurrentItem(array_item.treeitem)
 
-    def update_mapping(self, objects):
-        to_display = self._mapitems.update_mapping(objects)
+    def update_mapping(self, objects, changed_expandable_obj_keys=None):
+        to_display = self._mapitems.update_mapping(objects, changed_expandable_obj_keys)
         if to_display is not None:
             self.select_array_item(to_display)
         return to_display
@@ -886,9 +891,12 @@ class MappingEditor(AbstractEditor):
                 if _display_in_treewidget(varname, var):
                     # check if var is a dictionary or session
                     if isinstance(var, EXPANDABLE_OBJ):
-                        if '=' not in last_input and itemname in var.keys() \
-                                and _display_in_grid(itemname, var[itemname]):
-                            self.select_array_item(itemname, varname)
+                        if itemname in var.keys() and _display_in_grid(itemname, var[itemname]):
+                            if '=' not in last_input:
+                                self.select_array_item(itemname, varname)
+                            else:
+                                # force to update object
+                                self.update_mapping(clean_ns, changed_expandable_obj_keys=[varname])
                         else:
                             self.update_mapping(clean_ns)
                     else:
