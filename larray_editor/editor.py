@@ -45,8 +45,8 @@ except ImportError:
 REOPEN_LAST_FILE = object()
 
 assignment_pattern = re.compile('[^\[\]]+[^=]=[^=].+')
-getitem_pattern = re.compile('(\w+)\[(.+?)\].*')
-getattr_pattern = re.compile('(\w+)\.(\w+).*')
+setitem_pattern = re.compile('(\w+)\[(.+?)\].*[^=]=[^=].+')
+setattr_pattern = re.compile('(\w+)\.(\w+)[^\w=]+=[^=].+')
 history_vars_pattern = re.compile('_i?\d+')
 # XXX: add all scalars except strings (from numpy or plain Python)?
 # (long) strings are not handled correctly so should NOT be in this list
@@ -873,38 +873,34 @@ class MappingEditor(AbstractEditor):
                 self.select_array_item(last_input)
             return
 
-        # check if expression of the kind '<varname>[(...)] (...)' or '<varname>.<attribute> (...)'
-        varname = itemname = None
-        m = getitem_pattern.match(last_input)
+        # check if expression of the kind '<varname>[(...)] = (...)' or '<varname>.<attribute> = (...)'
+        varname = None
+        m = setitem_pattern.match(last_input)
         if m:
             varname = m.group(1)
-            itemname = m.group(2).replace("'", "").replace('"', '')
-        m = getattr_pattern.match(last_input)
+
+        m = setattr_pattern.match(last_input)
         if m:
             varname = m.group(1)
-            itemname = m.group(2)
 
         if varname:
             # otherwise it should have failed at this point, but let us be sure
             if varname in clean_ns:
                 var = clean_ns[varname]
                 if _display_in_treewidget(varname, var):
-                    # check if var is a dictionary or session
-                    if isinstance(var, EXPANDABLE_OBJ):
-                        if itemname in var.keys() and _display_in_grid(itemname, var[itemname]):
-                            if '=' not in last_input:
-                                self.select_array_item(itemname, varname)
-                            else:
-                                # force to update object
-                                self.update_mapping(clean_ns, changed_expandable_obj_keys=[varname])
-                        else:
-                            self.update_mapping(clean_ns)
-                    else:
+                    # check if displayable in grid
+                    if _display_in_grid(varname, var):
                         # XXX: this completely refreshes the array, including detecting scientific & ndigits,
                         # which might not be what we want in this case
                         self.select_array_item(varname)
+                    else:
+                        # maybe updating an existing array of a session/dict or
+                        # adding a new array to the session/dict
+                        self.update_mapping(clean_ns)
+                        arrayname = m.group(2).replace('"', '').replace("'", '')
+                        self.select_array_item(arrayname, varname)
         else:
-            # not (get/set)(item/attribute) => assume expr or normal assignment
+            # not set(item/attribute) => assume expr or normal assignment
             # any statement can contain a call to a function which updates globals
             # this will select (or refresh) the "first" changed array
             self.update_mapping(clean_ns)
