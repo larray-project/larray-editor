@@ -3,10 +3,13 @@
 Miscellaneous improvements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* improved something.
+* display the filename and line number in the status bar when the editor is called from a Python script
+  (closes :editor_issue:`173`).
 
 
 Fixes
 ^^^^^
 
-* fixed something (closes :editor_issue:`1`).
+* fixed editor console unusable after any exception (closes :editor_issue:`166`).
+
+* fixed LArray editor launcher in Windows menu (closes :editor_issue:`169`).
