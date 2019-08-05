@@ -15,7 +15,9 @@ DESCRIPTION = "Graphical User Interface for LArray library"
 LONG_DESCRIPTION = readlocal("README.rst")
 SETUP_REQUIRES = []
 # pyqt cannot be installed via pypi. Dependencies (pyqt, qtpy and matplotlib) moved to conda recipe
-INSTALL_REQUIRES = ['larray', 'ipykernel !=5.0, !=5.1']
+# requires larray >= 0.30 because we import Product from it and this class was introduced in the 0.30
+# version of larray
+INSTALL_REQUIRES = ['larray >= 0.30', 'ipykernel !=5.0, !=5.1']
 TESTS_REQUIRE = ['pytest']
 
 LICENSE = 'GPLv3'
