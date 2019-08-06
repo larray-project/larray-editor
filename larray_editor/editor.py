@@ -396,11 +396,14 @@ class MappingEditor(AbstractEditor):
                 self.new()
         # convert input data to Session if not
         else:
-            self.data = data if isinstance(data, Session) else Session(data)
-            if qtconsole_available:
-                self.kernel.shell.push(dict(self.data.items()))
-            arrays = [k for k, v in self.data.items() if self._display_in_grid(k, v)]
-            self.add_list_items(arrays)
+            self._push_data(data)
+
+    def _push_data(self, data):
+        self.data = data if isinstance(data, Session) else Session(data)
+        if qtconsole_available:
+            self.kernel.shell.push(dict(self.data.items()))
+        arrays = [k for k, v in self.data.items() if self._display_in_grid(k, v)]
+        self.add_list_items(arrays)
         self._listwidget.setCurrentRow(0)
 
     def _reset(self):
@@ -670,13 +673,6 @@ class MappingEditor(AbstractEditor):
         self.current_file = filepath
         self.update_title()
 
-    def _add_arrays(self, arrays):
-        for k, v in arrays.items():
-            self.data[k] = v
-            self.add_list_item(k)
-        if qtconsole_available:
-            self.kernel.shell.push(dict(arrays))
-
     def _ask_to_save_if_unsaved_modifications(self):
         """
         Returns
@@ -933,8 +929,7 @@ class MappingEditor(AbstractEditor):
         try:
             session.load(filepath, names)
             self._reset()
-            self._add_arrays(session)
-            self._listwidget.setCurrentRow(0)
+            self._push_data(session)
             self.set_current_file(current_file_name)
             self.unsaved_modifications = False
             self.statusBar().showMessage("Loaded: {}".format(display_name), 4000)
