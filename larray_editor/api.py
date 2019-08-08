@@ -1,5 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
+import collections
+import os
 import sys
 import traceback
 from inspect import getframeinfo
@@ -10,7 +12,7 @@ import larray as la
 
 from larray_editor.editor import REOPEN_LAST_FILE, MappingEditor, ArrayEditor
 
-__all__ = ['view', 'edit', 'compare', 'REOPEN_LAST_FILE']
+__all__ = ['view', 'edit', 'compare', 'REOPEN_LAST_FILE', 'run_editor_on_exception']
 
 
 def qapplication():
@@ -282,3 +284,74 @@ def install_display_hook():
 
 def restore_display_hook():
     sys.displayhook = _orig_display_hook
+
+
+def _trace_code_file(tb):
+    return os.path.normpath(tb.tb_frame.f_code.co_filename)
+
+
+def _get_vars_from_frame(frame):
+    frame_globals, frame_locals = frame.f_globals, frame.f_locals
+    d = collections.OrderedDict()
+    d.update([(k, frame_globals[k]) for k in sorted(frame_globals.keys())])
+    d.update([(k, frame_locals[k]) for k in sorted(frame_locals.keys())])
+    return d
+
+
+def _get_debug_except_hook(root_path=None, usercode_traceback=True):
+    try:
+        main_file = os.path.abspath(sys.modules['__main__'].__file__)
+    except AttributeError:
+        main_file = sys.executable
+
+    if root_path is None:
+        root_path = os.path.dirname(main_file)
+
+    def excepthook(type, value, tback):
+        # first try to go as far as the main module because in some cases (e.g. when we run the file via a debugger),
+        # the top of the traceback is not always the main module)
+        current_tb = tback
+        while current_tb.tb_next and _trace_code_file(current_tb) != main_file:
+            current_tb = current_tb.tb_next
+
+        main_tb = current_tb if _trace_code_file(current_tb) == main_file else tback
+
+        if usercode_traceback:
+            if main_tb != current_tb:
+                print("Warning: couldn't find frame corresponding to user code, showing the full traceback "
+                      "and inspect last frame instead (which might be in library code)",
+                      file=sys.stderr)
+                limit = None
+            else:
+                user_tb_length = 1
+                # continue as long as the next tb is still in the current project
+                while current_tb.tb_next and _trace_code_file(current_tb.tb_next).startswith(root_path):
+                    current_tb = current_tb.tb_next
+                    user_tb_length += 1
+                limit = user_tb_length
+        else:
+            limit = None
+        traceback.print_exception(type, value, main_tb, limit=limit)
+        print("\nlaunching larray editor to debug...", file=sys.stderr)
+        edit(_get_vars_from_frame(current_tb.tb_frame))
+
+    return excepthook
+
+
+def run_editor_on_exception(root_path=None, usercode_traceback=True):
+    """
+    Run the editor when an unhandled exception (a fatal error) happens.
+
+    Parameters
+    ----------
+    root_path : str, optional
+        Defaults to None (the directory of the main script).
+    usercode_traceback : bool, optional
+        Whether or not to show only the part of the traceback (error log) which corresponds to the user code.
+        Otherwise, it will show the complete traceback, including code inside libraries. Defaults to True.
+
+    Notes
+    -----
+    sets sys.excepthook
+    """
+    sys.excepthook = _get_debug_except_hook(root_path=root_path, usercode_traceback=usercode_traceback)
