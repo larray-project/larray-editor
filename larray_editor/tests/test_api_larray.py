@@ -5,7 +5,7 @@ from __future__ import absolute_import, division, print_function
 import logging
 
 import numpy as np
-from larray import (Session, Axis, LArray, ndtest, zeros, from_lists, union,
+from larray import (Session, Axis, LArray, ndtest, zeros, ones, from_lists, union,
                     sin, cos, radians, maximum, sqrt, where, random, inf, nan)
 
 from larray_editor.api import *
@@ -156,6 +156,16 @@ compare(Session(arr4=arr4, arr3=arr3, data=data3),
 # edit('x.xlsx')
 # print('\n open CSV')
 # edit('x_csv')
+
+arr1 = ones((geo, sex))
+arr2 = random.normal(axes=(geo, sex))
+compare(arr1, arr2, atol=0.5)
+compare(arr1, arr2, rtol=0.3)
+
+arr2 = where(arr2 > 1, arr1, -arr1)
+arr1['M'] = nan
+arr2['M'] = nan
+compare(arr1, arr2, nans_equal=False)
 
 arr1 = ndtest((3, 3))
 arr2 = 2 * arr1
