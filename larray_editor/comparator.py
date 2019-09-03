@@ -13,7 +13,7 @@ from larray_editor.editor import AbstractEditor, DISPLAY_IN_GRID
 
 class ComparatorWidget(QWidget):
     """Comparator Widget"""
-    def __init__(self, parent=None, bg_gradient='red-white-blue'):
+    def __init__(self, parent=None, bg_gradient='red-white-blue', rtol=0, atol=0, nans_equal=True, **kwargs):
         QWidget.__init__(self, parent)
 
         layout = QVBoxLayout()
@@ -62,6 +62,17 @@ class ComparatorWidget(QWidget):
 
         self.arraywidget.btn_layout.addLayout(tolerance_layout)
 
+        if rtol > 0 and atol > 0:
+            raise ValueError("Arguments 'rtol' and 'atol' cannot be used together.")
+        if rtol > 0:
+            self.tolerance_combobox.setCurrentText("relative")
+            self.tolerance_line_edit.setText(str(rtol))
+        if atol > 0:
+            self.tolerance_combobox.setCurrentText("absolute")
+            self.tolerance_line_edit.setText(str(atol))
+
+        self.nans_equal = nans_equal
+
         # add local arraywidget to layout
         self.arraywidget.btn_layout.addStretch()
         layout.addWidget(self.arraywidget)
@@ -104,7 +115,7 @@ class ComparatorWidget(QWidget):
             tol_str = self.tolerance_line_edit.text()
             tol = ast.literal_eval(tol_str) if tol_str else 0
             atol, rtol = (tol, 0) if self.tolerance_combobox.currentText() == "absolute" else (0, tol)
-            self.isequal = self.array.eq(self.array0, rtol=rtol, atol=atol, nans_equal=True)
+            self.isequal = self.array.eq(self.array0, rtol=rtol, atol=atol, nans_equal=self.nans_equal)
         except TypeError:
             self.isequal = self.array == self.array0
 
@@ -171,16 +182,19 @@ class ArrayComparator(AbstractEditor):
         readonly: bool
         kwargs:
 
+          * rtol: int or float
+          * atol: int or float
+          * nans_equal: bool
+          * bg_gradient: str
           * names: list of str
         """
         arrays = [aslarray(array) for array in data if isinstance(array, DISPLAY_IN_GRID)]
         names = kwargs.get('names', ["Array{}".format(i) for i in range(len(arrays))])
-        bg_gradient = kwargs.get('bg_gradient', 'red-white-blue')
 
         layout = QVBoxLayout()
         widget.setLayout(layout)
 
-        comparator_widget = ComparatorWidget(self, bg_gradient=bg_gradient)
+        comparator_widget = ComparatorWidget(self, **kwargs)
         comparator_widget.set_data(arrays, Axis(names, 'array'))
         layout.addWidget(comparator_widget)
 
@@ -213,12 +227,15 @@ class SessionComparator(AbstractEditor):
         readonly: bool
         kwargs:
 
+          * rtol: int or float
+          * atol: int or float
+          * nans_equal: bool
+          * bg_gradient: str
           * names: list of str
           * colors: str
         """
         sessions = data
         names = kwargs.get('names', ["Session{}".format(i) for i in range(len(sessions))])
-        bg_gradient = kwargs.get('bg_gradient', 'red-white-blue')
 
         assert all(isinstance(s, Session) for s in sessions)
         self.sessions = sessions
@@ -238,7 +255,7 @@ class SessionComparator(AbstractEditor):
                 listwidget.item(i).setForeground(Qt.red)
         self.listwidget = listwidget
 
-        comparatorwidget = ComparatorWidget(self, bg_gradient=bg_gradient)
+        comparatorwidget = ComparatorWidget(self, **kwargs)
         self.arraywidget = comparatorwidget
 
         main_splitter = QSplitter(Qt.Horizontal)
