@@ -267,6 +267,7 @@ class SessionComparator(AbstractEditor):
         main_splitter.addWidget(comparatorwidget)
         main_splitter.setSizes([5, 95])
         main_splitter.setCollapsible(1, False)
+        self.widget_state_settings['main_splitter'] = main_splitter
 
         layout.addWidget(main_splitter)
         self.listwidget.setCurrentRow(0)
@@ -277,3 +278,7 @@ class SessionComparator(AbstractEditor):
     def on_item_changed(self, curr, prev):
         arrays = self.get_arrays(str(curr.text()))
         self.arraywidget.set_data(arrays, self.stack_axis)
+
+    def closeEvent(self, event):
+        self.save_widgets_state_and_geometry()
+        AbstractEditor.closeEvent(self, event)
