@@ -216,7 +216,6 @@ def compare(*args, **kwargs):
 
         absolute(array1 - array2) <= (atol + rtol * absolute(array2))
 
-
     Examples
     --------
     >>> a1 = ndtest(3)                                                                                 # doctest: +SKIP
@@ -234,6 +233,8 @@ def compare(*args, **kwargs):
     _app = QApplication.instance()
     if _app is None:
         _app = qapplication()
+        _app.setOrganizationName("LArray")
+        _app.setApplicationName("Viewer")
         parent = None
     else:
         parent = _app.activeWindow()
