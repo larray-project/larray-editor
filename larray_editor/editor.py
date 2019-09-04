@@ -11,7 +11,7 @@ from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima,
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayCommand
 
-from qtpy.QtCore import Qt, QUrl
+from qtpy.QtCore import Qt, QUrl, QSettings
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
                             QDialogButtonBox, QShortcut, QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit, QUndoStack,
@@ -74,6 +74,9 @@ class AbstractEditor(QMainWindow):
         if editable:
             self.edit_undo_stack = QUndoStack(self)
 
+        self.settings_group_name = self.name.lower().replace(' ', '_')
+        self.widget_state_settings = {}
+
     def setup_and_check(self, data, title='', readonly=False, caller_info=None, **kwargs):
         """Return False if data is not supported, True otherwise"""
         # set icon
@@ -103,10 +106,12 @@ class AbstractEditor(QMainWindow):
         # setup central widget
         self._setup_and_check(widget, data, title, readonly, **kwargs)
 
-        # resize
-        self.resize(1000, 600)
+        if not self.restore_widgets_state_and_geometry():
+            # resize
+            self.resize(1000, 600)
         # This is more or less the minimum space required to display a 1D array
         self.setMinimumSize(300, 180)
+
         return True
 
     def setup_menu_bar(self):
@@ -276,6 +281,31 @@ class AbstractEditor(QMainWindow):
         # already been destroyed, due to the Qt.WA_DeleteOnClose attribute
         return self.data
 
+    def save_widgets_state_and_geometry(self):
+        settings = QSettings()
+        settings.beginGroup(self.settings_group_name)
+        settings.setValue('geometry', self.saveGeometry())
+        settings.setValue('state', self.saveState())
+        for widget_name, widget in self.widget_state_settings.items():
+            settings.setValue('state/{}'.format(widget_name), widget.saveState())
+        settings.endGroup()
+
+    def restore_widgets_state_and_geometry(self):
+        settings = QSettings()
+        settings.beginGroup(self.settings_group_name)
+        geometry = settings.value('geometry')
+        if geometry:
+            self.restoreGeometry(geometry)
+        state = settings.value('state')
+        if state:
+            self.restoreState(state)
+        for widget_name, widget in self.widget_state_settings.items():
+            state = settings.value('state/{}'.format(widget_name))
+            if state:
+                widget.restoreState(state)
+        settings.endGroup()
+        return (geometry is not None) or (state is not None)
+
     def _setup_and_check(self, widget, data, title, readonly, **kwargs):
         raise NotImplementedError()
 
@@ -360,6 +390,7 @@ class MappingEditor(AbstractEditor):
             right_panel_widget.addWidget(self.arraywidget)
             right_panel_widget.addWidget(self.eval_box)
             right_panel_widget.setSizes([90, 10])
+            self.widget_state_settings['right_panel_widget'] = right_panel_widget
         else:
             self.eval_box = QLineEdit()
             self.eval_box.returnPressed.connect(self.line_edit_update)
@@ -378,6 +409,7 @@ class MappingEditor(AbstractEditor):
         main_splitter.addWidget(right_panel_widget)
         main_splitter.setSizes([10, 90])
         main_splitter.setCollapsible(1, False)
+        self.widget_state_settings['main_splitter'] = main_splitter
 
         layout.addWidget(main_splitter)
 
@@ -695,6 +727,9 @@ class MappingEditor(AbstractEditor):
             event.accept()
         else:
             event.ignore()
+        self.save_widgets_state_and_geometry()
+        AbstractEditor.closeEvent(self, event)
+
 
     #########################################
     #               FILE MENU               #
