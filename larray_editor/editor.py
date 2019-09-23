@@ -574,13 +574,10 @@ class MappingEditor(AbstractEditor):
 
     def ipython_cell_executed(self):
         user_ns = self.kernel.shell.user_ns
-        ip_keys = set(['In', 'Out', '_', '__', '___',
-                       '__builtin__',
-                       '_dh', '_ih', '_oh', '_sh', '_i', '_ii', '_iii',
-                       'exit', 'get_ipython', 'quit'])
+        ip_keys = {'In', 'Out', '_', '__', '___', '__builtin__', '_dh', '_ih', '_oh', '_sh', '_i', '_ii', '_iii',
+                   'exit', 'get_ipython', 'quit'}
         # '__builtins__', '__doc__', '__loader__', '__name__', '__package__', '__spec__',
-        clean_ns_keys = set([k for k, v in user_ns.items() if not history_vars_pattern.match(k)]) - ip_keys
-        clean_ns = {k: v for k, v in user_ns.items() if k in clean_ns_keys}
+        clean_ns = {k: v for k, v in user_ns.items() if k not in ip_keys and not history_vars_pattern.match(k)}
 
         # user_ns['_i'] is not updated yet (refers to the -2 item)
         # 'In' and '_ih' point to the same object (but '_ih' is supposed to be the non-overridden one)
