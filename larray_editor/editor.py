@@ -44,9 +44,9 @@ except ImportError:
 
 REOPEN_LAST_FILE = object()
 
-assignment_pattern = re.compile('[^\[\]]+[^=]=[^=].+')
-setitem_pattern = re.compile('(.+)\[.+\][^=]=[^=].+')
-history_vars_pattern = re.compile('_i?\d+')
+assignment_pattern = re.compile(r'[^\[\]]+[^=]=[^=].+')
+setitem_pattern = re.compile(r'(.+)\[.+\][^=]=[^=].+')
+history_vars_pattern = re.compile(r'_i?\d+')
 # XXX: add all scalars except strings (from numpy or plain Python)?
 # (long) strings are not handled correctly so should NOT be in this list
 # tuple, list
