@@ -39,6 +39,11 @@ Miscellaneous improvements
 
 * Plot windows title now include the name of the array used to make the plot (closes :editor_issue:`233`).
 
+* When the editor displays currently defined variables (via `debug()` `edit()` or
+  `view()` without argument within user code or via an exception when run_editor_on_exception is active),
+  LArray functions are not made available systematically in the console anymore (what is available in the console is
+  really what was available in the users code). This closes :editor_issue:`199`.
+
 
 Fixes
 ^^^^^

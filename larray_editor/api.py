@@ -73,16 +73,17 @@ def get_title(obj, depth=0, maxnames=3):
     return ', '.join(names)
 
 
-def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0, display_caller_info=True):
+def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0, display_caller_info=True,
+         add_larray_functions=None):
     """
     Opens a new editor window.
 
     Parameters
     ----------
-    obj : np.ndarray, Array, Session, dict, str or REOPEN_LAST_FILE, optional
+    obj : np.ndarray, Array, Session, dict, str, REOPEN_LAST_FILE or None, optional
         Object to visualize. If string, array(s) will be loaded from the file given as argument.
         Passing the constant REOPEN_LAST_FILE loads the last opened file.
-        Defaults to the collection of all local variables where the function was called.
+        Defaults to None, which gathers all variables (global and local) where the function was called.
     title : str, optional
         Title for the current object. Defaults to the name of the first object found in the caller namespace which
         corresponds to `obj` (it will use a combination of the 3 first names if several names correspond to the same
@@ -98,6 +99,9 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     display_caller_info: bool, optional
         Whether or not to display the filename and line number where the Editor has been called.
         Defaults to True.
+    add_larray_functions: bool or None, optional
+        Whether or not to make LArray top-level functions (e.g. ndtest, zeros, ...) available in the console.
+        Defaults to None, which means False when obj is None and True otherwise.
 
     Examples
     --------
@@ -118,6 +122,9 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
 
     caller_frame = sys._getframe(depth + 1)
     caller_info = getframeinfo(caller_frame) if display_caller_info else None
+    if add_larray_functions is None:
+        add_larray_functions = obj is not None
+
     if obj is None:
         global_vars = caller_frame.f_globals
         local_vars = caller_frame.f_locals
@@ -134,7 +141,8 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     if obj is REOPEN_LAST_FILE or isinstance(obj, (str, la.Session)):
         dlg = MappingEditor(parent)
         assert minvalue is None and maxvalue is None
-        setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, caller_info=caller_info)
+        setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, caller_info=caller_info,
+                                       add_larray_functions=add_larray_functions)
     else:
         dlg = ArrayEditor(parent)
         setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue,
@@ -147,7 +155,7 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     sys.excepthook = orig_except_hook
 
 
-def view(obj=None, title='', depth=0, display_caller_info=True):
+def view(obj=None, title='', depth=0, display_caller_info=True, add_larray_functions=None):
     """
     Opens a new viewer window. Arrays are loaded in readonly mode and their content cannot be modified.
 
@@ -165,6 +173,9 @@ def view(obj=None, title='', depth=0, display_caller_info=True):
     display_caller_info: bool, optional
         Whether or not to display the filename and line number where the Editor has been called.
         Defaults to True.
+    add_larray_functions: bool or None, optional
+        Whether or not to make LArray top-level functions (e.g. ndtest, zeros, ...) available in the console.
+        Defaults to None, which means False when obj is None and True otherwise.
 
     Examples
     --------
@@ -176,7 +187,8 @@ def view(obj=None, title='', depth=0, display_caller_info=True):
     >>> # will open a viewer showing only a1
     >>> view(a1)                                                                                       # doctest: +SKIP
     """
-    edit(obj, title=title, readonly=True, depth=depth + 1, display_caller_info=display_caller_info)
+    edit(obj, title=title, readonly=True, depth=depth + 1, display_caller_info=display_caller_info,
+         add_larray_functions=add_larray_functions)
 
 
 def _debug(stack_summary, stack_pos=None):
