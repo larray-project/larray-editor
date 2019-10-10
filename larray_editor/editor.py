@@ -4,7 +4,8 @@ import matplotlib
 import numpy as np
 import collections
 
-from larray import LArray, Session, empty
+import larray as la
+
 from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
                                  get_versions, get_documentation_url, urls, RecentlyUsedList)
 from larray_editor.arraywidget import ArrayEditorWidget
@@ -48,7 +49,7 @@ history_vars_pattern = re.compile(r'_i?\d+')
 # XXX: add all scalars except strings (from numpy or plain Python)?
 # (long) strings are not handled correctly so should NOT be in this list
 # tuple, list
-DISPLAY_IN_GRID = (LArray, np.ndarray)
+DISPLAY_IN_GRID = (la.Array, np.ndarray)
 
 
 class AbstractEditor(QMainWindow):
@@ -249,12 +250,12 @@ class AbstractEditor(QMainWindow):
         if array is not None:
             dtype = array.dtype.name
             # current file (if not None)
-            if isinstance(array, LArray):
+            if isinstance(array, la.Array):
                 # array info
                 shape = ['{} ({})'.format(display_name, len(axis))
                          for display_name, axis in zip(array.axes.display_names, array.axes)]
             else:
-                # if it's not an LArray, it must be a Numpy ndarray
+                # if it's not an Array, it must be a Numpy ndarray
                 assert isinstance(array, np.ndarray)
                 shape = [str(length) for length in array.shape]
             # name + shape + dtype
@@ -320,7 +321,7 @@ class MappingEditor(AbstractEditor):
         del_item_shortcut = QShortcut(QKeySequence(Qt.Key_Delete), self._listwidget)
         del_item_shortcut.activated.connect(self.delete_current_item)
 
-        self.data = Session()
+        self.data = la.Session()
         self.arraywidget = ArrayEditorWidget(self, readonly=readonly)
         self.arraywidget.dataChanged.connect(self.push_changes)
         self.arraywidget.model_data.dataChanged.connect(self.update_title)
@@ -385,7 +386,7 @@ class MappingEditor(AbstractEditor):
             if len(self.recent_data_files.files) > 0:
                 data = self.recent_data_file.files[0]
             else:
-                data = Session()
+                data = la.Session()
 
         # load file if any
         if isinstance(data, str):
@@ -399,7 +400,7 @@ class MappingEditor(AbstractEditor):
             self._push_data(data)
 
     def _push_data(self, data):
-        self.data = data if isinstance(data, Session) else Session(data)
+        self.data = data if isinstance(data, la.Session) else la.Session(data)
         if qtconsole_available:
             self.kernel.shell.push(dict(self.data.items()))
         arrays = [k for k, v in self.data.items() if self._display_in_grid(k, v)]
@@ -407,7 +408,7 @@ class MappingEditor(AbstractEditor):
         self._listwidget.setCurrentRow(0)
 
     def _reset(self):
-        self.data = Session()
+        self.data = la.Session()
         self._listwidget.clear()
         self.current_array = None
         self.current_array_name = None
@@ -479,7 +480,7 @@ class MappingEditor(AbstractEditor):
         listitem = QListWidgetItem(self._listwidget)
         listitem.setText(name)
         value = self.data[name]
-        if isinstance(value, LArray):
+        if isinstance(value, la.Array):
             listitem.setToolTip(str(value.info))
 
     def add_list_items(self, names):
@@ -702,7 +703,7 @@ class MappingEditor(AbstractEditor):
     def new(self):
         if self._ask_to_save_if_unsaved_modifications():
             self._reset()
-            self.arraywidget.set_data(empty(0))
+            self.arraywidget.set_data(la.empty(0))
             self.set_current_file(None)
             self.unsaved_modifications = False
             self.statusBar().showMessage("Viewer has been reset", 4000)
@@ -904,7 +905,7 @@ class MappingEditor(AbstractEditor):
     #=============================#
 
     def _open_file(self, filepath):
-        session = Session()
+        session = la.Session()
         # a list => .csv files. Possibly a single .csv file.
         if isinstance(filepath, (list, tuple)):
             fpaths = filepath
@@ -963,7 +964,7 @@ class MappingEditor(AbstractEditor):
 
     def _save_data(self, filepath):
         try:
-            session = Session({k: v for k, v in self.data.items() if self._display_in_grid(k, v)})
+            session = la.Session({k: v for k, v in self.data.items() if self._display_in_grid(k, v)})
             session.save(filepath)
             self.set_current_file(filepath)
             self.edit_undo_stack.clear()

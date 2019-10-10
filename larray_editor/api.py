@@ -74,7 +74,7 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
 
     Parameters
     ----------
-    obj : np.ndarray, LArray, Session, dict, str or REOPEN_LAST_FILE, optional
+    obj : np.ndarray, Array, Session, dict, str or REOPEN_LAST_FILE, optional
         Object to visualize. If string, array(s) will be loaded from the file given as argument.
         Passing the constant REOPEN_LAST_FILE loads the last opened file.
         Defaults to the collection of all local variables where the function was called.
@@ -128,7 +128,7 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
         obj.update([(k, global_vars[k]) for k in sorted(global_vars.keys())])
         obj.update([(k, local_vars[k]) for k in sorted(local_vars.keys())])
 
-    if not isinstance(obj, (la.Session, la.LArray)) and hasattr(obj, 'keys'):
+    if not isinstance(obj, (la.Session, la.Array)) and hasattr(obj, 'keys'):
         obj = la.Session(obj)
 
     if not title and obj is not REOPEN_LAST_FILE:
@@ -156,7 +156,7 @@ def view(obj=None, title='', depth=0, display_caller_info=True):
 
     Parameters
     ----------
-    obj : np.ndarray, LArray, Session, dict or str, optional
+    obj : np.ndarray, Array, Session, dict or str, optional
         Object to visualize. If string, array(s) will be loaded from the file given as argument.
         Defaults to the collection of all local variables where the function was called.
     title : str, optional
@@ -188,7 +188,7 @@ def compare(*args, **kwargs):
 
     Parameters
     ----------
-    *args : LArrays or Sessions
+    *args : Arrays or Sessions
         Arrays or sessions to compare.
     title : str, optional
         Title for the window. Defaults to ''.
@@ -289,7 +289,7 @@ _orig_display_hook = sys.displayhook
 
 
 def _qt_display_hook(value):
-    if isinstance(value, la.LArray):
+    if isinstance(value, la.Array):
         view(value)
     else:
         _orig_display_hook(value)
