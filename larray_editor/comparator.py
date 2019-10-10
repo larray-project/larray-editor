@@ -1,11 +1,12 @@
 import ast
 import numpy as np
+import larray as la
+
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QDoubleValidator
 from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QHBoxLayout,
                             QLabel, QCheckBox, QLineEdit, QComboBox, QMessageBox)
 
-from larray import LArray, Session, Axis, stack, full_like, aslarray, nan
 from larray_editor.utils import replace_inf, _
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor.editor import AbstractEditor, DISPLAY_IN_GRID
@@ -94,19 +95,19 @@ class ComparatorWidget(QWidget):
         """
         Parameters
         ----------
-        arrays: list or tuple of scalar, LArray, ndarray
+        arrays: list or tuple of scalar, Array, ndarray
             Arrays to compare.
         stack_axis: Axis
             Names of arrays.
         """
-        assert all(np.isscalar(a) or isinstance(a, LArray) for a in arrays)
+        assert all(np.isscalar(a) or isinstance(a, la.Array) for a in arrays)
         self.stack_axis = stack_axis
         try:
-            self.array = stack(arrays, stack_axis)
+            self.array = la.stack(arrays, stack_axis)
             self.array0 = self.array[stack_axis.i[0]]
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
-            self.array = LArray([''])
+            self.array = la.Array([''])
             self.array0 = self.array
         self.update_isequal()
 
@@ -133,11 +134,11 @@ class ComparatorWidget(QWidget):
                 # scale reldiff to range 0-1 with 0.5 for reldiff = 0
                 self.bg_value = (reldiff / maxabsreldiff) / 2 + 0.5
             else:
-                self.bg_value = full_like(self.array, 0.5)
+                self.bg_value = la.full_like(self.array, 0.5)
         except TypeError:
             # str/object array
-            maxabsreldiff = nan
-            self.bg_value = full_like(self.array, 0.5)
+            maxabsreldiff = np.nan
+            self.bg_value = la.full_like(self.array, 0.5)
 
         self.maxdiff_label.setText(str(maxabsreldiff))
         self.display(self.diff_checkbox.isChecked())
@@ -175,7 +176,7 @@ class ArrayComparator(AbstractEditor):
         ----------
         widget: QWidget
             Parent widget.
-        data: list or tuple of LArray, ndarray
+        data: list or tuple of Array, ndarray
             Arrays to compare.
         title: str
             Title.
@@ -188,14 +189,14 @@ class ArrayComparator(AbstractEditor):
           * bg_gradient: str
           * names: list of str
         """
-        arrays = [aslarray(array) for array in data if isinstance(array, DISPLAY_IN_GRID)]
+        arrays = [la.asarray(array) for array in data if isinstance(array, DISPLAY_IN_GRID)]
         names = kwargs.get('names', ["Array{}".format(i) for i in range(len(arrays))])
 
         layout = QVBoxLayout()
         widget.setLayout(layout)
 
         comparator_widget = ComparatorWidget(self, **kwargs)
-        comparator_widget.set_data(arrays, Axis(names, 'array'))
+        comparator_widget.set_data(arrays, la.Axis(names, 'array'))
         layout.addWidget(comparator_widget)
 
 
@@ -237,9 +238,9 @@ class SessionComparator(AbstractEditor):
         sessions = data
         names = kwargs.get('names', ["Session{}".format(i) for i in range(len(sessions))])
 
-        assert all(isinstance(s, Session) for s in sessions)
+        assert all(isinstance(s, la.Session) for s in sessions)
         self.sessions = sessions
-        self.stack_axis = Axis(names, 'session')
+        self.stack_axis = la.Axis(names, 'session')
 
         layout = QVBoxLayout()
         widget.setLayout(layout)
@@ -268,7 +269,7 @@ class SessionComparator(AbstractEditor):
         self.listwidget.setCurrentRow(0)
 
     def get_arrays(self, name):
-        return [aslarray(s.get(name, nan)) for s in self.sessions]
+        return [la.asarray(s.get(name, np.nan)) for s in self.sessions]
 
     def on_item_changed(self, curr, prev):
         arrays = self.get_arrays(str(curr.text()))

@@ -430,7 +430,7 @@ class AbstractAdapter(object):
 
 
 @register_adapter(np.ndarray)
-@register_adapter(la.LArray)
+@register_adapter(la.Array)
 class LArrayDataAdapter(AbstractAdapter):
     def __init__(self, data, bg_value):
         AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
@@ -447,7 +447,7 @@ class LArrayDataAdapter(AbstractAdapter):
     def filter_data(self, data, filter):
         if data is None:
             return data
-        assert isinstance(data, la.LArray)
+        assert isinstance(data, la.Array)
         if filter is None:
             return data
         else:
@@ -456,9 +456,9 @@ class LArrayDataAdapter(AbstractAdapter):
             return la.aslarray(data) if np.isscalar(data) else data
 
     def get_axes(self, data):
-        assert isinstance(data, la.LArray)
+        assert isinstance(data, la.Array)
         axes = data.axes
-        # test data.size == 0 is required in case an instance built as LArray([]) is passed
+        # test data.size == 0 is required in case an instance built as Array([]) is passed
         # test len(axes) == 0 is required when a user filters until to get a scalar
         if data.size == 0 or len(axes) == 0:
             return []
@@ -466,17 +466,17 @@ class LArrayDataAdapter(AbstractAdapter):
             return [Axis(axes.axis_id(axis), name, axis.labels) for axis, name in zip(axes, axes.display_names)]
 
     def _get_raw_data(self, data):
-        assert isinstance(data, la.LArray)
+        assert isinstance(data, la.Array)
         return data.data
 
     def _get_bg_value(self, bg_value):
         if bg_value is not None:
-            assert isinstance(bg_value, la.LArray)
+            assert isinstance(bg_value, la.Array)
             return bg_value.data
         else:
             return bg_value
 
-    # TODO: update this method the day LArray objects will also handle MultiIndex-like axes.
+    # TODO: update this method the day Array objects will also handle MultiIndex-like axes.
     def _from_selection(self, raw_data, axes_names, vlabels, hlabels):
         if '\\' in axes_names[-1]:
             axes_names = axes_names[:-1] + axes_names[-1].split('\\')
@@ -494,15 +494,15 @@ class LArrayDataAdapter(AbstractAdapter):
             raw_data = raw_data[0]
         # last axis
         axes += [la.Axis(hlabels, axes_names[-1])]
-        return la.LArray(raw_data, axes)
+        return la.Array(raw_data, axes)
 
     def move_axis(self, data, bg_value, old_index, new_index):
-        assert isinstance(data, la.LArray)
+        assert isinstance(data, la.Array)
         new_axes = data.axes.copy()
         new_axes.insert(new_index, new_axes.pop(new_axes[old_index]))
         data = data.transpose(new_axes)
         if bg_value is not None:
-            assert isinstance(bg_value, la.LArray)
+            assert isinstance(bg_value, la.Array)
             bg_value = bg_value.transpose(new_axes)
         return data, bg_value
 

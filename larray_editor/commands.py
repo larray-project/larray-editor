@@ -101,7 +101,7 @@ class EditCurrentArrayCommand(EditArrayCommand):
     ----------
     editor : ArrayEditor
         Instance of ArrayEditor
-    target : LArray
+    target : Array
         array to edit
     changes : (list of) instance(s) of ArrayValueChange
         List of changes
