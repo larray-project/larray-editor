@@ -1,4 +1,4 @@
-﻿.. py:currentmodule:: larray_editor
+.. py:currentmodule:: larray_editor
 
 Syntax changes
 ^^^^^^^^^^^^^^
@@ -38,4 +38,4 @@ Miscellaneous improvements
 Fixes
 ^^^^^
 
-* fixed something (closes :editor_issue:`1`).
+* fixed spurious warning in the console when an expression results in an empty sequence (array, list, tuple).
