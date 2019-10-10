@@ -99,7 +99,7 @@ def make_demo(width=20, ball_radius=5, path_radius=5, steps=30):
 
 demo = make_demo(9, 2.5, 1.5)
 sphere = make_sphere(9, 4)
-extreme_array = la.Array([-np.inf, -1, 0, np.nan, 1, np.inf])
+extreme_array = la.Array([-la.inf, -1, 0, la.nan, 1, la.inf])
 scalar = la.Array(0)
 arr_empty = la.Array([])
 arr_obj = la.ndtest((2, 3)).astype(object)
@@ -162,8 +162,8 @@ compare(arr1, arr2, atol=0.5)
 compare(arr1, arr2, rtol=0.3)
 
 arr2 = la.where(arr2 > 1, arr1, -arr1)
-arr1['M'] = np.nan
-arr2['M'] = np.nan
+arr1['M'] = la.nan
+arr2['M'] = la.nan
 compare(arr1, arr2, nans_equal=False)
 
 arr1 = la.ndtest((3, 3))

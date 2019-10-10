@@ -137,7 +137,7 @@ class ComparatorWidget(QWidget):
                 self.bg_value = la.full_like(self.array, 0.5)
         except TypeError:
             # str/object array
-            maxabsreldiff = np.nan
+            maxabsreldiff = la.nan
             self.bg_value = la.full_like(self.array, 0.5)
 
         self.maxdiff_label.setText(str(maxabsreldiff))
@@ -269,7 +269,7 @@ class SessionComparator(AbstractEditor):
         self.listwidget.setCurrentRow(0)
 
     def get_arrays(self, name):
-        return [la.asarray(s.get(name, np.nan)) for s in self.sessions]
+        return [la.asarray(s.get(name, la.nan)) for s in self.sessions]
 
     def on_item_changed(self, curr, prev):
         arrays = self.get_arrays(str(curr.text()))
