@@ -361,7 +361,7 @@ class MappingEditor(AbstractEditor):
 
         self.setup_menu_bar()
 
-    def _setup_and_check(self, widget, data, title, readonly, stack_pos=None):
+    def _setup_and_check(self, widget, data, title, readonly, stack_pos=None, add_larray_functions=False):
         """Setup MappingEditor"""
         layout = QVBoxLayout()
         widget.setLayout(layout)
@@ -385,9 +385,8 @@ class MappingEditor(AbstractEditor):
             kernel_manager.start_kernel(show_banner=False)
             kernel = kernel_manager.kernel
 
-            # TODO: use self._reset() instead
-            # FIXME: when using the editor as a debugger this is annoying
-            kernel.shell.run_cell('from larray import *')
+            if add_larray_functions:
+                kernel.shell.run_cell('from larray import *')
             kernel.shell.push({
                 '__editor__': self
             })
@@ -520,7 +519,6 @@ class MappingEditor(AbstractEditor):
         self.edit_undo_stack.clear()
         if qtconsole_available:
             self.kernel.shell.reset()
-            self.kernel.shell.run_cell('from larray import *')
             self.ipython_cell_executed()
         else:
             self.eval_box.setText('None')
