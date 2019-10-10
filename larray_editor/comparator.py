@@ -62,15 +62,6 @@ class ComparatorWidget(QWidget):
 
         self.arraywidget.btn_layout.addLayout(tolerance_layout)
 
-        if rtol > 0 and atol > 0:
-            raise ValueError("Arguments 'rtol' and 'atol' cannot be used together.")
-        if rtol > 0:
-            self.tolerance_combobox.setCurrentText("relative")
-            self.tolerance_line_edit.setText(str(rtol))
-        if atol > 0:
-            self.tolerance_combobox.setCurrentText("absolute")
-            self.tolerance_line_edit.setText(str(atol))
-
         self.nans_equal = nans_equal
 
         # add local arraywidget to layout
@@ -82,6 +73,15 @@ class ComparatorWidget(QWidget):
         self.isequal = None
         self.bg_value = None
         self.stack_axis = None
+
+        if rtol > 0 and atol > 0:
+            raise ValueError("Arguments 'rtol' and 'atol' cannot be used together.")
+        if rtol > 0:
+            self.tolerance_combobox.setCurrentText("relative")
+            self.tolerance_line_edit.setText(str(rtol))
+        if atol > 0:
+            self.tolerance_combobox.setCurrentText("absolute")
+            self.tolerance_line_edit.setText(str(atol))
 
     # override keyPressEvent to prevent pressing Enter after changing the tolerance value
     # in associated QLineEdit to close the parent dialog box
@@ -111,6 +111,9 @@ class ComparatorWidget(QWidget):
         self.update_isequal()
 
     def update_isequal(self):
+        if self.array is None:
+            return
+
         try:
             tol_str = self.tolerance_line_edit.text()
             tol = ast.literal_eval(tol_str) if tol_str else 0
