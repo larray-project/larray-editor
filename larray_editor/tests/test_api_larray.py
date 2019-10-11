@@ -97,7 +97,7 @@ def make_demo(width=20, ball_radius=5, path_radius=5, steps=30):
 demo = make_demo(9, 2.5, 1.5)
 sphere = make_sphere(9, 4)
 extreme_array = la.Array([-la.inf, -1, 0, la.nan, 1, la.inf])
-scalar = la.Array(0)
+array_scalar = la.Array(0)
 arr_empty = la.Array([])
 arr_empty_2d = la.Array([[], []])
 arr_obj = la.ndtest((2, 3)).astype(object)
