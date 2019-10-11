@@ -731,9 +731,6 @@ class ArrayEditorWidget(QWidget):
         else:
             event.ignore()
 
-    def _reset_minmax(self):
-        self.model_data.reset_minmax()
-
     def _update_models(self, reset_model_data, reset_minmax):
         # axes names
         axes_names = self.data_adapter.get_axes_names(fold_last_axis=True)
@@ -754,7 +751,7 @@ class ArrayEditorWidget(QWidget):
         self.model_data.set_bg_value(bg_value, reset=False)
         # reset min and max values if required
         if reset_minmax:
-            self._reset_minmax()
+            self.model_data.reset_minmax()
         # reset the data model if required
         if reset_model_data:
             self.model_data.reset()
