@@ -365,6 +365,10 @@ class MappingEditor(AbstractEditor):
             # TODO: use self._reset() instead
             # FIXME: when using the editor as a debugger this is annoying
             kernel.shell.run_cell('from larray import *')
+            kernel.shell.push({
+                '__editor__': self
+            })
+
             text_formatter = kernel.shell.display_formatter.formatters['text/plain']
 
             def void_formatter(array, *args, **kwargs):
