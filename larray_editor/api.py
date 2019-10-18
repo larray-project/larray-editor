@@ -16,8 +16,16 @@ from larray_editor.traceback_tools import extract_stack, extract_tb, StackSummar
 __all__ = ['view', 'edit', 'debug', 'compare', 'REOPEN_LAST_FILE', 'run_editor_on_exception']
 
 
-def qapplication():
-    return QApplication(sys.argv)
+def get_app_and_window(app_name):
+    _app = QApplication.instance()
+    if _app is None:
+        _app = QApplication(sys.argv)
+        _app.setOrganizationName("LArray")
+        _app.setApplicationName(app_name)
+        parent = None
+    else:
+        parent = _app.activeWindow()
+    return _app, parent
 
 
 def find_names(obj, depth=0):
@@ -110,14 +118,7 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     orig_except_hook = sys.excepthook
     sys.excepthook = _qt_except_hook
 
-    _app = QApplication.instance()
-    if _app is None:
-        _app = qapplication()
-        _app.setOrganizationName("LArray")
-        _app.setApplicationName("Viewer")
-        parent = None
-    else:
-        parent = _app.activeWindow()
+    _app, parent = get_app_and_window("Viewer")
 
     caller_frame = sys._getframe(depth + 1)
     if display_caller_info:
@@ -192,14 +193,7 @@ def _debug(stack_summary, stack_pos=None):
     orig_except_hook = sys.excepthook
     sys.excepthook = _qt_except_hook
 
-    _app = QApplication.instance()
-    if _app is None:
-        _app = qapplication()
-        _app.setOrganizationName("LArray")
-        _app.setApplicationName("Debugger")
-        parent = None
-    else:
-        parent = _app.activeWindow()
+    _app, parent = get_app_and_window("Debugger")
 
     assert isinstance(stack_summary, StackSummary)
     dlg = MappingEditor(parent)
@@ -276,14 +270,7 @@ def compare(*args, **kwargs):
     depth = kwargs.pop('depth', 0)
     display_caller_info = kwargs.pop('display_caller_info', True)
 
-    _app = QApplication.instance()
-    if _app is None:
-        _app = qapplication()
-        _app.setOrganizationName("LArray")
-        _app.setApplicationName("Viewer")
-        parent = None
-    else:
-        parent = _app.activeWindow()
+    _app, parent = get_app_and_window("Viewer")
 
     caller_frame = sys._getframe(depth + 1)
     if display_caller_info:
