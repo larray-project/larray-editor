@@ -431,7 +431,7 @@ class AbstractAdapter(object):
 
 @register_adapter(np.ndarray)
 @register_adapter(la.Array)
-class LArrayDataAdapter(AbstractAdapter):
+class ArrayDataAdapter(AbstractAdapter):
     def __init__(self, data, bg_value):
         AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
         self.ndim = data.ndim
@@ -439,10 +439,10 @@ class LArrayDataAdapter(AbstractAdapter):
         self.dtype = data.dtype
 
     def prepare_data(self, data):
-        return la.aslarray(data)
+        return la.asarray(data)
 
     def prepare_bg_value(self, bg_value):
-        return la.aslarray(bg_value) if bg_value is not None else None
+        return la.asarray(bg_value) if bg_value is not None else None
 
     def filter_data(self, data, filter):
         if data is None:
@@ -453,7 +453,7 @@ class LArrayDataAdapter(AbstractAdapter):
         else:
             assert isinstance(filter, dict)
             data = data[filter]
-            return la.aslarray(data) if np.isscalar(data) else data
+            return la.asarray(data) if np.isscalar(data) else data
 
     def get_axes(self, data):
         assert isinstance(data, la.Array)
