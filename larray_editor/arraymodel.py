@@ -2,7 +2,7 @@ from os.path import basename
 import logging
 from inspect import stack
 import numpy as np
-from larray_editor.utils import (get_font, from_qvariant, to_qvariant, to_text_string,
+from larray_editor.utils import (get_font, to_text_string,
                                  is_float, is_number, LinearGradient, SUPPORTED_FORMATS, scale_to_01range,
                                  Product, is_number_value, get_sample, get_sample_indices, logger)
 from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel, Signal
@@ -101,7 +101,7 @@ class AbstractArrayModel(QAbstractTableModel):
         raise NotImplementedError()
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
-        return to_qvariant()
+        return None
 
     def data(self, index, role=Qt.DisplayRole):
         raise NotImplementedError()
@@ -157,10 +157,10 @@ class AxesArrayModel(AbstractArrayModel):
 
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid():
-            return to_qvariant()
+            return None
 
         if role == Qt.TextAlignmentRole:
-            return to_qvariant(int(Qt.AlignCenter | Qt.AlignVCenter))
+            return int(Qt.AlignCenter | Qt.AlignVCenter)
         elif role == Qt.FontRole:
             return self.font
         elif role == Qt.BackgroundColorRole:
@@ -168,12 +168,11 @@ class AxesArrayModel(AbstractArrayModel):
             color.setAlphaF(.4)
             return color
         elif role == Qt.DisplayRole:
-            value = self.get_value(index)
-            return to_qvariant(value)
-        elif role == Qt.ToolTipRole:
-            return to_qvariant()
+            return self.get_value(index)
+        # elif role == Qt.ToolTipRole:
+        #     return None
         else:
-            return to_qvariant()
+            return None
 
 
 class LabelsArrayModel(AbstractArrayModel):
@@ -223,10 +222,10 @@ class LabelsArrayModel(AbstractArrayModel):
 
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid():
-            return to_qvariant()
+            return None
 
         if role == Qt.TextAlignmentRole:
-            return to_qvariant(int(Qt.AlignCenter | Qt.AlignVCenter))
+            return int(Qt.AlignCenter | Qt.AlignVCenter)
         elif role == Qt.FontRole:
             return self.font
         elif role == Qt.BackgroundColorRole:
@@ -234,12 +233,11 @@ class LabelsArrayModel(AbstractArrayModel):
             color.setAlphaF(.4)
             return color
         elif role == Qt.DisplayRole:
-            value = self.get_value(index)
-            return to_qvariant(value)
-        elif role == Qt.ToolTipRole:
-            return to_qvariant()
+            return self.get_value(index)
+        # elif role == Qt.ToolTipRole:
+        #     return None
         else:
-            return to_qvariant()
+            return None
 
 
 class DataArrayModel(AbstractArrayModel):
@@ -375,14 +373,14 @@ class DataArrayModel(AbstractArrayModel):
     def data(self, index, role=Qt.DisplayRole):
         """Cell content"""
         if not index.isValid():
-            return to_qvariant()
+            return None
         # if role == Qt.DecorationRole:
         #     return ima.icon('editcopy')
         # if role == Qt.DisplayRole:
         #     return ""
 
         if role == Qt.TextAlignmentRole:
-            return to_qvariant(int(Qt.AlignRight | Qt.AlignVCenter))
+            return int(Qt.AlignRight | Qt.AlignVCenter)
         elif role == Qt.FontRole:
             return self.font
 
@@ -394,7 +392,7 @@ class DataArrayModel(AbstractArrayModel):
             elif isinstance(value, str) and not isinstance(value, np.str_):
                 return value
             else:
-                return to_qvariant(self._format % value)
+                return self._format % value
         elif role == Qt.BackgroundColorRole:
             if self.bgcolor_possible and self.bg_gradient is not None and value is not np.ma.masked:
                 if self.bg_value is None:
@@ -418,8 +416,8 @@ class DataArrayModel(AbstractArrayModel):
                     v = self.bg_value[i, j]
                 return self.bg_gradient[v]
         # elif role == Qt.ToolTipRole:
-        #     return to_qvariant("{}\n{}".format(repr(value),self.get_labels(index)))
-        return to_qvariant()
+        #     return "{}\n{}".format(repr(value),self.get_labels(index))
+        return None
 
     def get_values(self, left=0, top=0, right=None, bottom=None, sample=False):
         width, height = self.total_rows, self.total_cols
@@ -567,5 +565,5 @@ class DataArrayModel(AbstractArrayModel):
         if not index.isValid() or self.readonly:
             return False
         i, j = index.row(), index.column()
-        result = self.set_values(i, j, i + 1, j + 1, from_qvariant(value, str))
+        result = self.set_values(i, j, i + 1, j + 1, value)
         return result is not None

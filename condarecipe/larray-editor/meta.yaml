@@ -27,7 +27,7 @@ requirements:
     - larray >=0.32
     - matplotlib
     - ipykernel !=5.0, !=5.1
-    - pyqt
+    - pyqt >=4.6  # for API v2
     - qtpy
 
 test:

@@ -11,7 +11,7 @@ except TypeError:
     pass
 
 from qtpy import PYQT5
-from qtpy.QtCore import Qt, QVariant, QSettings
+from qtpy.QtCore import Qt, QSettings
 from qtpy.QtGui import QIcon, QColor, QFont, QKeySequence, QLinearGradient
 from qtpy.QtWidgets import QAction, QDialog, QVBoxLayout
 
@@ -140,7 +140,7 @@ def _get_font(family, size, bold=False, italic=False):
     font = QFont(family, size, weight)
     if italic:
         font.setItalic(True)
-    return to_qvariant(font)
+    return font
 
 
 def is_float(dtype):
@@ -155,18 +155,6 @@ def is_number(dtype):
 
 def get_font(section):
     return _get_font('Calibri', 11)
-
-
-def to_qvariant(obj=None):
-    return obj
-
-
-def from_qvariant(qobj=None, pytype=None):
-    # FIXME: force API level 2 instead of handling this
-    if isinstance(qobj, QVariant):
-        assert pytype is str
-        return pytype(qobj.toString())
-    return qobj
 
 
 def _(text):
@@ -297,7 +285,7 @@ class LinearGradient(object):
         col0, col1 = self.colors[pos_idx:pos_idx + 2]
         assert pos1 > pos0
         color = col0 + (col1 - col0) * (key - pos0) / (pos1 - pos0)
-        return to_qvariant(QColor.fromHsvF(*color))
+        return QColor.fromHsvF(*color)
 
 
 class PlotDialog(QDialog):

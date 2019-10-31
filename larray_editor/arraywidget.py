@@ -78,8 +78,7 @@ from qtpy.QtWidgets import (QApplication, QTableView, QItemDelegate, QLineEdit, 
                             QMessageBox, QMenu, QLabel, QSpinBox, QWidget, QToolTip, QShortcut, QScrollBar,
                             QHBoxLayout, QVBoxLayout, QGridLayout, QSizePolicy, QFrame, QComboBox)
 
-from larray_editor.utils import (keybinding, create_action, clear_layout, get_font, from_qvariant, to_qvariant,
-                                 is_number, is_float, _, ima, LinearGradient)
+from larray_editor.utils import (keybinding, create_action, clear_layout, get_font, is_number, is_float, _, ima, LinearGradient)
 from larray_editor.arrayadapter import get_adapter
 from larray_editor.arraymodel import LabelsArrayModel, AxesArrayModel, DataArrayModel
 from larray_editor.combo import FilterComboBox
@@ -232,7 +231,7 @@ class ArrayDelegate(QItemDelegate):
         if self.dtype.name == "bool":
             # toggle value
             value = not value
-            model.setData(index, to_qvariant(value))
+            model.setData(index, value)
             return
         elif value is not np.ma.masked:
             minvalue, maxvalue = self.minvalue, self.maxvalue
@@ -279,7 +278,7 @@ class ArrayDelegate(QItemDelegate):
 
     def setEditorData(self, editor, index):
         """Set editor widget's data"""
-        text = from_qvariant(index.model().data(index, Qt.DisplayRole), str)
+        text = index.model().data(index, Qt.DisplayRole)
         editor.setText(text)
 
 
