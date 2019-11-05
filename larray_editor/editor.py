@@ -45,6 +45,7 @@ except ImportError:
 from larray_editor.traceback_tools import StackSummary
 from larray_editor.utils import (_, create_action, show_figure, ima, commonpath, dependencies,
                                  get_versions, get_documentation_url, urls, RecentlyUsedList)
+# from larray_editor.utils import FigureCanvas, NavigationToolbar
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor.arrayadapter import get_adapter_creator
 from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayCommand
@@ -754,6 +755,22 @@ class MappingEditor(AbstractEditor):
                         else:
                             first_output = cur_output
                         if isinstance(first_output, matplotlib.axes.Subplot):
+                            # figure = cur_output.figure
+                            #
+                            # canvas = FigureCanvas(figure)
+                            # toolbar = NavigationToolbar(canvas, parent=self)
+                            # layout = QVBoxLayout()
+                            # layout.addWidget(toolbar)
+                            # layout.addWidget(canvas)
+                            #
+                            # # you cant add a layout directly in a splitter, so we have to wrap it in a widget
+                            # widget = QWidget()
+                            # widget.setLayout(layout)
+                            #
+                            # # FIXME: this is a hack!
+                            # splitter = self.widget_state_settings['right_panel_widget']
+                            # assert isinstance(splitter, QSplitter)
+                            # splitter.replaceWidget(0, widget)
                             show_figure(self, first_output.figure, last_input)
 
                     if self._display_in_grid('<expr>', cur_output):
