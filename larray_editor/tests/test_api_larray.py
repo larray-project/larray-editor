@@ -70,7 +70,7 @@ arr6 = arr3.mean(sex)
 
 # test isssue #35
 arr7 = la.from_lists([['a',                   1,                    2,                    3],
-                   [ '', 1664780726569649730, -9196963249083393206, -7664327348053294350]])
+                      [ '', 1664780726569649730, -9196963249083393206, -7664327348053294350]])
 
 
 def make_circle(width=20, radius=9):
@@ -98,6 +98,7 @@ demo = make_demo(9, 2.5, 1.5)
 sphere = make_sphere(9, 4)
 extreme_array = la.Array([-la.inf, -1, 0, la.nan, 1, la.inf])
 array_scalar = la.Array(0)
+arr_all_nan = la.Array([la.nan, la.nan])
 arr_empty = la.Array([])
 arr_empty_2d = la.Array([[], []])
 arr_obj = la.ndtest((2, 3)).astype(object)

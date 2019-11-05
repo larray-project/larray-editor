@@ -524,7 +524,7 @@ def scale_to_01range(value, vmin, vmax):
     array([ 0. ,  1. ,  0.5,  0. ,  0.1,  1. ])
     """
     if hasattr(value, 'shape') and value.shape:
-        if vmin == vmax:
+        if (np.isnan(vmin) and np.isnan(vmax)) or (vmin == vmax):
             return np.where(np.isnan(value), np.nan, 0)
         else:
             assert vmin < vmax
