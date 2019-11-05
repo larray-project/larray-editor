@@ -327,8 +327,13 @@ class DataArrayModel(AbstractArrayModel):
                 color_value = color_value.astype(float)
             # ignore nan, -inf, inf (setting them to 0 or to very large numbers is not an option)
             color_value = color_value[np.isfinite(color_value)]
-            self.vmin = float(np.min(color_value))
-            self.vmax = float(np.max(color_value))
+            if color_value.size:
+                self.vmin = float(np.min(color_value))
+                self.vmax = float(np.max(color_value))
+            else:
+                self.vmin = np.nan
+                self.vmax = np.nan
+
             self.bgcolor_possible = True
         # ValueError for empty arrays, TypeError for object/string arrays
         except (TypeError, ValueError):
@@ -398,16 +403,23 @@ class DataArrayModel(AbstractArrayModel):
                 if self.bg_value is None:
                     try:
                         v = self.color_func(value) if self.color_func is not None else value
-                        if -np.inf < v < self.vmin:
-                            # TODO: this is suboptimal, as it can reset many times (though in practice, it is usually
-                            #       ok). When we get buffering, we will need to compute vmin/vmax on the whole buffer
-                            #       at once, eliminating this problem (and we could even compute final colors directly
-                            #       all at once)
-                            self.vmin = v
-                            self.reset()
-                        elif self.vmax < v < np.inf:
-                            self.vmax = v
-                            self.reset()
+                        if np.isnan(v):
+                            v = np.nan
+                        else:
+                            do_reset = False
+                            if np.isnan(self.vmin) or -np.inf < v < self.vmin:
+                                # TODO: this is suboptimal, as it can reset many times (though in practice, it is
+                                #       usually ok). When we get buffering, we will need to compute vmin/vmax on the
+                                #       whole buffer at once, eliminating this problem (and we could even compute final
+                                #       colors directly all at once)
+                                self.vmin = v
+                                do_reset = True
+                            if np.isnan(self.vmax) or self.vmax < v < np.inf:
+                                self.vmax = v
+                                do_reset = True
+
+                            if do_reset:
+                                self.reset()
                         v = scale_to_01range(v, self.vmin, self.vmax)
                     except TypeError:
                         v = np.nan

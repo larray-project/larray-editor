@@ -271,7 +271,7 @@ class LinearGradient(object):
         Parameters
         ----------
         key : float
-            must be between 0 and 1
+            must be between 0 and 1 to return a color from the gradient. Otherwise, will return nan_color.
 
         Returns
         -------
@@ -488,10 +488,10 @@ def scale_to_01range(value, vmin, vmax):
         Value to scale.
     vmin : any numeric type
         Minimum used to do the scaling. This is the minimum value that is valid for value, *excluding -inf*.
-        vmin must be <= vmax.
+        vmin must be <= vmax. vmin and vmax can be `nan`, in which case scale_to_01range will return `nan`.
     vmax : any numeric type
         Maximum used to do the scaling. This is the maximum value that is valid for value, *excluding +inf*.
-        vmax must be >= vmin.
+        vmax must be >= vmin. vmin and vmax can be `nan`, in which case scale_to_01range will return `nan`.
 
     Returns
     -------
@@ -515,7 +515,7 @@ def scale_to_01range(value, vmin, vmax):
     array([ 0. ,  1. ,  0.5,  0. ,  0.1,  1. ])
     """
     if hasattr(value, 'shape') and value.shape:
-        if (np.isnan(vmin) and np.isnan(vmax)) or (vmin == vmax):
+        if np.isnan(vmin) or np.isnan(vmax) or (vmin == vmax):
             return np.where(np.isnan(value), np.nan, 0)
         else:
             assert vmin < vmax
@@ -531,7 +531,7 @@ def scale_to_01range(value, vmin, vmax):
             return 0.0
         elif value == +np.inf:
             return 1.0
-        elif vmin == vmax:
+        elif np.isnan(vmin) or np.isnan(vmax) or (vmin == vmax):
             return 0.0
         else:
             assert vmin < vmax
