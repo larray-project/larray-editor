@@ -227,44 +227,47 @@ class ArrayDelegate(QItemDelegate):
     def createEditor(self, parent, option, index):
         """Create editor widget"""
         model = index.model()
-        # TODO: dtype should be taken from the model instead (or even from the actual value?)
+        # TODO: dtype should be taken from the adapter instead. Only the adapter knows whether the dtype is per cell
+        #  (e.g. list), per column (e.g. Dataframe) or homogenous for the whole table (e.g. la.Array)
+        # dtype = model.adapter.get_dtype(hpos, vpos)
+        dtype = self.dtype
         value = model.get_value(index)
-        if self.dtype.name == "bool":
+        if dtype.name == "bool":
             # toggle value
             value = not value
             model.setData(index, value)
             return
         elif value is not np.ma.masked:
-            minvalue, maxvalue = self.minvalue, self.maxvalue
-            if minvalue is not None and maxvalue is not None:
-                msg = f"value must be between {minvalue} and {maxvalue}"
-            elif minvalue is not None:
-                msg = f"value must be >= {minvalue}"
-            elif maxvalue is not None:
-                msg = f"value must be <= {maxvalue}"
-            else:
-                msg = None
-
             # Not using a QSpinBox for integer inputs because I could not find
             # a way to prevent the spinbox/editor from closing if the value is
             # invalid. Using the builtin minimum/maximum of the spinbox works
             # but that provides no message so it is less clear.
             editor = QLineEdit(parent)
-            if is_number(self.dtype):
-                validator = QDoubleValidator(editor) if is_float(self.dtype) \
-                    else QIntValidator(editor)
+            if is_number(dtype):
+                minvalue, maxvalue = self.minvalue, self.maxvalue
+                validator = QDoubleValidator(editor) if is_float(dtype) else QIntValidator(editor)
                 if minvalue is not None:
                     validator.setBottom(minvalue)
                 if maxvalue is not None:
                     validator.setTop(maxvalue)
                 editor.setValidator(validator)
 
-                def on_editor_text_edited():
-                    if not editor.hasAcceptableInput():
-                        QToolTip.showText(editor.mapToGlobal(QPoint()), msg)
-                    else:
-                        QToolTip.hideText()
+                if minvalue is not None and maxvalue is not None:
+                    msg = f"value must be between {minvalue} and {maxvalue}"
+                elif minvalue is not None:
+                    msg = f"value must be >= {minvalue}"
+                elif maxvalue is not None:
+                    msg = f"value must be <= {maxvalue}"
+                else:
+                    msg = None
+
                 if msg is not None:
+                    def on_editor_text_edited():
+                        if not editor.hasAcceptableInput():
+                            QToolTip.showText(editor.mapToGlobal(QPoint()), msg)
+                        else:
+                            QToolTip.hideText()
+
                     editor.textEdited.connect(on_editor_text_edited)
 
             editor.setFont(self.font)
