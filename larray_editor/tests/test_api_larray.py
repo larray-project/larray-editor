@@ -99,6 +99,10 @@ sphere = make_sphere(9, 4)
 extreme_array = la.Array([-la.inf, -1, 0, la.nan, 1, la.inf])
 array_scalar = la.Array(0)
 arr_all_nan = la.Array([la.nan, la.nan])
+# this is crafted so that the entire 500 points sample is all nan but
+# other values need coloring
+arr_full_buffer_nan_should_not_be_all_white = la.ndtest(1000, dtype=float)
+arr_full_buffer_nan_should_not_be_all_white['a0'::2] = la.nan
 arr_empty = la.Array([])
 arr_empty_2d = la.Array([[], []])
 arr_obj = la.ndtest((2, 3)).astype(object)
