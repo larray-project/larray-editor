@@ -10,17 +10,11 @@ New features
 Miscellaneous improvements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+* Sizes of the main window and the resizable components are saved when closing the viewer and restored
+  when it is reopened (closes :editor_issue:`165`).
+
 * added keyword arguments ``rtol``, ``atol`` and ``nans_equal`` to the :py:obj:`compare()` function
   (closes :editor_issue:`172`).
 
-* Sizes of the main window and the resizable components are saved when closing the viewer and restored
-  when the viewer is reopened (closes :editor_issue:`165`).
-
 * :py:obj:`run_editor_on_exception()` now uses :py:obj:`debug()` so that one can inspect what the state was in all
   functions traversed to reach the code which triggered the exception.
-
-
-Fixes
-^^^^^
-
-* fixed something (closes :editor_issue:`1`).
