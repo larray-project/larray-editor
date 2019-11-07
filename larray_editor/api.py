@@ -12,19 +12,51 @@ from larray_editor.traceback_tools import extract_stack, extract_tb, StackSummar
 __all__ = ['view', 'edit', 'debug', 'compare', 'REOPEN_LAST_FILE', 'run_editor_on_exception']
 
 
-def get_app_and_window(app_name):
+def _show_dialog(app_name, create_dialog_func, *args, **kwargs):
+    """Show dialog created by `create_dialog_func`
+
+    Use either the existing QApplication if any, otherwise a new QApplication.
+
+    Parameters
+    ----------
+    app_name : str
+        Application name when creating a new one.
+    create_dialog_func : function
+        The function which creates the dialog.
+    """
     qt_app = QApplication.instance()
-    if qt_app is None:
+    new_app = qt_app is None
+    if new_app:
         qt_app = QApplication(sys.argv)
         qt_app.setOrganizationName("LArray")
         qt_app.setApplicationName(app_name)
         parent = None
     else:
         parent = qt_app.activeWindow()
-    return qt_app, parent
+
+    if 'depth' in kwargs:
+        kwargs['depth'] += 1
+
+    dlg = create_dialog_func(parent, *args, **kwargs)
+    if dlg is None:
+        raise RuntimeError('Could not create dialog')
+
+    dlg.show()
+    if new_app:
+        # We do not use install_except_hook/restore_except_hook so that we can restore the hook actually used when
+        # this function is called instead of the one which was used when the module was loaded.
+
+        # Note there is no point in changing the except hook when we have an existing QApplication given that
+        # in that case the function does not block
+        orig_except_hook = sys.excepthook
+        sys.excepthook = _qt_except_hook
+
+        qt_app.exec_()
+
+        sys.excepthook = orig_except_hook
 
 
-def find_names(obj, depth=0):
+def _find_names(obj, depth=0):
     """Return all names an object is bound to.
 
     Parameters
@@ -49,7 +81,7 @@ def find_names(obj, depth=0):
     return sorted(names)
 
 
-def get_title(obj, depth=0, maxnames=3):
+def _get_title(obj, depth=0, maxnames=3):
     """Return a title for an object (a combination of the names it is bound to).
 
     Parameters
@@ -65,12 +97,47 @@ def get_title(obj, depth=0, maxnames=3):
     str
         title for obj. This can be '' if we computed an array just to view it.
     """
-    names = find_names(obj, depth=depth + 1)
+    names = _find_names(obj, depth=depth + 1)
     # names can be == []
     # eg. view(arr['M'])
     if len(names) > maxnames:
         names = names[:maxnames] + ['...']
     return ', '.join(names)
+
+
+def _edit_dialog(parent, obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0,
+                 display_caller_info=True, add_larray_functions=None):
+    caller_frame = sys._getframe(depth + 1)
+    caller_info = getframeinfo(caller_frame) if display_caller_info else None
+    if add_larray_functions is None:
+        add_larray_functions = obj is not None
+
+    if obj is None:
+        global_vars = caller_frame.f_globals
+        local_vars = caller_frame.f_locals
+        obj = {k: global_vars[k] for k in sorted(global_vars.keys())}
+        if local_vars is not global_vars:
+            obj.update({k: local_vars[k] for k in sorted(local_vars.keys())})
+
+    if not isinstance(obj, (la.Session, la.Array)) and hasattr(obj, 'keys'):
+        obj = la.Session(obj)
+
+    if not title and obj is not REOPEN_LAST_FILE:
+        title = _get_title(obj, depth=depth + 1)
+
+    if obj is REOPEN_LAST_FILE or isinstance(obj, (str, la.Session)):
+        dlg = MappingEditor(parent)
+        assert minvalue is None and maxvalue is None
+        setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, caller_info=caller_info,
+                                       add_larray_functions=add_larray_functions)
+    else:
+        dlg = ArrayEditor(parent)
+        setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, caller_info=caller_info,
+                                       minvalue=minvalue, maxvalue=maxvalue)
+    if setup_ok:
+        return dlg
+    else:
+        return None
 
 
 def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0, display_caller_info=True,
@@ -113,46 +180,8 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     >>> # will open an editor for a1 only
     >>> edit(a1)                                                                                       # doctest: +SKIP
     """
-    # we don't use install_except_hook/restore_except_hook so that we can restore the hook actually used when
-    # this function is called instead of the one which was used when the module was loaded.
-    orig_except_hook = sys.excepthook
-    sys.excepthook = _qt_except_hook
-
-    qt_app, parent = get_app_and_window("Viewer")
-
-    caller_frame = sys._getframe(depth + 1)
-    caller_info = getframeinfo(caller_frame) if display_caller_info else None
-    if add_larray_functions is None:
-        add_larray_functions = obj is not None
-
-    if obj is None:
-        global_vars = caller_frame.f_globals
-        local_vars = caller_frame.f_locals
-        obj = {k: global_vars[k] for k in sorted(global_vars.keys())}
-        if local_vars is not global_vars:
-            obj.update({k: local_vars[k] for k in sorted(local_vars.keys())})
-
-    if not isinstance(obj, (la.Session, la.Array)) and hasattr(obj, 'keys'):
-        obj = la.Session(obj)
-
-    if not title and obj is not REOPEN_LAST_FILE:
-        title = get_title(obj, depth=depth + 1)
-
-    if obj is REOPEN_LAST_FILE or isinstance(obj, (str, la.Session)):
-        dlg = MappingEditor(parent)
-        assert minvalue is None and maxvalue is None
-        setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, caller_info=caller_info,
-                                       add_larray_functions=add_larray_functions)
-    else:
-        dlg = ArrayEditor(parent)
-        setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue,
-                                       caller_info=caller_info)
-
-    if setup_ok:
-        dlg.show()
-        qt_app.exec_()
-
-    sys.excepthook = orig_except_hook
+    _show_dialog("Viewer", _edit_dialog, obj=obj, title=title, minvalue=minvalue, maxvalue=maxvalue, readonly=readonly,
+                 depth=depth + 2, display_caller_info=display_caller_info, add_larray_functions=add_larray_functions)
 
 
 def view(obj=None, title='', depth=0, display_caller_info=True, add_larray_functions=None):
@@ -187,26 +216,17 @@ def view(obj=None, title='', depth=0, display_caller_info=True, add_larray_funct
     >>> # will open a viewer showing only a1
     >>> view(a1)                                                                                       # doctest: +SKIP
     """
-    edit(obj, title=title, readonly=True, depth=depth + 1, display_caller_info=display_caller_info,
-         add_larray_functions=add_larray_functions)
+    _show_dialog("Viewer", _edit_dialog, obj=obj, title=title, readonly=True,
+                 depth=depth + 2, display_caller_info=display_caller_info, add_larray_functions=add_larray_functions)
 
 
-def _debug(stack_summary, stack_pos=None):
-    # we don't use install_except_hook/restore_except_hook so that we can restore the hook actually used when
-    # this function is called instead of the one which was used when the module was loaded.
-    orig_except_hook = sys.excepthook
-    sys.excepthook = _qt_except_hook
-
-    qt_app, parent = get_app_and_window("Debugger")
-
+def _debug_dialog(parent, stack_summary, stack_pos=None):
     assert isinstance(stack_summary, StackSummary)
     dlg = MappingEditor(parent)
-    setup_ok = dlg.setup_and_check(stack_summary, stack_pos=stack_pos)
-    if setup_ok:
-        dlg.show()
-        qt_app.exec_()
-
-    sys.excepthook = orig_except_hook
+    if dlg.setup_and_check(stack_summary, stack_pos=stack_pos):
+        return dlg
+    else:
+        return None
 
 
 def debug(depth=0):
@@ -220,7 +240,44 @@ def debug(depth=0):
     """
     caller_frame = sys._getframe(depth + 1)
     stack_summary = extract_stack(caller_frame)
-    _debug(stack_summary)
+    _show_dialog("Debugger", _debug_dialog, stack_summary)
+
+
+def _compare_dialog(parent, *args, **kwargs):
+    title = kwargs.pop('title', '')
+    names = kwargs.pop('names', None)
+    depth = kwargs.pop('depth', 0)
+    display_caller_info = kwargs.pop('display_caller_info', True)
+
+    caller_frame = sys._getframe(depth + 1)
+    if display_caller_info:
+        caller_info = getframeinfo(caller_frame)
+    else:
+        caller_info = None
+
+    if any(isinstance(a, la.Session) for a in args):
+        from larray_editor.comparator import SessionComparator
+        dlg = SessionComparator(parent)
+        default_name = 'session'
+    else:
+        from larray_editor.comparator import ArrayComparator
+        dlg = ArrayComparator(parent)
+        default_name = 'array'
+
+    if names is None:
+        def get_name(i, obj, depth=0):
+            obj_names = _find_names(obj, depth=depth + 1)
+            return obj_names[0] if obj_names else f'{default_name} {i:d}'
+
+        # depth + 2 because of the list comprehension
+        names = [get_name(i, a, depth=depth + 2) for i, a in enumerate(args)]
+    else:
+        assert isinstance(names, list) and len(names) == len(args)
+
+    if dlg.setup_and_check(args, names=names, title=title, caller_info=caller_info, **kwargs):
+        return dlg
+    else:
+        return None
 
 
 def compare(*args, **kwargs):
@@ -264,48 +321,7 @@ def compare(*args, **kwargs):
     >>> compare(a1, a2, title='first comparison')                                                      # doctest: +SKIP
     >>> compare(a1 + 1, a2, title='second comparison', names=['a1+1', 'a2'])                           # doctest: +SKIP
     """
-    # we don't use install_except_hook/restore_except_hook so that we can restore the hook actually used when
-    # this function is called instead of the one which was used when the module was loaded.
-    orig_except_hook = sys.excepthook
-    sys.excepthook = _qt_except_hook
-
-    title = kwargs.pop('title', '')
-    names = kwargs.pop('names', None)
-    depth = kwargs.pop('depth', 0)
-    display_caller_info = kwargs.pop('display_caller_info', True)
-
-    qt_app, parent = get_app_and_window("Viewer")
-
-    caller_frame = sys._getframe(depth + 1)
-    if display_caller_info:
-        caller_info = getframeinfo(caller_frame)
-    else:
-        caller_info = None
-
-    if any(isinstance(a, la.Session) for a in args):
-        from larray_editor.comparator import SessionComparator
-        dlg = SessionComparator(parent)
-        default_name = 'session'
-    else:
-        from larray_editor.comparator import ArrayComparator
-        dlg = ArrayComparator(parent)
-        default_name = 'array'
-
-    if names is None:
-        def get_name(i, obj, depth=0):
-            obj_names = find_names(obj, depth=depth + 1)
-            return obj_names[0] if obj_names else f'{default_name} {i:d}'
-
-        # depth + 2 because of the list comprehension
-        names = [get_name(i, a, depth=depth + 2) for i, a in enumerate(args)]
-    else:
-        assert isinstance(names, list) and len(names) == len(args)
-
-    if dlg.setup_and_check(args, names=names, title=title, caller_info=caller_info, **kwargs):
-        dlg.show()
-        qt_app.exec_()
-
-    sys.excepthook = orig_except_hook
+    _show_dialog("Comparator", _compare_dialog, *args, **kwargs)
 
 
 _orig_except_hook = sys.excepthook
@@ -391,7 +407,7 @@ def _get_debug_except_hook(root_path=None, usercode_traceback=True, usercode_fra
             stack = extract_tb(main_tb, limit=tb_limit)
             stack_pos = user_tb_length - 1 if user_tb_length is not None and usercode_frame else None
             print("\nlaunching larray editor to debug...", file=sys.stderr)
-            _debug(stack, stack_pos=stack_pos)
+            _show_dialog("Debugger", _debug_dialog, stack, stack_pos=stack_pos)
 
     return excepthook
 
