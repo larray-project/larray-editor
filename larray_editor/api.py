@@ -15,15 +15,15 @@ __all__ = ['view', 'edit', 'debug', 'compare', 'REOPEN_LAST_FILE', 'run_editor_o
 
 
 def get_app_and_window(app_name):
-    _app = QApplication.instance()
-    if _app is None:
-        _app = QApplication(sys.argv)
-        _app.setOrganizationName("LArray")
-        _app.setApplicationName(app_name)
+    qt_app = QApplication.instance()
+    if qt_app is None:
+        qt_app = QApplication(sys.argv)
+        qt_app.setOrganizationName("LArray")
+        qt_app.setApplicationName(app_name)
         parent = None
     else:
-        parent = _app.activeWindow()
-    return _app, parent
+        parent = qt_app.activeWindow()
+    return qt_app, parent
 
 
 def find_names(obj, depth=0):
@@ -116,7 +116,7 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     orig_except_hook = sys.excepthook
     sys.excepthook = _qt_except_hook
 
-    _app, parent = get_app_and_window("Viewer")
+    qt_app, parent = get_app_and_window("Viewer")
 
     caller_frame = sys._getframe(depth + 1)
     if display_caller_info:
@@ -150,7 +150,7 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
 
     if setup_ok:
         dlg.show()
-        _app.exec_()
+        qt_app.exec_()
 
     sys.excepthook = orig_except_hook
 
@@ -193,14 +193,14 @@ def _debug(stack_summary, stack_pos=None):
     orig_except_hook = sys.excepthook
     sys.excepthook = _qt_except_hook
 
-    _app, parent = get_app_and_window("Debugger")
+    qt_app, parent = get_app_and_window("Debugger")
 
     assert isinstance(stack_summary, StackSummary)
     dlg = MappingEditor(parent)
     setup_ok = dlg.setup_and_check(stack_summary, stack_pos=stack_pos)
     if setup_ok:
         dlg.show()
-        _app.exec_()
+        qt_app.exec_()
 
     sys.excepthook = orig_except_hook
 
@@ -270,7 +270,7 @@ def compare(*args, **kwargs):
     depth = kwargs.pop('depth', 0)
     display_caller_info = kwargs.pop('display_caller_info', True)
 
-    _app, parent = get_app_and_window("Viewer")
+    qt_app, parent = get_app_and_window("Viewer")
 
     caller_frame = sys._getframe(depth + 1)
     if display_caller_info:
@@ -287,11 +287,11 @@ def compare(*args, **kwargs):
         dlg = ArrayComparator(parent)
         default_name = 'array'
 
-    def get_name(i, obj, depth=0):
-        obj_names = find_names(obj, depth=depth + 1)
-        return obj_names[0] if obj_names else '%s %d' % (default_name, i)
-
     if names is None:
+        def get_name(i, obj, depth=0):
+            obj_names = find_names(obj, depth=depth + 1)
+            return obj_names[0] if obj_names else '%s %d' % (default_name, i)
+
         # depth + 2 because of the list comprehension
         names = [get_name(i, a, depth=depth + 2) for i, a in enumerate(args)]
     else:
@@ -299,7 +299,7 @@ def compare(*args, **kwargs):
 
     if dlg.setup_and_check(args, names=names, title=title, caller_info=caller_info, **kwargs):
         dlg.show()
-        _app.exec_()
+        qt_app.exec_()
 
     sys.excepthook = orig_except_hook
 
