@@ -773,13 +773,14 @@ class MappingEditor(AbstractEditor):
             return True
 
     def closeEvent(self, event):
+        # as per the example in the Qt doc (https://doc.qt.io/qt-5/qwidget.html#closeEvent), we should *NOT* call
+        # the closeEvent() method of the superclass in this case because all it does is "event.accept()"
+        # unconditionally which results in the application being closed regardless of what the user chooses (see #202).
         if self._ask_to_save_if_unsaved_modifications():
+            self.save_widgets_state_and_geometry()
             event.accept()
         else:
             event.ignore()
-        self.save_widgets_state_and_geometry()
-        AbstractEditor.closeEvent(self, event)
-
 
     #########################################
     #               FILE MENU               #
