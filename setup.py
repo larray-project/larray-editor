@@ -3,6 +3,7 @@ from __future__ import print_function
 import os
 from setuptools import setup, find_packages
 
+
 def readlocal(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
@@ -35,9 +36,9 @@ CLASSIFIERS = [
     'Programming Language :: Python :: 2',
     'Programming Language :: Python :: 2.7',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.4',
     'Programming Language :: Python :: 3.5',
     'Programming Language :: Python :: 3.6',
+    'Programming Language :: Python :: 3.7',
     'Topic :: Scientific/Engineering',
     'Topic :: Software Development :: Libraries',
 ]
