@@ -1,11 +1,8 @@
 #!/usr/bin/python
-# coding=utf-8
 # Release script for Editor
 # Licence: GPLv3
 # Requires:
 # * git
-from __future__ import print_function, unicode_literals
-
 import sys
 import json
 from os.path import abspath, dirname, join
@@ -40,7 +37,7 @@ def update_version_in_json_used_by_menuinst(config):
     menu_items = data['menu_items']
     for i, menu_item in enumerate(menu_items):
         if 'webbrowser' in menu_item:
-            menu_items[i]['webbrowser'] = 'http://larray.readthedocs.io/en/{}'.format(version)
+            menu_items[i]['webbrowser'] = f'http://larray.readthedocs.io/en/{version}'
     with open(menuinst_file, mode='w') as mf:
         json.dump(data, mf, indent=4)
 
@@ -57,7 +54,7 @@ insert_step_func(update_version_in_json_used_by_menuinst, before='update_version
 if __name__ == '__main__':
     argv = sys.argv
     if len(argv) < 2:
-        print("Usage: {} [-c|--conda] release_name|dev [step|startstep:stopstep] [branch]".format(argv[0]))
+        print(f"Usage: {argv[0]} [-c|--conda] release_name|dev [step|startstep:stopstep] [branch]")
         print("make release steps:", ', '.join(f.__name__ for f, _ in make_release_steps))
         print("update conda-forge feedstock steps:", ', '.join(f.__name__ for f, _ in update_feedstock_steps))
         sys.exit()
