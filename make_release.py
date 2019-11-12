@@ -25,11 +25,10 @@ CONDA_FEEDSTOCK_REP = "https://github.com/larray-project/larray-editor-feedstock
 ONLINE_DOC = None
 
 
-def update_version_in_json_used_by_menuinst(config):
-    chdir(config['build_dir'])
+def update_version_in_json_used_by_menuinst(build_dir, release_name, package_name, **extra_kwargs):
+    chdir(build_dir)
 
-    version = short(config['release_name'])
-    package_name = config['package_name']
+    version = short(release_name)
     menuinst_file = join('condarecipe', package_name, 'larray-editor.json')
 
     with open(menuinst_file) as mf:
