@@ -2,9 +2,9 @@
 # script to start a new release cycle
 # Licence: GPLv3
 from os.path import abspath, dirname
-from make_release import PACKAGE_NAME, SRC_CODE, SRC_DOC
 from releaser import add_release
 
+from make_release import PACKAGE_NAME, SRC_CODE, SRC_DOC
 
 if __name__ == '__main__':
     import sys
