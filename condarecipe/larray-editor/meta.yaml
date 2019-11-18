@@ -23,7 +23,7 @@ requirements:
 
   run:
     - python
-    - larray >=0.30
+    - larray >=0.32
     - matplotlib
     - ipykernel !=5.0, !=5.1
     - pyqt
