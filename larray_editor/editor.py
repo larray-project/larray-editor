@@ -2,6 +2,7 @@ import os
 import re
 
 import matplotlib
+import matplotlib.axes
 import numpy as np
 import collections
 
