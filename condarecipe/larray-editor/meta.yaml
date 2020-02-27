@@ -1,9 +1,9 @@
 package:
   name: larray-editor
-  version: 0.32.1
+  version: 0.33-dev
 
 source:
-  git_tag: 0.32.1
+  git_tag: 0.33-dev
   git_url: https://github.com/larray-project/larray-editor.git
 #  git_tag: master
 #  git_url: file://c:/Users/gdm/devel/larray-editor/.git
@@ -21,6 +21,7 @@ requirements:
     - pip
     - python
 
+# requires larray >= 0.32 because of the LArray -> Array rename
   run:
     - python
     - larray >=0.32
