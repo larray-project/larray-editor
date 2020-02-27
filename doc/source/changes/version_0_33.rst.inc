@@ -11,7 +11,7 @@ Syntax changes
 Backward incompatible changes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* other backward incompatible changes
+* dropped Python 2 support (closes :editor_issue:`132`).
 
 
 New features

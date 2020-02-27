@@ -9,7 +9,7 @@ import collections
 import larray as la
 
 from larray_editor.traceback_tools import StackSummary
-from larray_editor.utils import (PY2, PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
+from larray_editor.utils import (PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
                                  get_versions, get_documentation_url, urls, RecentlyUsedList)
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayCommand
@@ -186,10 +186,7 @@ class AbstractEditor(QMainWindow):
 
     def report_issue(self, package):
         def _report_issue(*args, **kwargs):
-            if PY2:
-                from urllib import quote
-            else:
-                from urllib.parse import quote
+            from urllib.parse import quote
 
             versions = get_versions(package)
             issue_template = """\

@@ -68,8 +68,6 @@ Array Editor Dialog based on Qt
 #   solved later too via fading or something like that, but probably not
 #   worth it for a while.
 
-from __future__ import print_function
-
 import math
 
 import numpy as np

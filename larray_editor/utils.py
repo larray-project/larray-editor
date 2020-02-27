@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 import os
 import sys
 import math
@@ -46,12 +44,7 @@ urls = {"fpb": "http://www.plan.be/index.php?lang=en",
         "announce_group": "https://groups.google.com/d/forum/larray-announce",
         "users_group": "https://groups.google.com/d/forum/larray-users"}
 
-PY2 = sys.version[0] == '2'
-if PY2:
-    def commonpath(paths):
-        return os.path.dirname(os.path.commonprefix(paths))
-else:
-    commonpath = os.path.commonpath
+commonpath = os.path.commonpath
 
 
 def get_module_version(module_name):
@@ -182,21 +175,13 @@ def _(text):
 
 def to_text_string(obj, encoding=None):
     """Convert `obj` to (unicode) text string"""
-    if PY2:
-        # Python 2
-        if encoding is None:
-            return unicode(obj)
-        else:
-            return unicode(obj, encoding)
+    if encoding is None:
+        return str(obj)
+    elif isinstance(obj, str):
+        # In case this function is not used properly, this could happen
+        return obj
     else:
-        # Python 3
-        if encoding is None:
-            return str(obj)
-        elif isinstance(obj, str):
-            # In case this function is not used properly, this could happen
-            return obj
-        else:
-            return str(obj, encoding)
+        return str(obj, encoding)
 
 
 def keybinding(attr):
