@@ -6,4 +6,5 @@ dist/
 .idea/
 *.pyc
 *.pyd
-larray-editor.egg-info
+larray_editor.egg-info/
+.pytest_cache/
