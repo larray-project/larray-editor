@@ -691,14 +691,23 @@ class MappingEditor(AbstractEditor):
                 # last command. Which means that if the last command did not produce any output, _ is not modified.
                 cur_output = user_ns['_oh'].get(cur_input_num)
                 if cur_output is not None:
+                    if 'inline' not in matplotlib.get_backend():
+                        if isinstance(cur_output, np.ndarray) and cur_output.size > 0:
+                            first_output = cur_output.flat[0]
+                            if isinstance(first_output, matplotlib.axes.Subplot):
+                                show_figure(self, first_output.figure)
+                        # we use a different path for sequences than for arrays to avoid copying potentially
+                        # big non-array sequences using np.ravel(). This code does not support nested sequences,
+                        # but I am already unsure supporting simple non-array sequences is useful.
+                        elif isinstance(cur_output, collections.Sequence) and len(cur_output) > 0:
+                            first_output = cur_output[0]
+                            if isinstance(first_output, matplotlib.axes.Subplot):
+                                show_figure(self, first_output.figure)
+                        elif isinstance(cur_output, matplotlib.axes.Subplot):
+                            show_figure(self, cur_output.figure)
+
                     if self._display_in_grid('<expr>', cur_output):
                         self.view_expr(cur_output)
-
-                    if isinstance(cur_output, collections.Iterable):
-                        cur_output = np.ravel(cur_output)[0]
-
-                    if isinstance(cur_output, matplotlib.axes.Subplot) and 'inline' not in matplotlib.get_backend():
-                        show_figure(self, cur_output.figure)
 
     def on_selection_changed(self):
         selected = self._listwidget.selectedItems()

@@ -9,6 +9,14 @@ In development.
 .. include:: ./changes/version_0_33.rst.inc
 
 
+Version 0.32.2
+==============
+
+In development.
+
+.. include:: ./changes/version_0_32_2.rst.inc
+
+
 Version 0.32.1
 ==============
 
