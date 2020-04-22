@@ -1,66 +1,54 @@
+{% set version = "0.33-dev" %}
+
 package:
   name: larray-editor
-  version: 0.33-dev
+  version: {{ version }}
 
 source:
-  git_tag: 0.33-dev
+  git_tag: {{ version }}
   git_url: https://github.com/larray-project/larray-editor.git
-#  git_tag: master
-#  git_url: file://c:/Users/gdm/devel/larray-editor/.git
 
 build:
-  # If this is a new build for the same version, increment the build number
+  noarch: python
   number: 0
-  # this is not used since we provide explicit build scripts (bld.bat and build.sh)
-#  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vvv"
   entry_points:
     - larray-editor = larray_editor.start:main
 
 requirements:
-  build:
-    - pip
+  host:
     - python
+    - pip
 
-# requires larray >= 0.32 because of the LArray -> Array rename
   run:
     - python
+    # requires larray >= 0.32 because of the LArray -> Array rename
     - larray >=0.32
     - matplotlib
-    - ipykernel !=5.0, !=5.1
+    # - excluded versions 5.0 and 5.1.0 of ipykernel because these versions make the console useless after any exception
+    #   https://github.com/larray-project/larray-editor/issues/166
+    - ipykernel !=5.0,!=5.1.0
     - pyqt >=4.6  # for API v2
     - qtpy
 
 test:
-#  requires:
-#    - pytest
-#    - pytest-runner
-
   imports:
     - larray_editor
 
-#  commands:
-#    # You can also put a file called run_test.py in the recipe that will be run at test time.
-#    - pytest --pyargs larray_editor
-
 app:
   entry: larray-editor
-  # I can't seem to make this work
   # icon: larray.png
-  summary: Graphical User Interface for LArray
+  summary: "Graphical User Interface for LArray"
   type: desk
 
 about:
   home: https://github.com/larray-project/larray-editor
-  license: GPL-3.0
+  license: GPL-3.0-only
   license_family: GPL
   license_file: LICENSE
-  summary: Graphical User Interface for LArray
+  summary: "Graphical User Interface for LArray"
+  dev_url: https://github.com/larray-project/larray-editor
 
 extra:
   recipe-maintainers:
     - alixdamman
     - gdementen
-
-# See
-# https://conda.io/docs/user-guide/tasks/build-packages/index.html
-# for more information about meta.yaml
