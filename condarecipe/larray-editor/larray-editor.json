@@ -4,8 +4,7 @@
         {
             "name": "LArray Editor",
             "pywscript": "${PYTHON_SCRIPTS}/larray-editor-script.py",
-            "icon": "${MENU_DIR}/larray.ico",
-            "quicklaunch": true
+            "icon": "${MENU_DIR}/larray.ico"
         },
         {
             "name": "LArray Documentation",
