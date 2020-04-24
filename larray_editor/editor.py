@@ -1,5 +1,21 @@
 import os
 import re
+import sys
+
+# Python3.8 switched from a Selector to a Proactor based event loop for asyncio but they do not offer the same
+# features, which breaks Tornado and all projects depending on it, including Jupyter consoles
+# refs: https://github.com/larray-project/larray-editor/issues/208
+if sys.platform.startswith("win") and sys.version_info >= (3, 8):
+    import asyncio
+
+    try:
+        from asyncio import WindowsProactorEventLoopPolicy, WindowsSelectorEventLoopPolicy
+    except ImportError:
+        # not affected
+        pass
+    else:
+        if type(asyncio.get_event_loop_policy()) is WindowsProactorEventLoopPolicy:
+            asyncio.set_event_loop_policy(WindowsSelectorEventLoopPolicy())
 
 import matplotlib
 import matplotlib.axes

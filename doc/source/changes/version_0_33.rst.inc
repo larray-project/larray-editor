@@ -38,4 +38,4 @@ Miscellaneous improvements
 Fixes
 ^^^^^
 
-* fixed something (closes :editor_issue:`1`).
+* workaround incompatibility with Python3.8 on Windows (closes :editor_issue:`208`).
