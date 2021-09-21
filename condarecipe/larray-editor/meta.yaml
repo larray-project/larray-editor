@@ -1,11 +1,11 @@
-{% set version = "0.32.3" %}
+{% set version = "0.33" %}
 
 package:
   name: larray-editor
-  version: 0.33
+  version: {{ version }}
 
 source:
-  git_tag: 0.33
+  git_tag: {{ version }}
   git_url: https://github.com/larray-project/larray-editor.git
 
 build:
