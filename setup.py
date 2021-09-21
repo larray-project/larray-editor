@@ -7,7 +7,7 @@ def readlocal(fname):
 
 
 DISTNAME = 'larray-editor'
-VERSION = '0.34-dev'
+VERSION = '0.33.1-dev'
 AUTHOR = 'Gaetan de Menten, Geert Bryon, Johan Duyck, Alix Damman'
 AUTHOR_EMAIL = 'gdementen@gmail.com'
 DESCRIPTION = "Graphical User Interface for LArray library"
