@@ -26,6 +26,8 @@ requirements:
     - matplotlib
     - pyqt >=4.6  # for API v2
     - qtpy
+    # jedi >=0.18 to workaround incompatibility between jedi <0.18 and parso >=0.8 (see #220)
+    - jedi >=0.18
 
 test:
   imports:

@@ -17,7 +17,8 @@ SETUP_REQUIRES = []
 # requires larray >= 0.32 because of the LArray -> Array rename
 # TODO: add qtpy as dependency and mention pyqt or pyside
 #       when using pyqt, we require at least pyqt >= 4.6 (for API v2)
-INSTALL_REQUIRES = ['larray >=0.32']
+# jedi >=0.18 to workaround incompatibility between jedi <0.18 and parso >=0.8 (see #220)
+INSTALL_REQUIRES = ['larray >=0.32', 'jedi >=0.18']
 TESTS_REQUIRE = ['pytest']
 
 LICENSE = 'GPLv3'
