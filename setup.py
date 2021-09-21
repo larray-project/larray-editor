@@ -17,7 +17,7 @@ SETUP_REQUIRES = []
 # requires larray >= 0.32 because of the LArray -> Array rename
 # TODO: add qtpy as dependency and mention pyqt or pyside
 #       when using pyqt, we require at least pyqt >= 4.6 (for API v2)
-INSTALL_REQUIRES = ['larray >=0.32', 'ipykernel !=5.0, !=5.1']
+INSTALL_REQUIRES = ['larray >=0.32']
 TESTS_REQUIRE = ['pytest']
 
 LICENSE = 'GPLv3'
