@@ -13,9 +13,11 @@
         },
         {
             "name": "Update LArray",
-            "script": "conda",
+            "system": "${ROOT_PREFIX}/Scripts/conda.exe",
             "scriptarguments": [
                 "update",
+                "-p",
+                "${PREFIX}",
                 "larrayenv"
             ]
         }
