@@ -8,7 +8,7 @@
         },
         {
             "name": "LArray Documentation",
-            "webbrowser": "http://larray.readthedocs.io/en/0.33",
+            "webbrowser": "http://larray.readthedocs.io/en/0.33.1",
             "icon": "${MENU_DIR}/larray-help.ico"
         },
         {
