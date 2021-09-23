@@ -127,9 +127,7 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     if obj is None:
         global_vars = caller_frame.f_globals
         local_vars = caller_frame.f_locals
-        # TODO: we will not need an OrderedDict anymore when we drop support for Python3.6
-        obj = OrderedDict()
-        obj.update([(k, global_vars[k]) for k in sorted(global_vars.keys())])
+        obj = {k: global_vars[k] for k in sorted(global_vars.keys())}
         if local_vars is not global_vars:
             obj.update([(k, local_vars[k]) for k in sorted(local_vars.keys())])
 
