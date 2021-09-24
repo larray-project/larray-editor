@@ -2,7 +2,11 @@
 # Release script for Editor
 # Licence: GPLv3
 # Requires:
-# * git
+# * git with a Personal Access Token to access the Github repositories
+# * releaser
+# * conda-build
+# * anaconda-client
+# * twine (to upload packages to pypi)
 import sys
 import json
 from os.path import abspath, dirname, join
