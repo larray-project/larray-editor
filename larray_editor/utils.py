@@ -38,9 +38,9 @@ dependencies = {'editor': editor_dependencies, 'larray': core_dependencies, 'lar
 doc = "http://larray.readthedocs.io/en/{version}"
 urls = {"fpb": "http://www.plan.be/index.php?lang=en",
         "GPL3": "https://www.gnu.org/licenses/gpl-3.0.html",
-        "doc_index": "{}/index.html".format(doc),
-        "doc_tutorial": "{}/tutorial.html".format(doc),
-        "doc_api": "{}/api.html".format(doc),
+        "doc_index": f"{doc}/index.html",
+        "doc_tutorial": f"{doc}/tutorial.html",
+        "doc_api": f"{doc}/api.html",
         "new_issue_editor": "https://github.com/larray-project/larray-editor/issues/new",
         "new_issue_larray": "https://github.com/larray-project/larray/issues/new",
         "new_issue_larray_eurostat": "https://github.com/larray-project/larray_eurostat/issues/new",
@@ -58,7 +58,7 @@ def get_module_version(module_name):
         if 'qtpy' in module_name:
             from qtpy import API_NAME, PYQT_VERSION  # API_NAME --> PyQt5 or PyQt4
             qt_version = module.__version__
-            return '{}, {} {}'.format(qt_version, API_NAME, PYQT_VERSION)
+            return f'{qt_version}, {API_NAME} {PYQT_VERSION}'
         elif '__version__' in dir(module):
             return module.__version__
         elif '__VERSION__' in dir(module):
@@ -363,7 +363,7 @@ class Axis:
         return len(self.labels)
 
     def __str__(self):
-        return 'Axis({}, {}, {})'.format(self.id, self.name, self.labels)
+        return f'Axis({self.id}, {self.name}, {self.labels})'
 
 
 class _LazyLabels(object):
@@ -518,7 +518,7 @@ def scale_to_01range(value, vmin, vmax):
         if np.isnan(vmin) or np.isnan(vmax) or (vmin == vmax):
             return np.where(np.isnan(value), np.nan, 0)
         else:
-            assert vmin < vmax
+            assert vmin < vmax, f"vmin ({vmin}) < vmax ({vmax})"
             with np.errstate(divide='ignore', invalid='ignore'):
                 res = (value - vmin) / (vmax - vmin)
                 res[value == -np.inf] = 0

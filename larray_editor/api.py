@@ -287,7 +287,7 @@ def compare(*args, **kwargs):
     if names is None:
         def get_name(i, obj, depth=0):
             obj_names = find_names(obj, depth=depth + 1)
-            return obj_names[0] if obj_names else '%s %d' % (default_name, i)
+            return obj_names[0] if obj_names else f'{default_name} {i:d}'
 
         # depth + 2 because of the list comprehension
         names = [get_name(i, a, depth=depth + 2) for i, a in enumerate(args)]

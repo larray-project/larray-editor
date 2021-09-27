@@ -27,7 +27,7 @@ def get_adapter(data, bg_value):
         return None
     data_type = type(data)
     if data_type not in REGISTERED_ADAPTERS:
-        raise TypeError("No Adapter implemented for data with type {}".format(data_type))
+        raise TypeError(f"No Adapter implemented for data with type {data_type}")
     adapter_cls = REGISTERED_ADAPTERS[data_type]
     return adapter_cls(data, bg_value)
 
@@ -52,7 +52,7 @@ class AbstractAdapter:
 
     @data.setter
     def data(self, original_data):
-        assert original_data is not None, "{} does not accept None as input data".format(self.__class__)
+        assert original_data is not None, f"{self.__class__} does not accept None as input data"
         self._original_data = self.prepare_data(original_data)
 
     @property

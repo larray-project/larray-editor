@@ -36,7 +36,7 @@ class SequenceStandardItemModel(QtGui.QStandardItemModel):
             return [self.item(i) for i in range(start, stop, step)]
         else:
             if key >= self.rowCount():
-                raise IndexError("index %d is out of range" % key)
+                raise IndexError(f"index {key} is out of range")
             return self.item(key)
 
     def __len__(self):
@@ -261,7 +261,7 @@ if __name__ == '__main__':
 
             combo = FilterComboBox(self)
             for i in range(20):
-                combo.addItem('Item %s' % i)
+                combo.addItem(f'Item {i}')
             layout.addWidget(combo)
 
     app = QtWidgets.QApplication(sys.argv)

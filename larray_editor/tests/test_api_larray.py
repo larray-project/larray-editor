@@ -10,7 +10,7 @@ from larray_editor.utils import logger
 
 logger.setLevel(logging.DEBUG)
 
-lipro = la.Axis(['P%02d' % i for i in range(1, 16)], 'lipro')
+lipro = la.Axis('lipro=P01..P15')
 age = la.Axis('age=0..115')
 sex = la.Axis('sex=M,F')
 

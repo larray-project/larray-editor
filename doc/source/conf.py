@@ -17,7 +17,7 @@
 # sys.path.insert(0, os.path.abspath('../../'))
 
 import larray_editor
-print("larray-editor: {}, {}".format(larray_editor.__version__, larray_editor.__file__))
+print(f"larray-editor: {larray_editor.__version__}, {larray_editor.__file__}")
 
 # -- Project information -----------------------------------------------------
 

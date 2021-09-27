@@ -111,8 +111,8 @@ class AbstractArrayModel(QAbstractTableModel):
         self.endResetModel()
         if logger.isEnabledFor(logging.DEBUG):
             caller = stack()[1]
-            logger.debug("model {} has been reset after call of {} from module {} at line {}".format(self.__class__,
-                            caller.function, basename(caller.filename), caller.lineno))
+            logger.debug(f"model {self.__class__} has been reset after call of {caller.function} from module "
+                         f"{basename(caller.filename)} at line {caller.lineno}")
 
 
 class AxesArrayModel(AbstractArrayModel):
@@ -303,7 +303,7 @@ class DataArrayModel(AbstractArrayModel):
             dtn = dtype.name
             if dtn not in SUPPORTED_FORMATS and not dtn.startswith('str') \
                     and not dtn.startswith('unicode'):
-                QMessageBox.critical(self.dialog, "Error", "{} arrays are currently not supported".format(dtn))
+                QMessageBox.critical(self.dialog, "Error", f"{dtn} arrays are currently not supported")
                 return
         # for complex numbers, shading will be based on absolute value
         # but for all other types it will be the real part
@@ -356,8 +356,7 @@ class DataArrayModel(AbstractArrayModel):
 
     def set_bg_value(self, bg_value, reset=True):
         if bg_value is not None and not (isinstance(bg_value, np.ndarray) and bg_value.shape == self._data.shape):
-            raise ValueError("Expected None or 2D Numpy ndarray with shape {} for `bg_value` argument"
-                             .format(self._data.shape))
+            raise ValueError(f"Expected None or 2D Numpy ndarray with shape {self._data.shape} for `bg_value` argument")
         self.bg_value = bg_value
         if reset:
             self.reset()
@@ -428,7 +427,7 @@ class DataArrayModel(AbstractArrayModel):
                     v = self.bg_value[i, j]
                 return self.bg_gradient[v]
         # elif role == Qt.ToolTipRole:
-        #     return "{}\n{}".format(repr(value),self.get_labels(index))
+        #     return f"{repr(value)}\n{self.get_labels(index)}"
         return None
 
     def get_values(self, left=0, top=0, right=None, bottom=None, sample=False):
@@ -478,10 +477,10 @@ class DataArrayModel(AbstractArrayModel):
             for i, v in enumerate(values.flat):
                 res.flat[i] = self.convert_value(v)
         except ValueError as e:
-            QMessageBox.critical(self.dialog, "Error", "Value error: %s" % str(e))
+            QMessageBox.critical(self.dialog, "Error", f"Value error: {str(e)}")
             return None
         except OverflowError as e:
-            QMessageBox.critical(self.dialog, "Error", "Overflow error: %s" % e.message)
+            QMessageBox.critical(self.dialog, "Error", f"Overflow error: {e.message}")
             return None
         return res
 

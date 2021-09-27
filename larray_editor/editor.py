@@ -116,10 +116,10 @@ class AbstractEditor(QMainWindow):
 
         # permanently display caller info in the status bar
         if caller_info is not None:
-            caller_info = 'launched from file {} at line {}'.format(caller_info.filename, caller_info.lineno)
+            caller_info = f'launched from file {caller_info.filename} at line {caller_info.lineno}'
             self.statusBar().addPermanentWidget(QLabel(caller_info))
         # display welcome message
-        self.statusBar().showMessage("Welcome to the {}".format(self.name), 4000)
+        self.statusBar().showMessage(f"Welcome to the {self.name}", 4000)
 
         # set central widget
         widget = QWidget()
@@ -224,12 +224,12 @@ class AbstractEditor(QMainWindow):
 ## Version and main components
 * Python {python} on {system} {bitness:d}bits
 """
-            issue_template += "* {package} {{{package}}}\n".format(package=package)
+            issue_template += f"* {package} {{{package}}}\n"
             for dep in dependencies[package]:
-                issue_template += "* {dep} {{{dep}}}\n".format(dep=dep)
+                issue_template += f"* {dep} {{{dep}}}\n"
             issue_template = issue_template.format(**versions)
 
-            url = QUrl(urls['new_issue_{}'.format(package)])
+            url = QUrl(urls[f'new_issue_{package}'])
             if PYQT5:
                 from qtpy.QtCore import QUrlQuery
                 query = QUrlQuery()
@@ -263,7 +263,7 @@ class AbstractEditor(QMainWindow):
 """
         for dep in dependencies['editor']:
             if kwargs[dep] != 'N/A':
-                message += "<li>{dep} {{{dep}}}</li>\n".format(dep=dep)
+                message += f"<li>{dep} {{{dep}}}</li>\n"
         message += "</ul>"
         QMessageBox.about(self, _("About LArray Editor"), message.format(**kwargs))
 
@@ -276,14 +276,14 @@ class AbstractEditor(QMainWindow):
             # current file (if not None)
             if isinstance(array, la.Array):
                 # array info
-                shape = ['{} ({})'.format(display_name, len(axis))
+                shape = [f'{display_name} ({len(axis)})'
                          for display_name, axis in zip(array.axes.display_names, array.axes)]
             else:
                 # if it's not an Array, it must be a Numpy ndarray
                 assert isinstance(array, np.ndarray)
                 shape = [str(length) for length in array.shape]
             # name + shape + dtype
-            array_info = ' x '.join(shape) + ' [{}]'.format(dtype)
+            array_info = ' x '.join(shape) + f' [{dtype}]'
             if name:
                 title += [name + ': ' + array_info]
             else:
@@ -306,7 +306,7 @@ class AbstractEditor(QMainWindow):
         settings.setValue('geometry', self.saveGeometry())
         settings.setValue('state', self.saveState())
         for widget_name, widget in self.widget_state_settings.items():
-            settings.setValue('state/{}'.format(widget_name), widget.saveState())
+            settings.setValue(f'state/{widget_name}', widget.saveState())
         settings.endGroup()
 
     def restore_widgets_state_and_geometry(self):
@@ -319,7 +319,7 @@ class AbstractEditor(QMainWindow):
         if state:
             self.restoreState(state)
         for widget_name, widget in self.widget_state_settings.items():
-            state = settings.value('state/{}'.format(widget_name))
+            state = settings.value(f'state/{widget_name}')
             if state:
                 widget.restoreState(state)
         settings.endGroup()
@@ -440,7 +440,7 @@ class MappingEditor(AbstractEditor):
                 funcname = frame_summary.name
                 filename = os.path.basename(frame_summary.filename)
                 listitem = QListWidgetItem(stack_frame_widget)
-                listitem.setText("{}, {}:{}".format(funcname, filename, frame_summary.lineno))
+                listitem.setText(f"{funcname}, {filename}:{frame_summary.lineno}")
                 # we store the frame summary object in the user data of the list
                 listitem.setData(Qt.UserRole, frame_summary)
                 listitem.setToolTip(frame_summary.line)
@@ -474,7 +474,7 @@ class MappingEditor(AbstractEditor):
             if os.path.isfile(data):
                 self._open_file(data)
             else:
-                QMessageBox.critical(self, "Error", "File {} could not be found".format(data))
+                QMessageBox.critical(self, "Error", f"File {data} could not be found")
                 self.new()
         elif not debug:
             self._push_data(data)
@@ -757,7 +757,7 @@ class MappingEditor(AbstractEditor):
             basename = os.path.basename(self.current_file)
             if os.path.isdir(self.current_file):
                 assert not name.endswith('.csv')
-                fname = os.path.join(basename, '{}.csv'.format(name))
+                fname = os.path.join(basename, f'{name}.csv')
                 name = ''
             else:
                 fname = basename
@@ -765,7 +765,7 @@ class MappingEditor(AbstractEditor):
             fname = '<new>'
 
         array = self.current_array
-        title = ['{}{}'.format(unsaved_marker, fname)]
+        title = [f'{unsaved_marker}{fname}']
         self._update_title(title, array, name)
 
     def set_current_array(self, array, name):
@@ -838,8 +838,7 @@ class MappingEditor(AbstractEditor):
             self.ipython_cell_executed()
             self.recent_loaded_scripts.add(filepath)
         except Exception as e:
-            QMessageBox.critical(self, "Error", "Cannot load script file {}:\n{}"
-                                 .format(os.path.basename(filepath), e))
+            QMessageBox.critical(self, "Error", f"Cannot load script file {os.path.basename(filepath)}:\n{e}")
 
     def load_script(self, filepath=None):
         # %load add automatically the extension .py if not present in passed filename
@@ -923,12 +922,11 @@ class MappingEditor(AbstractEditor):
             if lines:
                 lines = lines.replace('..', '-')
             else:
-                lines = '1-{}'.format(self.kernel.shell.execution_count)
-            self.kernel.shell.run_line_magic('save', '{} {} {}'.format(overwrite, filepath, lines))
+                lines = f'1-{self.kernel.shell.execution_count}'
+            self.kernel.shell.run_line_magic('save', f'{overwrite} {filepath} {lines}')
             self.recent_saved_scripts.add(filepath)
         except Exception as e:
-            QMessageBox.critical(self, "Error", "Cannot save history as {}:\n{}"
-                                 .format(os.path.basename(filepath), e))
+            QMessageBox.critical(self, "Error", f"Cannot save history as {os.path.basename(filepath)}:\n{e}")
 
     # See http://ipython.readthedocs.io/en/stable/interactive/magics.html#magic-save
     # for more details
@@ -1007,7 +1005,7 @@ class MappingEditor(AbstractEditor):
                 overwrite = radio_button_overwrite.isChecked()
                 if overwrite and os.path.isfile(filepath):
                     ret = QMessageBox.warning(self, "Warning",
-                                              "File `{}` exists. Are you sure to overwrite it?".format(filepath),
+                                              f"File `{filepath}` exists. Are you sure to overwrite it?",
                                               QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
                     if ret == QMessageBox.Save:
                         self._save_script(filepath, lines, overwrite)
@@ -1043,10 +1041,9 @@ class MappingEditor(AbstractEditor):
             self._push_data(session)
             self.set_current_file(current_file_name)
             self.unsaved_modifications = False
-            self.statusBar().showMessage("Loaded: {}".format(display_name), 4000)
+            self.statusBar().showMessage(f"Loaded: {display_name}", 4000)
         except Exception as e:
-            QMessageBox.critical(self, "Error", "Something went wrong during load of file(s) {}:\n{}"
-                                 .format(display_name, e))
+            QMessageBox.critical(self, "Error", f"Something went wrong during load of file(s) {display_name}:\n{e}")
 
     def open_data(self):
         if self._ask_to_save_if_unsaved_modifications():
@@ -1073,7 +1070,7 @@ class MappingEditor(AbstractEditor):
                 if os.path.exists(filepath):
                     self._open_file(filepath)
                 else:
-                    QMessageBox.warning(self, "Warning", "File {} could not be found".format(filepath))
+                    QMessageBox.warning(self, "Warning", f"File {filepath} could not be found")
 
     def _save_data(self, filepath):
         try:
@@ -1082,9 +1079,9 @@ class MappingEditor(AbstractEditor):
             self.set_current_file(filepath)
             self.edit_undo_stack.clear()
             self.unsaved_modifications = False
-            self.statusBar().showMessage("Arrays saved in file {}".format(filepath), 4000)
+            self.statusBar().showMessage(f"Arrays saved in file {filepath}", 4000)
         except Exception as e:
-            QMessageBox.critical(self, "Error", "Something went wrong during save in file {}:\n{}".format(filepath, e))
+            QMessageBox.critical(self, "Error", f"Something went wrong during save in file {filepath}:\n{e}")
 
     def save_data(self):
         """
