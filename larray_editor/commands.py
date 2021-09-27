@@ -49,7 +49,7 @@ class EditArrayCommand(QUndoCommand):
         text_command = self.get_description(target, changes)
         self.setText(text_command)
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug("Edit command pushed: {}".format(text_command))
+            logger.debug(f"Edit command pushed: {text_command}")
 
     def undo(self):
         for change in self.changes:
@@ -83,12 +83,12 @@ class EditSessionArrayCommand(EditArrayCommand):
     """
     def get_description(self, target, changes):
         if len(changes) == 1:
-            return "Editing Cell {} of {}".format(changes[0].key, target)
+            return f"Editing Cell {changes[0].key} of {target}"
         else:
-            return "Pasting {} Cells in {}".format(len(changes), target)
+            return f"Pasting {len(changes)} Cells in {target}"
 
     def apply_change(self, key, new_value):
-        self.editor.kernel.shell.run_cell("{}[{}] = {}".format(self.target, key, new_value))
+        self.editor.kernel.shell.run_cell(f"{self.target}[{key}] = {new_value}")
 
 
 class EditCurrentArrayCommand(EditArrayCommand):
@@ -106,9 +106,9 @@ class EditCurrentArrayCommand(EditArrayCommand):
     """
     def get_description(self, target, changes):
         if len(changes) == 1:
-            return "Editing Cell {}".format(changes[0].key)
+            return f"Editing Cell {changes[0].key}"
         else:
-            return "Pasting {} Cells".format(len(changes))
+            return f"Pasting {len(changes)} Cells"
 
     def apply_change(self, key, new_value):
         self.target[key] = new_value

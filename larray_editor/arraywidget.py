@@ -99,10 +99,10 @@ class AbstractView(QTableView):
 
         # set position
         if not (hpos == LEFT or hpos == RIGHT):
-            raise TypeError("Value of hpos must be {} or {}".format(LEFT, RIGHT))
+            raise TypeError(f"Value of hpos must be {LEFT} or {RIGHT}")
         self.hpos = hpos
         if not (vpos == TOP or vpos == BOTTOM):
-            raise TypeError("Value of vpos must be {} or {}".format(TOP, BOTTOM))
+            raise TypeError(f"Value of vpos must be {TOP} or {BOTTOM}")
         self.vpos = vpos
 
         # set selection mode
@@ -187,8 +187,8 @@ class AxesView(AbstractView):
     def __init__(self, parent, model):
         # check model
         if not isinstance(model, AxesArrayModel):
-            raise TypeError("Expected model of type {}. Received {} instead"
-                            .format(AxesArrayModel.__name__, type(model).__name__))
+            raise TypeError(f"Expected model of type {AxesArrayModel.__name__}. "
+                            f"Received {type(model).__name__} instead")
         AbstractView.__init__(self, parent, model, LEFT, TOP)
 
     def selectAll(self):
@@ -201,8 +201,8 @@ class LabelsView(AbstractView):
     def __init__(self, parent, model, hpos, vpos):
         # check model
         if not isinstance(model, LabelsArrayModel):
-            raise TypeError("Expected model of type {}. Received {} instead"
-                            .format(LabelsArrayModel.__name__, type(model).__name__))
+            raise TypeError(f"Expected model of type {LabelsArrayModel.__name__}. "
+                            f"Received {type(model).__name__} instead")
         AbstractView.__init__(self, parent, model, hpos, vpos)
 
 
@@ -236,11 +236,11 @@ class ArrayDelegate(QItemDelegate):
         elif value is not np.ma.masked:
             minvalue, maxvalue = self.minvalue, self.maxvalue
             if minvalue is not None and maxvalue is not None:
-                msg = "value must be between %s and %s" % (minvalue, maxvalue)
+                msg = f"value must be between {minvalue} and {maxvalue}"
             elif minvalue is not None:
-                msg = "value must be >= %s" % minvalue
+                msg = f"value must be >= {minvalue}"
             elif maxvalue is not None:
-                msg = "value must be <= %s" % maxvalue
+                msg = f"value must be <= {maxvalue}"
             else:
                 msg = None
 
@@ -293,8 +293,8 @@ class DataView(AbstractView):
     def __init__(self, parent, model):
         # check model
         if not isinstance(model, DataArrayModel):
-            raise TypeError("Expected model of type {}. Received {} instead"
-                            .format(DataArrayModel.__name__, type(model).__name__))
+            raise TypeError(f"Expected model of type {DataArrayModel.__name__}. "
+                            f"Received {type(model).__name__} instead")
         AbstractView.__init__(self, parent, model, RIGHT, BOTTOM)
 
         self.context_menu = self.setup_context_menu()

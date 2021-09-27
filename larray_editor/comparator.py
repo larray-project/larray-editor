@@ -193,7 +193,7 @@ class ArrayComparator(AbstractEditor):
           * names: list of str
         """
         arrays = [la.asarray(array) for array in data if isinstance(array, DISPLAY_IN_GRID)]
-        names = kwargs.get('names', ["Array{}".format(i) for i in range(len(arrays))])
+        names = kwargs.get('names', [f"Array{i}" for i in range(len(arrays))])
 
         layout = QVBoxLayout()
         widget.setLayout(layout)
@@ -239,7 +239,7 @@ class SessionComparator(AbstractEditor):
           * colors: str
         """
         sessions = data
-        names = kwargs.get('names', ["Session{}".format(i) for i in range(len(sessions))])
+        names = kwargs.get('names', [f"Session{i}" for i in range(len(sessions))])
 
         assert all(isinstance(s, la.Session) for s in sessions)
         self.sessions = sessions
