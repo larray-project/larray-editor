@@ -1,0 +1,14 @@
+name: test
+channels:
+  - defaults
+dependencies:
+  - pip
+  - larray
+  - pyqt
+  - qtpy
+  - matplotlib
+  - pytables
+  - pytest>=3.5
+  - flake8
+  - pip:
+    - pytest-flake8
