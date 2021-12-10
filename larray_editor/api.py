@@ -3,7 +3,6 @@ import os
 import sys
 import traceback
 from inspect import getframeinfo
-from collections import OrderedDict
 
 from qtpy.QtWidgets import QApplication
 import larray as la
