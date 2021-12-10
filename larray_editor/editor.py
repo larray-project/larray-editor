@@ -493,9 +493,8 @@ class MappingEditor(AbstractEditor):
 
             frame_summary = selected_item.data(Qt.UserRole)
             frame_globals, frame_locals = frame_summary.globals, frame_summary.locals
-            data = collections.OrderedDict()
-            data.update([(k, frame_globals[k]) for k in sorted(frame_globals.keys())])
-            data.update([(k, frame_locals[k]) for k in sorted(frame_locals.keys())])
+            data = {k: frame_globals[k] for k in sorted(frame_globals.keys())}
+            data.update({k: frame_locals[k] for k in sorted(frame_locals.keys())})
 
             # CHECK:
             # * This clears the undo/redo stack, which is safer but is not ideal.
