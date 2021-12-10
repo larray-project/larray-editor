@@ -128,7 +128,7 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
         local_vars = caller_frame.f_locals
         obj = {k: global_vars[k] for k in sorted(global_vars.keys())}
         if local_vars is not global_vars:
-            obj.update([(k, local_vars[k]) for k in sorted(local_vars.keys())])
+            obj.update({k: local_vars[k] for k in sorted(local_vars.keys())})
 
     if not isinstance(obj, (la.Session, la.Array)) and hasattr(obj, 'keys'):
         obj = la.Session(obj)
