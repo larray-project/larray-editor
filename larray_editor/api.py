@@ -302,6 +302,12 @@ _orig_except_hook = sys.excepthook
 def _qt_except_hook(type, value, tback):
     # only print the exception and do *not* exit the program
     traceback.print_exception(type, value, tback)
+    # only catch simple Exception (avoid catching KeyboardInterrupt, ...)
+    if not isinstance(value, Exception):
+        # in a Qt app, the except hook is only called when the window gets the focus again,
+        # so e.g. if we try to stop an app from PyCharm, it stays alive until we switch
+        # back to the app window.
+        sys.exit(1)
 
 
 def install_except_hook():
@@ -368,10 +374,12 @@ def _get_debug_except_hook(root_path=None, usercode_traceback=True, usercode_fra
         tb_limit = user_tb_length if usercode_traceback else None
         traceback.print_exception(type, value, main_tb, limit=tb_limit)
 
-        stack = extract_tb(main_tb, limit=tb_limit)
-        stack_pos = user_tb_length - 1 if user_tb_length is not None and usercode_frame else None
-        print("\nlaunching larray editor to debug...", file=sys.stderr)
-        _debug(stack, stack_pos=stack_pos)
+        # open the editor if this is a simple Exception (i.e. not KeyboardInterrupt, ...)
+        if isinstance(value, Exception):
+            stack = extract_tb(main_tb, limit=tb_limit)
+            stack_pos = user_tb_length - 1 if user_tb_length is not None and usercode_frame else None
+            print("\nlaunching larray editor to debug...", file=sys.stderr)
+            _debug(stack, stack_pos=stack_pos)
 
     return excepthook
 
@@ -385,10 +393,10 @@ def run_editor_on_exception(root_path=None, usercode_traceback=True, usercode_fr
     root_path : str, optional
         Defaults to None (the directory of the main script).
     usercode_traceback : bool, optional
-        Whether or not to show only the part of the traceback (error log) which corresponds to the user code.
+        Whether to show only the part of the traceback (error log) which corresponds to the user code.
         Otherwise, it will show the complete traceback, including code inside libraries. Defaults to True.
     usercode_frame : bool, optional
-        Whether or not to start the debug window in the frame corresponding to the user code.
+        Whether to start the debug window in the frame corresponding to the user code.
         This argument is ignored (it is always True) if usercode_traceback is True. Defaults to True.
 
     Notes
