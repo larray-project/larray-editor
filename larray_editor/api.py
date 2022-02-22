@@ -117,11 +117,7 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     qt_app, parent = get_app_and_window("Viewer")
 
     caller_frame = sys._getframe(depth + 1)
-    if display_caller_info:
-        caller_info = getframeinfo(caller_frame)
-    else:
-        caller_info = None
-
+    caller_info = getframeinfo(caller_frame) if display_caller_info else None
     if obj is None:
         global_vars = caller_frame.f_globals
         local_vars = caller_frame.f_locals
