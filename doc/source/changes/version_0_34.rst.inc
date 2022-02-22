@@ -41,4 +41,9 @@ Miscellaneous improvements
 Fixes
 ^^^^^
 
-* fixed something (closes :editor_issue:`1`).
+* fixed `run_editor_on_exception` so that the larray editor is not opened when trying to stop a program (via Ctrl-C or
+  the IDE stop button). Closes :editor_issue:`231`.
+
+* fixed the larray editor window not closing when trying to stop a program (via `Ctrl-C` or the IDE stop button) with
+  such a window open (closes :editor_issue:`231`). With PyCharm for example, to actually close the program, the user
+  had to press the IDE stop button a second time (which killed the program instead of stopping it cleanly).
