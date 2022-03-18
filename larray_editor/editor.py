@@ -961,8 +961,8 @@ class MappingEditor(AbstractEditor):
         # specific lines
         radio_button_specific_lines = QRadioButton("Save input lines")
         radio_button_specific_lines.setToolTip("Selected (ranges of) input lines must be separated with whitespaces.\n"
-                                               "Ranges could be specified as x..y (x-y) or in python-style "
-                                               "x:y (x..(y-1)).")
+                                               "Ranges can be specified either as x..y (x to y included) or in "
+                                               "python-style x:y (x to y not included).")
         lines_edit = QLineEdit()
         lines_edit.setPlaceholderText("1 4..6 8")
         lines_edit.setEnabled(False)
