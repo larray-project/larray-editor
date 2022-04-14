@@ -1,6 +1,13 @@
 import logging
 
-from qtpy.QtWidgets import QUndoCommand
+try:
+    from qtpy.QtWidgets import QUndoCommand
+except ImportError:
+    # PySide6 provides QUndoCommand in QtGui
+    # qtpy has been fixed (see https://github.com/spyder-ide/qtpy/pull/366) but the version available via conda as of
+    # 20/09/2022 (2.2) does not include the fix yet
+    from qtpy.QtGui import QUndoCommand
+
 from larray_editor.utils import logger
 
 

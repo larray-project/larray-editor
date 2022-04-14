@@ -24,8 +24,8 @@ requirements:
     # requires larray >= 0.32 because of the LArray -> Array rename
     - larray >=0.32
     - matplotlib
-    - pyqt >=4.6  # for API v2
-    - qtpy
+    - pyqt >=5
+    - qtpy >=2  # for Qt6 support
     # jedi >=0.18 to workaround incompatibility between jedi <0.18 and parso >=0.8 (see #220)
     - jedi >=0.18
 

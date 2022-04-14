@@ -372,7 +372,7 @@ class DataArrayModel(AbstractArrayModel):
         flags = QAbstractTableModel.flags(self, index)
         if not self.readonly:
             flags |= Qt.ItemIsEditable
-        return Qt.ItemFlags(flags)
+        return flags
 
     def data(self, index, role=Qt.DisplayRole):
         """Cell content"""

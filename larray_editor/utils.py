@@ -13,18 +13,21 @@ try:
 except TypeError:
     pass
 
-from qtpy import PYQT5
 from qtpy.QtCore import Qt, QSettings
 from qtpy.QtGui import QIcon, QColor, QFont, QKeySequence, QLinearGradient
 from qtpy.QtWidgets import QAction, QDialog, QVBoxLayout
 
-if PYQT5:
-    from matplotlib.backends.backend_qt5agg import FigureCanvas
-    from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-else:
-    from matplotlib.backends.backend_qt4agg import FigureCanvas
-    from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
+try:
+    # try the un-versioned backend first (for matplotlib 3.5+)
 
+    # this is equivalent to "from matplotlib.backends.backend_qtagg import FigureCanvas" but is easier to statically
+    # analyze for PyCharm et al.
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+    from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
+except ImportError:
+    # fall back to explicit qt5 backend (for matplotlib < 3.5)
+    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+    from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
 logger = logging.getLogger("editor")
 

@@ -28,7 +28,7 @@ import collections
 import larray as la
 
 from larray_editor.traceback_tools import StackSummary
-from larray_editor.utils import (PYQT5, _, create_action, show_figure, ima, commonpath, dependencies,
+from larray_editor.utils import (_, create_action, show_figure, ima, commonpath, dependencies,
                                  get_versions, get_documentation_url, urls, RecentlyUsedList)
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayCommand
@@ -36,8 +36,15 @@ from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayComm
 from qtpy.QtCore import Qt, QUrl, QSettings
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
-                            QDialogButtonBox, QShortcut, QVBoxLayout, QGridLayout, QLineEdit, QUndoStack,
+                            QDialogButtonBox, QShortcut, QVBoxLayout, QGridLayout, QLineEdit,
                             QCheckBox, QComboBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton)
+
+try:
+    from qtpy.QtWidgets import QUndoStack
+except ImportError:
+    # PySide6 provides QUndoStack in QtGui
+    # unsure qtpy has been fixed yet (see https://github.com/spyder-ide/qtpy/pull/366 for the fix for QUndoCommand)
+    from qtpy.QtGui import QUndoStack
 
 try:
     from qtconsole.rich_jupyter_widget import RichJupyterWidget
@@ -230,13 +237,10 @@ class AbstractEditor(QMainWindow):
             issue_template = issue_template.format(**versions)
 
             url = QUrl(urls[f'new_issue_{package}'])
-            if PYQT5:
-                from qtpy.QtCore import QUrlQuery
-                query = QUrlQuery()
-                query.addQueryItem("body", quote(issue_template))
-                url.setQuery(query)
-            else:
-                url.addEncodedQueryItem("body", quote(issue_template))
+            from qtpy.QtCore import QUrlQuery
+            query = QUrlQuery()
+            query.addQueryItem("body", quote(issue_template))
+            url.setQuery(query)
             QDesktopServices.openUrl(url)
 
         return _report_issue
@@ -1049,8 +1053,8 @@ class MappingEditor(AbstractEditor):
         if self._ask_to_save_if_unsaved_modifications():
             filter = "All (*.xls *xlsx *.h5 *.csv);;Excel Files (*.xls *xlsx);;HDF Files (*.h5);;CSV Files (*.csv)"
             res = QFileDialog.getOpenFileNames(self, filter=filter)
-            # Qt5 returns a tuple (filepaths, '') instead of a string
-            filepaths = res[0] if PYQT5 else res
+            # Qt5+ returns a tuple (filepaths, '') instead of a string
+            filepaths = res[0]
             if len(filepaths) >= 1:
                 if all(['.csv' in filepath for filepath in filepaths]):
                     # this means that even a single .csv file will be passed as a list (so that we can add arrays

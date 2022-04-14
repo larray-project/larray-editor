@@ -16,6 +16,9 @@ class StandardItemModelIterator:
             raise StopIteration
     next = __next__
 
+    def __iter__(self):
+        return self
+
 
 class SequenceStandardItemModel(QtGui.QStandardItemModel):
     """
@@ -72,7 +75,11 @@ class FilterMenu(QtWidgets.QMenu):
         self._list_view.setModel(model)
         self._model = model
         self.addItem("(select all)")
-        model[0].setTristate(True)
+        try:
+            model[0].setTristate(True)
+        except AttributeError:
+            # this is the new name for qt6+
+            model[0].setUserTristate(True)
 
         action = QtWidgets.QWidgetAction(self)
         action.setDefaultWidget(self._list_view)
