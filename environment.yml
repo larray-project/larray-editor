@@ -5,8 +5,8 @@ channels:
 dependencies:
   - pip
   - larray
-  - pyqt
-  - qtpy
+  - pyqt >=5
+  - qtpy >=2
   - matplotlib
   - pytables
   - pytest>=3.5

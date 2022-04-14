@@ -373,6 +373,8 @@ class DataView(AbstractView):
         # did before because that only seems to work for shortcut
         # defined using QKeySequence.StandardKey, which is not the case for
         # Ctrl + E
+        # FIXME: this is no longer supported by PyQt6
+        # TypeError: unsupported operand type(s) for |: 'KeyboardModifier' and 'int'
         keyseq = QKeySequence(event.modifiers() | event.key())
         if keyseq == QKeySequence.Copy:
             self.copy()

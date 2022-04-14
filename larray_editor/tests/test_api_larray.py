@@ -8,6 +8,10 @@ import larray as la
 from larray_editor.api import *
 from larray_editor.utils import logger
 
+import qtpy
+
+print(f"Using {qtpy.API_NAME} as Qt API")
+
 logger.setLevel(logging.DEBUG)
 
 lipro = la.Axis('lipro=P01..P15')
