@@ -2,7 +2,7 @@ from qtpy import QtGui, QtCore, QtWidgets
 from qtpy.QtCore import QPoint
 
 
-class StandardItemModelIterator(object):
+class StandardItemModelIterator:
     def __init__(self, model):
         self.model = model
         self.pos = 0

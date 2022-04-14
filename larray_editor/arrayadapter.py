@@ -32,7 +32,7 @@ def get_adapter(data, bg_value):
     return adapter_cls(data, bg_value)
 
 
-class AbstractAdapter(object):
+class AbstractAdapter:
     def __init__(self, data, bg_value):
         self.data = data
         self.bg_value = bg_value

@@ -10,7 +10,7 @@ import traceback
 # simplification thanks to only supporting the options we need) are:
 # * locals are stored as-is in the FrameSummary instead of as a dict of repr.
 # * globals are stored in the FrameSummary in addition to locals
-class FrameSummary(object):
+class FrameSummary:
     """A single frame from a traceback.
 
     Attributes
