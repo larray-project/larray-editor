@@ -4,7 +4,7 @@ from qtpy.QtWidgets import QUndoCommand
 from larray_editor.utils import logger
 
 
-class ArrayValueChange(object):
+class ArrayValueChange:
     """
     Class representing the change of one value of an array.
 

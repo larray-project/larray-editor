@@ -213,7 +213,7 @@ def get_idx_rect(index_list):
     return min(rows), max(rows), min(cols), max(cols)
 
 
-class IconManager(object):
+class IconManager:
     _icons = {'larray': 'larray.ico'}
     _icon_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'images')
 
@@ -232,7 +232,7 @@ class IconManager(object):
 ima = IconManager()
 
 
-class LinearGradient(object):
+class LinearGradient:
     """
     I cannot believe I had to roll my own class for this when PyQt already
     contains QLinearGradient... but you cannot get intermediate values out of
@@ -311,7 +311,7 @@ def show_figure(parent, figure):
     main.show()
 
 
-class Axis(object):
+class Axis:
     """
     Represents an Axis.
 
@@ -576,7 +576,7 @@ def get_sample_indices(data, maxsize):
     return np.unravel_index(flat_indices, data.shape)
 
 
-class RecentlyUsedList(object):
+class RecentlyUsedList:
     MAX_RECENT_FILES = 10
 
     def __init__(self, list_name, parent_action=None, triggered=None):
