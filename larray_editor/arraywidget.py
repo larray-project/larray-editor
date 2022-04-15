@@ -176,7 +176,7 @@ class AbstractView(QTableView):
                             sum(self.columnWidth(c) for c in range(self.model().columnCount()))
             self.setFixedWidth(maximum_width)
         # update geometry
-        super(AbstractView, self).updateGeometry()
+        super().updateGeometry()
 
 
 class AxesView(AbstractView):
@@ -457,7 +457,7 @@ class ScrollBar(QScrollBar):
     A specialised scrollbar.
     """
     def __init__(self, parent, data_scrollbar):
-        super(ScrollBar, self).__init__(data_scrollbar.orientation(), parent)
+        super().__init__(data_scrollbar.orientation(), parent)
         self.setMinimum(data_scrollbar.minimum())
         self.setMaximum(data_scrollbar.maximum())
         self.setSingleStep(data_scrollbar.singleStep())

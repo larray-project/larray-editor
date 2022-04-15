@@ -48,7 +48,7 @@ class SequenceStandardItemModel(QtGui.QStandardItemModel):
 
 class StandardItem(QtGui.QStandardItem):
     def __init__(self, value):
-        super(StandardItem, self).__init__(value)
+        super().__init__(value)
 
     def get_checked(self):
         return self.checkState() == QtCore.Qt.Checked
@@ -67,7 +67,7 @@ class FilterMenu(QtWidgets.QMenu):
     checkedItemsChanged = QtCore.Signal(list)
 
     def __init__(self, parent=None):
-        super(QtWidgets.QMenu, self).__init__(parent)
+        super().__init__(parent)
 
         self._list_view = QtWidgets.QListView(parent)
         self._list_view.setFrameStyle(0)
@@ -182,7 +182,7 @@ class FilterComboBox(QtWidgets.QToolButton):
     checkedItemsChanged = QtCore.Signal(list)
 
     def __init__(self, parent=None):
-        super(FilterComboBox, self).__init__(parent)
+        super().__init__(parent)
         self.setText("(no filter)")
         # QtGui.QToolButton.InstantPopup would be slightly less work (the
         # whole button works by default, instead of only the arrow) but it is
@@ -262,7 +262,7 @@ if __name__ == '__main__':
 
     class TestDialog(QtWidgets.QDialog):
         def __init__(self):
-            super(QtWidgets.QDialog, self).__init__()
+            super().__init__()
             layout = QtWidgets.QVBoxLayout()
             self.setLayout(layout)
 
