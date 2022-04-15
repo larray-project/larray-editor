@@ -2,7 +2,7 @@ from os.path import basename
 import logging
 from inspect import stack
 import numpy as np
-from larray_editor.utils import (get_font, to_text_string,
+from larray_editor.utils import (get_default_font, to_text_string,
                                  is_float, is_number, LinearGradient, SUPPORTED_FORMATS, scale_to_01range,
                                  Product, is_number_value, get_sample, get_sample_indices, logger)
 from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel, Signal
@@ -36,7 +36,7 @@ class AbstractArrayModel(QAbstractTableModel):
         self.readonly = readonly
 
         if font is None:
-            font = get_font("arreditor")
+            font = get_default_font()
         self.font = font
 
         self._data = None

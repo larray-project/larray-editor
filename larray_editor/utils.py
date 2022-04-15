@@ -159,7 +159,7 @@ def is_number(dtype):
     return is_float(dtype) or ('int' in dtype.name) or ('long' in dtype.name) or ('short' in dtype.name)
 
 
-def get_font(section):
+def get_default_font():
     return _get_font('Calibri', 11)
 
 

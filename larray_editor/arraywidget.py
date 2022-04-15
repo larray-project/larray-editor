@@ -78,7 +78,8 @@ from qtpy.QtWidgets import (QApplication, QTableView, QItemDelegate, QLineEdit, 
                             QMessageBox, QMenu, QLabel, QSpinBox, QWidget, QToolTip, QShortcut, QScrollBar,
                             QHBoxLayout, QVBoxLayout, QGridLayout, QSizePolicy, QFrame, QComboBox)
 
-from larray_editor.utils import (keybinding, create_action, clear_layout, get_font, is_number, is_float, _, ima, LinearGradient)
+from larray_editor.utils import (keybinding, create_action, clear_layout, get_default_font, is_number, is_float, _,
+                                 ima, LinearGradient)
 from larray_editor.arrayadapter import get_adapter
 from larray_editor.arraymodel import LabelsArrayModel, AxesArrayModel, DataArrayModel
 from larray_editor.combo import FilterComboBox
@@ -212,7 +213,7 @@ class ArrayDelegate(QItemDelegate):
         QItemDelegate.__init__(self, parent)
         self.dtype = dtype
         if font is None:
-            font = get_font('arrayeditor')
+            font = get_default_font()
         self.font = font
         self.minvalue = minvalue
         self.maxvalue = maxvalue
