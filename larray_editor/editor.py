@@ -1,6 +1,9 @@
 import os
 import re
 import sys
+from pathlib import Path
+from typing import Union
+
 
 # Python3.8 switched from a Selector to a Proactor based event loop for asyncio but they do not offer the same
 # features, which breaks Tornado and all projects depending on it, including Jupyter consoles
@@ -773,8 +776,9 @@ class MappingEditor(AbstractEditor):
         self.current_array_name = name
         self.update_title()
 
-    def set_current_file(self, filepath):
-        self.recent_data_files.add(filepath)
+    def set_current_file(self, filepath: Union[str, Path]):
+        if filepath is not None:
+            self.recent_data_files.add(filepath)
         self.current_file = filepath
         self.update_title()
 
@@ -1010,12 +1014,10 @@ class MappingEditor(AbstractEditor):
                 else:
                     self._save_script(filepath, lines, overwrite)
 
-
-    #=============================#
-    #  METHODS TO SAVE/LOAD DATA  #
-    #=============================#
-
-    def _open_file(self, filepath):
+    # ============================= #
+    #  METHODS TO SAVE/LOAD DATA    #
+    # ============================= #
+    def _open_file(self, filepath: Union[str, Path]):
         session = la.Session()
         # a list => .csv files. Possibly a single .csv file.
         if isinstance(filepath, (list, tuple)):

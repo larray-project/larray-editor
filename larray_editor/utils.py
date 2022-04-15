@@ -2,6 +2,9 @@ import os
 import sys
 import math
 import logging
+from pathlib import Path
+from typing import Union
+
 from larray.util.misc import Product
 
 import numpy as np
@@ -605,13 +608,16 @@ class RecentlyUsedList(object):
     def actions(self):
         return self._actions
 
-    def add(self, filepath):
-        if filepath is not None:
-            recent_files = self.files
-            if filepath in recent_files:
-                recent_files.remove(filepath)
-            recent_files = [filepath] + recent_files
-            self.files = recent_files
+    def add(self, filepath: Union[str, Path]):
+        if filepath is None:
+            return
+        elif isinstance(filepath, Path):
+            filepath = str(filepath)
+        recent_files = self.files
+        if filepath in recent_files:
+            recent_files.remove(filepath)
+        recent_files = [filepath] + recent_files
+        self.files = recent_files
 
     def clear(self):
         self.files = []
@@ -624,10 +630,12 @@ class RecentlyUsedList(object):
 
             # zip will iterate up to the shortest of the two
             for filepath, action in zip(recent_files, self.actions):
+                if isinstance(filepath, Path):
+                    filepath = str(filepath)
                 action.setText(os.path.basename(filepath))
                 action.setStatusTip(filepath)
                 action.setData(filepath)
                 action.setVisible(True)
-            # if we have less recent recent files than actions, hide the remaining actions
+            # if we have less recent files than actions, hide the remaining actions
             for action in self.actions[len(recent_files):]:
                 action.setVisible(False)
