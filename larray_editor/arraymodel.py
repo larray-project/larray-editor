@@ -2,7 +2,7 @@ from os.path import basename
 import logging
 from inspect import stack
 import numpy as np
-from larray_editor.utils import (get_default_font, to_text_string,
+from larray_editor.utils import (get_default_font,
                                  is_float, is_number, LinearGradient, SUPPORTED_FORMATS, scale_to_01range,
                                  Product, is_number_value, get_sample, get_sample_indices, logger)
 from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel, Signal
@@ -456,10 +456,8 @@ class DataArrayModel(AbstractArrayModel):
                 return bool(float(value))
             except ValueError:
                 return value.lower() == "true"
-        elif dtype.name.startswith("string"):
+        elif dtype.name.startswith("string") or dtype.name.startswith("unicode"):
             return str(value)
-        elif dtype.name.startswith("unicode"):
-            return to_text_string(value)
         elif is_float(dtype):
             return float(value)
         elif is_number(dtype):
