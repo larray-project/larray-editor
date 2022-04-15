@@ -296,7 +296,7 @@ class LinearGradient:
 
 class PlotDialog(QDialog):
     def __init__(self, canvas, parent=None):
-        super(PlotDialog, self).__init__(parent)
+        super().__init__(parent)
 
         toolbar = NavigationToolbar(canvas, self)
 
