@@ -14,6 +14,7 @@ import pandas as pd
 from larray_editor.api import edit
 # from larray_editor.api import view, edit, debug, compare
 from larray_editor.utils import logger
+from larray_editor.arrayadapter import SQLiteExplorer
 
 print(f"Using {qtpy.API_NAME} as Qt API")
 logger.setLevel(logging.DEBUG)
@@ -268,6 +269,20 @@ except ImportError:
 #                'c:/tmp/edit.profile')
 import pstats
 pstats_stats = pstats.Stats('c:\\tmp\\edit.profile')
+
+import sqlite3
+con = sqlite3.connect(":memory:")
+cur = con.cursor()
+cur.execute("create table lang (name, first_appeared)")
+lang_list = [
+    ("C", 1972),
+    ("Fortran", 1957),
+    ("Python", 1991),
+    ("Go", 2009),
+]
+cur.executemany("insert into lang values (?, ?)", lang_list)
+cur.close()
+sql_explorer = SQLiteExplorer(con)
 
 edit()
 # debug()

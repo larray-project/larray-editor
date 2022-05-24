@@ -1604,3 +1604,85 @@ class ProfilingStatsAdapter(AbstractAdapter):
         return [(filepath, line_num, func_name, ncalls_primitive, ncalls_tot, tottime, cumtime)[h_start:h_stop]
                 for ((filepath, line_num, func_name), (ncalls_primitive, ncalls_tot, tottime, cumtime, callers))
                 in zip(func_calls, call_details)]
+
+
+SQLITE_LIST_TABLES_QUERY = "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+
+
+class SQLiteTable:
+    def __init__(self, con, name):
+        self.con = con
+        self.name = name
+
+    def __repr__(self):
+        return f"<SQLiteTable '{self.name}'>"
+
+
+class SQLiteExplorer:
+    def __init__(self, con):
+        self.con = con
+
+    def __dir__(self):
+        cur = self.con.cursor()
+        cur.execute(SQLITE_LIST_TABLES_QUERY)
+        rows = cur.fetchall()
+        cur.close()
+        return [row[0] for row in rows]
+
+    def __getattr__(self, item):
+        if item not in self.__dir__():
+            raise AttributeError(f"Database does not contain any '{item}' table")
+        return SQLiteTable(self.con, item)
+
+    def __repr__(self):
+        return f"<SQLiteExplorer>"
+
+
+@adapter_for(SQLiteExplorer)
+def get_sqlite_explorer_adapter(data: SQLiteExplorer, bg_value):
+    return SQLiteConnectionAdapter(data.con, bg_value)
+
+
+@adapter_for(SQLiteTable)
+class SQLiteTableAdapter(AbstractAdapter):
+    def __init__(self, data, bg_value):
+        AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
+        cur = self.data.con.cursor()
+        cur.execute(f"SELECT count(*) FROM {self.data.name}")
+        self._numrows = cur.fetchone()[0]
+        cur.execute(f"SELECT * FROM {self.data.name} LIMIT 1")
+        self._columns = [col_descr[0] for col_descr in cur.description]
+        cur.close()
+
+    def shape2d(self):
+        return self._numrows, len(self._columns)
+
+    def get_hlabels(self, start, stop):
+        return [self._columns[start:stop]]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        cur = self.data.con.cursor()
+        cols = self._columns[h_start:h_stop]
+        cur.execute(f"SELECT {', '.join(cols)} FROM {self.data.name} LIMIT {v_stop - v_start} OFFSET {v_start}")
+        rows = cur.fetchall()
+        cur.close()
+        return rows
+
+
+@adapter_for('sqlite3.Connection')
+class SQLiteConnectionAdapter(AbstractAdapter):
+    def __init__(self, data, bg_value):
+        AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
+        cur = data.cursor()
+        cur.execute(SQLITE_LIST_TABLES_QUERY)
+        self._tables = cur.fetchall()
+        cur.close()
+
+    def shape2d(self):
+        return len(self._tables), 1
+
+    def get_hlabels(self, start, stop):
+        return [['Name']]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        return self._tables[v_start:v_stop]
