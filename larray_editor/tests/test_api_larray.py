@@ -2,6 +2,7 @@
 
 import array
 import logging
+import zipfile
 from collections import OrderedDict, namedtuple
 from pathlib import Path
 
@@ -283,6 +284,8 @@ lang_list = [
 cur.executemany("insert into lang values (?, ?)", lang_list)
 cur.close()
 sql_explorer = SQLiteExplorer(con)
+
+zipf = zipfile.ZipFile('c:/Users/gdm/Downloads/active_directory-0.6.7.zip')
 
 edit()
 # debug()

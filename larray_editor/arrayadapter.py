@@ -1686,3 +1686,44 @@ class SQLiteConnectionAdapter(AbstractAdapter):
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
         return self._tables[v_start:v_stop]
+
+
+@adapter_for('zipfile.ZipFile')
+class ZipFileAdapter(AbstractAdapter):
+    def __init__(self, data, bg_value):
+        AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
+        infolist = data.infolist()
+        self._list = [(info.filename,
+                       datetime(*info.date_time).strftime('%d/%m/%Y %H:%M'),
+                       '<directory>' if info.is_dir() else info.file_size)
+                      for info in infolist]
+        self._colnames = ['Name', 'Time Modified', 'Size']
+
+    def shape2d(self):
+        return len(self._list), len(self._colnames)
+
+    def get_hlabels(self, start, stop):
+        return [self._colnames[start:stop]]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        return self._list[v_start:v_stop]
+
+
+@adapter_for('zipfile.Path')
+class ZipPathAdapter(AbstractAdapter):
+    def __init__(self, data, bg_value):
+        AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
+        zpath_objs = list(data.iterdir())
+        zpath_objs.sort(key=lambda p: (not p.is_dir(), p.name))
+        self._list = [(p.name, '<DIR>' if p.is_dir() else '')
+                      for p in zpath_objs]
+        self._colnames = ['Name', 'Type']
+
+    def shape2d(self):
+        return len(self._list), len(self._colnames)
+
+    def get_hlabels(self, start, stop):
+        return [self._colnames[start:stop]]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        return self._list[v_start:v_stop]
