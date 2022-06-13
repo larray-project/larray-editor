@@ -171,7 +171,7 @@ la_long_axes_names = la.zeros('first_axis=a0,a1; second_axis=b0,b1')
 # profile.runctx('edit(Session(arr2=arr2))', vars(), {},
 #                'c:\\tmp\\edit.profile')
 # debug()
-edit()
+# edit()
 # edit(Path('../test_object.h5'))
 # edit(ses)
 # edit(file)
@@ -249,6 +249,17 @@ pd_df4 = pd_df2.unstack()
 pd_df_str = pd_df2.astype(str)
 pd_series = pd_df2.stack()
 
+try:
+    import pyarrow as pa
+
+    pyarrow_int_array = pa.array([2, 4, 5, 42])
+    pyarrow_str_array = pa.array(["Hello", "from", "Arrow", "!"])
+    pyarrow_table = pa.Table.from_arrays([pyarrow_int_array, pyarrow_str_array],
+                                         names=["int_col", "str_col"])
+except ImportError:
+    pass
+
+edit()
 # debug()
 
 test_matplotlib_show_interaction()

@@ -977,3 +977,30 @@ class SeriesAdapter(AbstractAdapter):
         section_data = self.data.iloc[v_start:v_stop].values.reshape(-1, 1)
         color_value, self.vmin, self.vmax = get_color_value(section_data, self.vmin, self.vmax)
         return {'data_format': self._number_format, 'values': section_data, 'bg_value': color_value}
+
+
+@adapter_for('pyarrow.Array')
+class PyArrowArrayAdapter(AbstractAdapter):
+    def shape2d(self):
+        return len(self.data), 1
+
+    def get_hlabels(self, start, stop):
+        return [['value']]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        # TODO: use to_numpy instead??
+        return self.data[v_start:v_stop].to_pylist()
+
+
+@adapter_for('pyarrow.Table')
+class PyArrowTableAdapter(AbstractAdapter):
+    def shape2d(self):
+        return self.data.shape
+
+    def get_hlabels(self, start, stop):
+        return [self.data.column_names[start:stop]]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        # FIXME: take h_start and h_stop into account
+        return list(zip(*[col.to_pylist()
+                          for col in self.data[v_start:v_stop].itercolumns()]))
