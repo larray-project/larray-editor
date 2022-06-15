@@ -480,7 +480,6 @@ class AbstractAdapter:
         return figure
 
 
-@adapter_for(collections.abc.Sequence)
 class SequenceAdapter(AbstractAdapter):
     def shape2d(self):
         return len(self.data), 1
@@ -493,6 +492,34 @@ class SequenceAdapter(AbstractAdapter):
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
         return self.data[v_start:v_stop]
+
+
+class NamedTupleAdapter(AbstractAdapter):
+    def shape2d(self):
+        return len(self.data), 1
+
+    def get_axes_area(self):
+        return [['attribute']]
+
+    def get_hlabels(self, start, stop):
+        return [['value']]
+
+    def get_vlabels(self, start, stop):
+        return [[k] for k in self.data._fields[start:stop]]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        return self.data[v_start:v_stop]
+
+
+@adapter_for(collections.abc.Sequence)
+def get_sequence_adapter(data, bg_value):
+    namedtuple_attrs = ['_asdict', '_field_defaults', '_fields', '_make', '_replace']
+    # Named tuples have no special parent class, so we cannot dispatch using the type
+    # of data and need to check the presence of NamedTuple specific attributes instead
+    if all(hasattr(data, attr) for attr in namedtuple_attrs):
+        return NamedTupleAdapter(data, bg_value)
+    else:
+        return SequenceAdapter(data, bg_value)
 
 
 @adapter_for(collections.abc.Mapping)

@@ -1,7 +1,7 @@
 """Array editor test"""
 
 import logging
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 # from pathlib import Path
 
 import qtpy
@@ -27,6 +27,11 @@ tuple_int = (2, 5, 7, 3)
 tuple_mixed = ('abc', 1.1, True, 1.0, 42, (1, 2))
 tuple_seq_mixed = ((1,), (2, 3, 4), (5, 6))
 tuple_seq_regular = ((1, 2), (3, 4), (5, 6))
+
+# named tuple
+PersonNamedTuple = namedtuple('Person', ['name', 'age', 'male', 'height'])
+namedtuple1 = PersonNamedTuple("name1", age=42, male=True, height=1.80)
+namedtuple2 = PersonNamedTuple("name2", age=41, male=False, height=1.76)
 
 # set
 set_int = {2, 4, 7, 3}
