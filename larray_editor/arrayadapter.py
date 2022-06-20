@@ -13,6 +13,7 @@ import os
 import math
 import itertools
 import time
+# import types
 from datetime import datetime
 
 import numpy as np
@@ -558,6 +559,29 @@ class MappingAdapter(AbstractAdapter):
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
         return list(itertools.islice(self.data.values(), v_start, v_stop))
+
+
+# @adapter_for(object)
+# class ObjectAdapter(AbstractAdapter):
+#     def __init__(self, data, bg_value):
+#         AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
+#         self._fields = [k for k in dir(data) if not k.startswith('_') and type(getattr(data, k)) not in
+#                         {types.FunctionType, types.BuiltinFunctionType, types.BuiltinMethodType}]
+#
+#     def shape2d(self):
+#         return len(self._fields), 1
+#
+#     def get_axes_area(self):
+#         return [['key']]
+#
+#     def get_hlabels(self, start, stop):
+#         return [['value']]
+#
+#     def get_vlabels(self, start, stop):
+#         return [[f] for f in self._fields[start:stop]]
+#
+#     def get_values(self, h_start, v_start, h_stop, v_stop):
+#         return [[getattr(self.data, k)] for k in self._fields[v_start:v_stop]]
 
 
 @adapter_for(collections.abc.Collection)
