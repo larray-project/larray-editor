@@ -12,6 +12,7 @@ import sys
 import os
 import math
 import itertools
+import time
 
 import numpy as np
 import larray as la
@@ -1158,6 +1159,216 @@ class BinaryFileAdapter(AbstractAdapter):
 
         # take what we were asked for
         return buffer2d[:, h_start:h_stop]
+
+
+def index_line_ends(s, index=None, offset=0, c='\n'):
+    r"""returns a list of line end positions
+
+    It does NOT add an implicit line end at the end of the string.
+
+    >>> index_line_ends("0\n234\n6\n8")
+    [1, 5, 7]
+    >>> chunks = ["0\n234\n6", "", "\n", "8"]
+    >>> pos = 0
+    >>> idx = []
+    >>> for chunk in chunks:
+    ...     _ = index_line_ends(chunk, idx, pos)
+    ...     pos += len(chunk)
+    >>> idx
+    [1, 5, 7]
+    """
+    if index is None:
+        index = []
+    if not len(s):
+        return index
+    line_start = 0
+    find = s.find
+    append = index.append
+    while True:
+        line_end = find(c, line_start)
+        if line_end == -1:
+            break
+        append(line_end + offset)
+        line_start = line_end + 1
+    return index
+
+
+def chunks_to_lines(chunks, num_lines_required=None):
+    r"""
+    Parameters
+    ----------
+    chunks : list
+        List of chunks. str and bytes are both supported but should not be mixed (all chunks must
+        have the same type than the first chunk).
+
+    Examples
+    --------
+    >>> chunks = ['a\nb\nc ', 'c\n', 'd ', 'd', '\n', 'e']
+    >>> chunks_to_lines(chunks)
+    ['a', 'b', 'c c', 'd d', 'e']
+    >>> # it should have the same result than join then splitlines (just do it more efficiently)
+    ... ''.join(chunks).splitlines()
+    ['a', 'b', 'c c', 'd d', 'e']
+    """
+    if not chunks:
+        return []
+    sep = b'' if isinstance(chunks[0], bytes) else ''
+    lines = sep.join(chunks).splitlines()
+    return lines[:num_lines_required]
+
+
+@adapter_for('io.TextIOWrapper')
+class TextFileAdapter(AbstractAdapter):
+    def __init__(self, data, bg_value):
+        AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
+        self._nbytes = os.path.getsize(self._path)
+        self._lines_end_index = []
+        self._fully_indexed = False
+
+        # sniff a small chunk so that we can compute an approximate number of lines
+        with self._binary_file as f:
+            self._index_up_to(f, 1, chunk_size=64 * KB, max_time=0.05)
+
+    @property
+    def _path(self):
+        import io
+        return self.data.name if isinstance(self.data, io.TextIOWrapper) else self.data
+
+    @property
+    def _binary_file(self):
+        return open(self._path, 'rb')
+
+    @property
+    def _avg_bytes_per_line(self):
+        return self._lines_end_index[-1] / len(self._lines_end_index)
+
+    @property
+    def _num_lines(self):
+        """returns estimated number of lines"""
+        if self._fully_indexed:
+            return len(self._lines_end_index)
+        else:
+            return math.ceil(self._nbytes / self._avg_bytes_per_line)
+
+    def shape2d(self):
+        return self._num_lines, 1
+
+    def _index_up_to(self, f, approx_v_stop, chunk_size=4 * MB, max_time=0.5):
+        # If the size of the index ever becomes a problem, we could store only
+        # one line on X but we are not there yet.
+        # We also need to limit line length (to something like 256Kb?). Beyond that it is
+        # probably not a line-based file.
+        if len(self._lines_end_index):
+            lines_to_index = max(approx_v_stop - len(self._lines_end_index), 0)
+            data_to_index = lines_to_index * self._avg_bytes_per_line
+            must_index = 0 < data_to_index < 512 * MB
+        else:
+            # we have not indexed anything yet
+            must_index = True
+
+        if must_index:
+            print(f"trying to index up to {approx_v_stop}...")
+            start_time = time.perf_counter()
+            chunk_start = self._lines_end_index[-1] if self._lines_end_index else 0
+            f.seek(chunk_start)
+            # TODO: check for off by one error with v_stop
+            while (time.perf_counter() - start_time < max_time) and (len(self._lines_end_index) < approx_v_stop) and \
+                    not self._fully_indexed:
+
+                # TODO: if we are beyond v_start, we should store the chunks to avoid reading them twice from disk
+                #       (once for indexing then again for getting the data)
+                chunk = f.read(chunk_size)
+
+                line_end_char = b'\n'
+                index_line_ends(chunk, self._lines_end_index, offset=chunk_start, c=line_end_char)
+                length_read = len(chunk)
+                if length_read < chunk_size:
+                    self._fully_indexed = True
+                    # add implicit line end at the end of the file if there isn't an explicit one
+                    file_length = chunk_start + length_read
+                    file_last_char_pos = file_length - len(line_end_char)
+                    if self._lines_end_index[-1] != file_last_char_pos:
+                        self._lines_end_index.append(file_length)
+                chunk_start += length_read
+
+            # TODO: check for off by one error with v_stop
+            if len(self._lines_end_index) < approx_v_stop and not self._fully_indexed:
+                print(f" > timed out! indexed up to {len(self._lines_end_index)} but needed {approx_v_stop}")
+            else:
+                print(" > got it!")
+
+    def get_vlabels(self, start, stop):
+        # we need to trigger indexing too (because get_vlabels happens before get_data) so that lines_indexed is correct
+        # FIXME: get_data should not trigger indexing too if start/stop are the same
+        with self._binary_file as f:
+            self._index_up_to(f, stop)
+
+        start, stop, step = slice(start, stop).indices(self._num_lines)
+        lines_indexed = len(self._lines_end_index)
+        return [[str(i) if i < lines_indexed else '~' + str(i)] for i in range(start, stop)]
+
+    def _get_lines(self, start, stop):
+        """stop is exclusive"""
+        print(f"_get_lines {start}:{stop}")
+        assert start >= 0 and stop >= 0
+        with self._binary_file as f:
+            self._index_up_to(f, stop)
+            num_indexed_lines = len(self._lines_end_index)
+            if self._fully_indexed and stop > num_indexed_lines:
+                stop = num_indexed_lines
+
+            # if we are entirely in indexed lines, we can use exact pos
+            if stop <= num_indexed_lines:
+                # position of first line is one byte after the end of the line preceding it (if any)
+                start_pos = self._lines_end_index[start - 1] + 1 if start >= 1 else 0
+                # v_stop line should be excluded (=> -1)
+                stop_pos = self._lines_end_index[stop - 1]
+                f.seek(start_pos)
+                chunk = f.read(stop_pos - start_pos)
+                lines = chunk.split(b'\n')
+                assert len(lines) == stop - start
+                return lines
+            else:
+                pos_last_end = self._lines_end_index[-1]
+                if start - 1 < num_indexed_lines:
+                    approx_start = False
+                    start_pos = self._lines_end_index[start - 1] + 1 if start >= 1 else 0
+                else:
+                    approx_start = True
+                    # use approximate pos for start
+                    start_pos = pos_last_end + 1 + int((start - num_indexed_lines) * self._avg_bytes_per_line)
+                    # read one more line before expected start_pos to have more chance of getting the line entirely
+                    start_pos = max(start_pos - int(self._avg_bytes_per_line), 0)
+
+                num_lines = 0
+                num_lines_required = stop - start
+
+                f.seek(start_pos)
+                # use approximate pos for stop
+                chunks = []
+                CHUNK_SIZE = 1 * MB
+                stop_pos = pos_last_end + math.ceil((stop - num_indexed_lines) * self._avg_bytes_per_line)
+                max_stop_pos = min(stop_pos + 4 * MB, self._nbytes)
+                # first chunk size is what we *think* is necessary to get num_lines_required
+                chunk_size = stop_pos - start_pos
+                # but then, if the number of lines we actually got (num_lines) is not enough we will ask for more
+                while num_lines < num_lines_required and stop_pos < max_stop_pos:
+                    chunk = f.read(chunk_size)
+                    chunks.append(chunk)
+                    num_lines += chunk.count(b'\n')
+                    stop_pos += len(chunk)
+                    chunk_size = CHUNK_SIZE
+
+                if approx_start:
+                    # +1 and [1:] to remove first line so that we are sure the first line is complete
+                    lines = chunks_to_lines(chunks, num_lines_required + 1)[1:]
+                else:
+                    lines = chunks_to_lines(chunks, num_lines_required)
+                return lines
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        """*_stop are exclusive"""
+        return self._get_lines(v_start, v_stop)
 
 
 @adapter_for('pstats.Stats')
