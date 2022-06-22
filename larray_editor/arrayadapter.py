@@ -1038,3 +1038,28 @@ class PyArrowTableAdapter(AbstractAdapter):
         # FIXME: take h_start and h_stop into account
         return list(zip(*[col.to_pylist()
                           for col in self.data[v_start:v_stop].itercolumns()]))
+
+
+@adapter_for('polars.DataFrame')
+class PolarsDataFrameAdapter(AbstractAdapter):
+    def __init__(self, data, bg_value):
+        AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
+        self.vmin = None
+        self.vmax = None
+
+    @property
+    def shape2d(self):
+        return self.data.shape
+
+    def get_hlabels(self, start, stop):
+        return [self.data.columns[start:stop]]
+
+    def get_data(self, h_start, v_start, h_stop, v_stop):
+        sub_df = self.data[v_start:v_stop, h_start:h_stop]
+
+        buf = np.empty((len(sub_df), len(sub_df.columns)), dtype=object)
+        for i, col in enumerate(sub_df.columns):
+            buf[:, i] = sub_df[col]
+
+        color_value, self.vmin, self.vmax = get_color_value(buf, self.vmin, self.vmax, axis=0)
+        return {'values': buf, 'bg_value': color_value}
