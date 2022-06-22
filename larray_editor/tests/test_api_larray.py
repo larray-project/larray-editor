@@ -8,6 +8,8 @@ from collections import OrderedDict, namedtuple
 import numpy as np
 import qtpy
 import larray as la
+import pandas as pd
+
 
 from larray_editor.api import edit
 # from larray_editor.api import view, edit, debug, compare
@@ -238,6 +240,14 @@ def test_run_editor_on_exception(local_arr):
 # run_editor_on_exception(usercode_traceback=False, usercode_frame=False)
 
 # test_run_editor_on_exception(arr2)
+
+pd_df_mixed = pd.DataFrame(np_struct_arr)
+pd_df1 = la_arr3.df
+pd_df2 = la_arr2.df
+pd_df3 = pd_df2.T
+pd_df4 = pd_df2.unstack()
+pd_df_str = pd_df2.astype(str)
+pd_series = pd_df2.stack()
 
 # debug()
 

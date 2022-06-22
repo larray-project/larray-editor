@@ -882,3 +882,98 @@ def get_np_array_adapter(data, bg_value):
         return NumpyStructuredArrayAdapter(data, bg_value)
     else:
         return NumpyHomogeneousArrayAdapter(data, bg_value)
+
+
+@adapter_for('pandas.DataFrame')
+class DataFrameAdapter(AbstractAdapter):
+    def __init__(self, data, bg_value):
+        import pandas as pd
+        globals()['pd'] = pd
+        assert isinstance(data, pd.DataFrame)
+        AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
+        self.vmin = None
+        self.vmax = None
+
+    def shape2d(self):
+        return self.data.shape
+
+    # FIXME: this is currently required but should not be (=> need to fix super.get_axes_area to make it work)
+    def get_axes_area(self):
+        idx_names = self.get_vnames()
+        col_names = self.get_hnames()
+
+        names = np.full((len(col_names), len(idx_names)), '', dtype=object)
+        names[-1, :-1] = idx_names[:-1]
+        names[:-1, -1] = col_names[:-1]
+        names[-1, -1] = idx_names[-1] + '\\' + col_names[-1]
+        return names.tolist()
+
+    # TODO: maybe support None values natively so that this could just be "return self.data.columns.names"
+    def get_hnames(self):
+        return [name if name is not None else ''
+                for name in self.data.columns.names]
+
+    def get_vnames(self):
+        return [name if name is not None else ''
+                for name in self.data.index.names]
+
+    def get_vlabels(self, start, stop):
+        index = self.data.index[start:stop]
+        if isinstance(index, pd.MultiIndex):
+            return index.values
+        else:
+            return index.values[:, np.newaxis]
+
+    def get_hlabels(self, start, stop):
+        index = self.data.columns[start:stop]
+        if isinstance(index, pd.MultiIndex):
+            return [index.get_level_values(i).values for i in range(index.nlevels)]
+        else:
+            return [index.values]
+
+    def get_data(self, h_start, v_start, h_stop, v_stop):
+        section_data = self.data.iloc[v_start:v_stop, h_start:h_stop].values
+        color_value, self.vmin, self.vmax = get_color_value(section_data, self.vmin, self.vmax, axis=0)
+        return {'data_format': self._number_format, 'values': section_data, 'bg_value': color_value}
+
+
+@adapter_for('pandas.Series')
+class SeriesAdapter(AbstractAdapter):
+    def __init__(self, data, bg_value):
+        import pandas as pd
+        globals()['pd'] = pd
+
+        assert isinstance(data, pd.Series)
+        AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
+
+    def shape2d(self):
+        return len(self.data), 1
+
+    def get_axes_area(self):
+        return [self.get_vnames()]
+
+    def get_vnames(self):
+        return [name if name is not None else ''
+                for name in self.data.index.names]
+
+    def get_vlabels(self, start, stop):
+        index = self.data.index[start:stop]
+        if isinstance(index, pd.MultiIndex):
+            return index.values
+        else:
+            return index.values[:, np.newaxis]
+
+    def get_hlabels(self, start, stop):
+        return [['']]
+
+    def get_data(self, h_start, v_start, h_stop, v_stop):
+        assert h_start == 0
+        # h_stop can be > 0 but should be ignored
+
+        # TODO: use self.data.to_dict('list') instead of .values?
+        # Note that using .values gives us an object dtype for mixed type series, which is what we want.
+        # It is faster than .to_dict('list') for largish structures, but for smallish (e.g. 50, 4), it is slower,
+        # so I need to benchmark using full buffer size dataframes
+        section_data = self.data.iloc[v_start:v_stop].values.reshape(-1, 1)
+        color_value, self.vmin, self.vmax = get_color_value(section_data, self.vmin, self.vmax)
+        return {'data_format': self._number_format, 'values': section_data, 'bg_value': color_value}
