@@ -1063,3 +1063,28 @@ class PolarsDataFrameAdapter(AbstractAdapter):
 
         color_value, self.vmin, self.vmax = get_color_value(buf, self.vmin, self.vmax, axis=0)
         return {'values': buf, 'bg_value': color_value}
+
+
+@adapter_for('pstats.Stats')
+class ProfilingStatsAdapter(AbstractAdapter):
+    def __init__(self, data, bg_value):
+        AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
+        self._keys = list(data.stats.keys())
+        self._colnames = ['filepath', 'line num', 'func. name', 'ncalls (non rec)', 'ncalls (total)', 'tottime',
+                          'cumtime']
+
+    def shape2d(self):
+        return len(self._keys), len(self._colnames)
+
+    def get_hlabels(self, start, stop):
+        return [self._colnames[start:stop]]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        """*_stop are exclusive"""
+
+        func_calls = self._keys[v_start:v_stop]
+        stats = self.data.stats
+        call_details = [stats[k] for k in func_calls]
+        return [(filepath, line_num, func_name, ncalls_primitive, ncalls_tot, tottime, cumtime)[h_start:h_stop]
+                for ((filepath, line_num, func_name), (ncalls_primitive, ncalls_tot, tottime, cumtime, callers))
+                in zip(func_calls, call_details)]

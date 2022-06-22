@@ -259,6 +259,12 @@ try:
 except ImportError:
     pass
 
+# import cProfile as profile
+# profile.runctx('edit(la.Session(arr2=arr2))', vars(), {},
+#                'c:/tmp/edit.profile')
+import pstats
+pstats_stats = pstats.Stats('c:\\tmp\\edit.profile')
+
 edit()
 # debug()
 
