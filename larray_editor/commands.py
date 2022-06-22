@@ -17,6 +17,7 @@ class ArrayValueChange:
 
     Parameters
     ----------
+    # FIXME: key is a tuple of indices
     key: list/tuple of str
         Key associated with the value
     old_value: scalar
@@ -42,7 +43,7 @@ class EditArrayCommand(QUndoCommand):
         Instance of MappingEditor
     target : object
         target array to edit. Can be given under any form.
-    changes: (list of) instance(s) of ArrayValueChange
+    changes: list of ArrayValueChange
         List of changes
     """
 
@@ -61,6 +62,7 @@ class EditArrayCommand(QUndoCommand):
     def undo(self):
         for change in self.changes:
             self.apply_change(change.key, change.old_value)
+        # TODO: a full reset is wasteful
         self.editor.arraywidget.model_data.reset()
 
     def redo(self):
@@ -95,7 +97,8 @@ class EditSessionArrayCommand(EditArrayCommand):
             return f"Pasting {len(changes)} Cells in {target}"
 
     def apply_change(self, key, new_value):
-        self.editor.kernel.shell.run_cell(f"{self.target}[{key}] = {new_value}")
+        # FIXME: we should pass via the adapter to have something generic
+        self.editor.kernel.shell.run_cell(f"{self.target}.i[{key}] = {new_value}")
 
 
 class EditCurrentArrayCommand(EditArrayCommand):
@@ -108,7 +111,7 @@ class EditCurrentArrayCommand(EditArrayCommand):
         Instance of ArrayEditor
     target : Array
         array to edit
-    changes : (list of) instance(s) of ArrayValueChange
+    changes : (list of) ArrayValueChange
         List of changes
     """
     def get_description(self, target, changes):
@@ -118,4 +121,5 @@ class EditCurrentArrayCommand(EditArrayCommand):
             return f"Pasting {len(changes)} Cells"
 
     def apply_change(self, key, new_value):
-        self.target[key] = new_value
+        # FIXME: we should pass via the adapter to have something generic
+        self.target.i[key] = new_value

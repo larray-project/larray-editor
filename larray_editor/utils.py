@@ -5,8 +5,6 @@ import logging
 from pathlib import Path
 from typing import Union
 
-from larray.util.misc import Product
-
 import numpy as np
 try:
     np.set_printoptions(legacy='1.13')
@@ -28,6 +26,8 @@ except ImportError:
     # fall back to explicit qt5 backend (for matplotlib < 3.5)
     from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
     from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+
+from larray.util.misc import Product
 
 logger = logging.getLogger("editor")
 
@@ -149,14 +149,14 @@ def _get_font(family, size, bold=False, italic=False):
     return font
 
 
-def is_float(dtype):
+def is_float_dtype(dtype):
     """Return True if datatype dtype is a float kind"""
     return ('float' in dtype.name) or dtype.name in ['single', 'double']
 
 
-def is_number(dtype):
+def is_number_dtype(dtype):
     """Return True is datatype dtype is a number kind"""
-    return is_float(dtype) or ('int' in dtype.name) or ('long' in dtype.name) or ('short' in dtype.name)
+    return is_float_dtype(dtype) or ('int' in dtype.name) or ('long' in dtype.name) or ('short' in dtype.name)
 
 
 def get_default_font():
@@ -233,8 +233,8 @@ class LinearGradient:
     Parameters
     ----------
     stop_points: list/tuple, optional
-        List containing pairs (stop_position, colors_HsvF).
-        `colors` is a 4 elements list containing `hue`, `saturation`, `value` and `alpha-channel`
+        List of (stop_position, color) pairs.
+        `color` is a 4 elements list containing `hue`, `saturation`, `value` and `alpha-channel`
     """
     def __init__(self, stop_points=None, nan_color=None):
         if stop_points is None:
@@ -269,18 +269,41 @@ class LinearGradient:
         -------
         QColor
         """
-        if np.isnan(key) or key < 0 or key > 1:
-            return self.nan_color
-        pos_idx = np.searchsorted(self.positions, key, side='right') - 1
-        # if we are exactly on one of the bounds
-        if pos_idx > 0 and key in self.positions:
-            pos_idx -= 1
-        pos0, pos1 = self.positions[pos_idx:pos_idx + 2]
-        # col0 and col1 are ndarrays
-        col0, col1 = self.colors[pos_idx:pos_idx + 2]
-        assert pos1 > pos0
-        color = col0 + (col1 - col0) * (key - pos0) / (pos1 - pos0)
-        return QColor.fromHsvF(*color)
+        if np.isscalar(key):
+            if np.isnan(key) or key < 0 or key > 1:
+                return self.nan_color
+
+            pos_idx = np.searchsorted(self.positions, key, side='right') - 1
+            # if we are exactly on one of the bounds
+            if pos_idx > 0 and key in self.positions:
+                pos_idx -= 1
+            pos0, pos1 = self.positions[pos_idx:pos_idx + 2]
+            # color0 and color1 are ndarrays
+            color0, color1 = self.colors[pos_idx:pos_idx + 2]
+            assert pos1 > pos0
+            color = color0 + (color1 - color0) * (key - pos0) / (pos1 - pos0)
+            return QColor.fromHsvF(*color)
+        else:
+            # XXX: can we factorize with the code above?
+            # if np.isnan(key) or key < 0 or key > 1:
+            #     return self.nan_color
+            pos_idx = np.searchsorted(self.positions, key, side='right') - 1
+            # if we are exactly on one of the bounds
+            # if pos_idx > 0 and key in self.positions:
+            #     pos_idx -= 1
+            pos0 = self.positions[pos_idx]
+            pos1 = self.positions.take(pos_idx + 1, mode='clip')
+            # color0 and color1 are ndarrays
+            color0 = self.colors[pos_idx]
+            color1 = self.colors.take(pos_idx + 1, axis=0, mode='clip')
+            key = key[:, :, np.newaxis]
+            pos0 = pos0[:, :, np.newaxis]
+            pos1 = pos1[:, :, np.newaxis]
+            div = np.where(pos1 != pos0, pos1 - pos0, 1)
+            color = color0 + (color1 - color0) * (key - pos0) / div
+            return [[QColor.fromHsvF(*c) if not np.any(np.isnan(c)) else self.nan_color
+                     for c in row]
+                    for row in color]
 
 
 class PlotDialog(QDialog):
@@ -312,16 +335,16 @@ class Axis:
     Parameters
     ----------
     id : str or int
-        Id of axis.
+        Unique identifier of the axis.
     name : str
         Name of the axis. Can be None.
     labels : list or tuple or 1D array
-        List of labels
+        List of labels. Must be 1D.
     """
     def __init__(self, id, name, labels):
         self.id = id
         self.name = name
-        self.labels = labels
+        self.labels = np.asarray(labels)
 
     @property
     def id(self):
@@ -358,87 +381,6 @@ class Axis:
 
     def __str__(self):
         return f'Axis({self.id}, {self.name}, {self.labels})'
-
-
-class _LazyLabels(object):
-    def __init__(self, arrays):
-        self.prod = Product(arrays)
-
-    def __getitem__(self, key):
-        return ' '.join(self.prod[key])
-
-    def __len__(self):
-        return len(self.prod)
-
-
-class _LazyDimLabels(object):
-    """
-    Examples
-    --------
-    >>> p = Product([['a', 'b', 'c'], [1, 2]])
-    >>> list(p)
-    [('a', 1), ('a', 2), ('b', 1), ('b', 2), ('c', 1), ('c', 2)]
-    >>> l0 = _LazyDimLabels(p, 0)
-    >>> l1 = _LazyDimLabels(p, 1)
-    >>> for i in range(len(p)):
-    ...     print(l0[i], l1[i])
-    a 1
-    a 2
-    b 1
-    b 2
-    c 1
-    c 2
-    >>> l0[1:4]
-    ['a', 'b', 'b']
-    >>> l1[1:4]
-    [2, 1, 2]
-    >>> list(l0)
-    ['a', 'a', 'b', 'b', 'c', 'c']
-    >>> list(l1)
-    [1, 2, 1, 2, 1, 2]
-    """
-    def __init__(self, prod, i):
-        self.prod = prod
-        self.i = i
-
-    def __iter__(self):
-        return iter(self.prod[i][self.i] for i in range(len(self.prod)))
-
-    def __getitem__(self, key):
-        key_prod = self.prod[key]
-        if isinstance(key, slice):
-            return [p[self.i] for p in key_prod]
-        else:
-            return key_prod[self.i]
-
-    def __len__(self):
-        return len(self.prod)
-
-
-class _LazyRange(object):
-    def __init__(self, length, offset):
-        self.length = length
-        self.offset = offset
-
-    def __getitem__(self, key):
-        if key >= self.offset:
-            return key - self.offset
-        else:
-            return ''
-
-    def __len__(self):
-        return self.length + self.offset
-
-
-class _LazyNone(object):
-    def __init__(self, length):
-        self.length = length
-
-    def __getitem__(self, key):
-        return ' '
-
-    def __len__(self):
-        return self.length
 
 
 def replace_inf(value):
@@ -509,15 +451,13 @@ def scale_to_01range(value, vmin, vmax):
     array([ 0. ,  1. ,  0.5,  0. ,  0.1,  1. ])
     """
     if hasattr(value, 'shape') and value.shape:
-        if np.isnan(vmin) or np.isnan(vmax) or (vmin == vmax):
-            return np.where(np.isnan(value), np.nan, 0)
-        else:
-            assert vmin < vmax, f"vmin ({vmin}) < vmax ({vmax})"
-            with np.errstate(divide='ignore', invalid='ignore'):
-                res = (value - vmin) / (vmax - vmin)
-                res[value == -np.inf] = 0
-                res[value == +np.inf] = 1
-            return res
+        with np.errstate(divide='ignore', invalid='ignore'):
+            res = np.where(np.isnan(vmin) | np.isnan(vmax) | (vmin == vmax),
+                           np.where(np.isnan(value), np.nan, 0),
+                           (value - vmin) / (vmax - vmin))
+            res[value == -np.inf] = 0
+            res[value == +np.inf] = 1
+        return res
     else:
         if np.isnan(value):
             return np.nan
@@ -532,7 +472,11 @@ def scale_to_01range(value, vmin, vmax):
             return (value - vmin) / (vmax - vmin)
 
 
-is_number_value = np.vectorize(lambda x: isinstance(x, (int, float, np.number)))
+def is_number_value(v):
+    return isinstance(v, (int, float, np.number))
+
+
+is_number_value_vectorized = np.vectorize(is_number_value)
 
 
 def get_sample_step(data, maxsize):
@@ -552,7 +496,7 @@ def get_sample(data, maxsize):
 
     Parameters
     ----------
-    data
+    data : array-like
     maxsize
 
     Returns
@@ -651,3 +595,17 @@ def cached_property(must_invalidate_cache_method):
                 return value
         return property(caching_getter)
     return getter_decorator
+
+
+def broadcast_get(seq, row, col):
+    # allow "broadcasting" (length one sequences are valid) in either direction
+    if isinstance(seq, (tuple, list, np.ndarray, Product)):
+        # FIXME: does not handle len(seq) == 0 nicely but I am unsure this should be fixed here
+        row_data = seq[0] if len(seq) == 1 else seq[row]
+        if isinstance(row_data, (tuple, list, np.ndarray, Product)):
+            # FIXME: does not handle len(row_data) == 0 nicely but I am unsure this should be fixed here
+            return row_data[0] if len(row_data) == 1 else row_data[col]
+        else:
+            return row_data
+    else:
+        return seq

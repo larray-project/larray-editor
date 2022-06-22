@@ -1,17 +1,62 @@
+import itertools
 from os.path import basename
 import logging
 from inspect import stack
-import numpy as np
-from larray_editor.utils import (get_default_font,
-                                 is_float, is_number, LinearGradient, SUPPORTED_FORMATS, scale_to_01range,
-                                 Product, is_number_value, get_sample_indices, logger)
+
 from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel, Signal
 from qtpy.QtGui import QColor
 from qtpy.QtWidgets import QMessageBox
 
-LARGE_SIZE = 5e5
-LARGE_NROWS = 1e5
-LARGE_COLS = 60
+import numpy as np
+
+from larray_editor.utils import (get_default_font,
+                                 is_number_value, is_float_dtype, is_number_dtype,
+                                 LinearGradient, Product, logger, broadcast_get)
+
+# FIXME:
+# * scrolling via the scrollbar cannot reach some columns (if the viewport is < buffer) because
+#   it does not allow scrolling the internal
+# * selection vs moving the buffer offset
+
+# * mouse selection on "edges" does not move the buffer
+# * changed column width vs moving the buffer offset
+# * scrolling on filtered arrays gives wrong results
+# * editing values on filtered array does not work
+# * cell colors vs moving the buffer offset
+# * changing from an array to another is sometimes broken (new array not displayed, old array axes
+#   still present)
+# * paste does not work (copy works fine)
+# * massive cleanup (many methods would probably be better in either their superclass
+#   or one of their subclasses)
+# * update initial sizes
+
+role_map = {
+    'data': Qt.DisplayRole,
+    # XXX: still unsure who should handle bg_value -> color conversion
+    # maybe we could offer both (exclusive): "bg_value" => conversion done in model while
+    # bg_color would provide direct rgb colors (in Qt object or some other form to be decided?)
+    # * I would like to avoid using Qt objects in the adapter
+    # * an adapter could want to use several gradient for different regions
+    'bg_value': Qt.BackgroundColorRole,
+    'text_align': Qt.TextAlignmentRole,
+    # XXX: maybe split this into font_name, font_size, font_flags, or make that data item a dict itself
+    'font': Qt.FontRole,
+    'tooltip': Qt.ToolTipRole,
+}
+
+#    h_offset
+#    --------
+#      | |
+#      v v
+#      |----------------------| <-|
+#      |    total data        |   | v_offset
+#      | |------------------| | <-|
+#      | |  data in model   | |
+#      | | |--------------| | |
+#      | | | visible area | | |
+#      | | |--------------| | |
+#      | |------------------| |
+#      |----------------------|
 
 
 class AbstractArrayModel(QAbstractTableModel):
@@ -26,88 +71,287 @@ class AbstractArrayModel(QAbstractTableModel):
     font : QFont, optional
         Font. Default is `Calibri` with size 11.
     """
-    ROWS_TO_LOAD = 500
-    COLS_TO_LOAD = 40
+    default_buffer_rows = 30
+    default_buffer_cols = 10
 
-    def __init__(self, parent=None, readonly=False, font=None):
+    def __init__(self, parent=None, adapter=None):
         QAbstractTableModel.__init__(self)
 
         self.dialog = parent
-        self.readonly = readonly
+        self.adapter = adapter
 
-        if font is None:
-            font = get_default_font()
-        self.font = font
+        self.h_offset = 0
+        self.v_offset = 0
+        self.nrows = 0
+        self.ncols = 0
 
-        self._data = None
-        self.rows_loaded = 0
-        self.cols_loaded = 0
-        self.total_rows = 0
-        self.total_cols = 0
+        self.raw_data = {}
+        self.processed_data = {}
+        self.role_defaults = {}
 
-    def _set_data(self, data):
-        raise NotImplementedError()
+    # def _set_data(self, data):
+    #     raise NotImplementedError()
 
-    def set_data(self, data, reset=True):
-        self._set_data(data)
-        if reset:
+    def set_adapter(self, adapter):
+        self.adapter = adapter
+        self.h_offset = 0
+        self.v_offset = 0
+        self.nrows = 0
+        self.ncols = 0
+        self._get_data()
+        self.reset()
+
+    def set_h_offset(self, offset):
+        # TODO: when moving in one direction only, we should make sure to only request data we do not have already
+        #       (if there is overlap between the old "window" and the new one).
+        self.set_offset(self.v_offset, offset)
+
+    def set_v_offset(self, offset):
+        self.set_offset(offset, self.h_offset)
+
+    def set_offset(self, v_offset, h_offset):
+        # TODO: the implementation of this method should use set_bounds instead
+        print("set v/h offset to", v_offset, h_offset)
+        assert v_offset is not None and h_offset is not None
+        assert v_offset >= 0 and h_offset >= 0
+        self.v_offset = v_offset
+        self.h_offset = h_offset
+        old_shape = self.nrows, self.ncols
+        self._get_data()
+        self._process_data()
+        new_shape = self.nrows, self.ncols
+        if new_shape != old_shape:
             self.reset()
+        else:
+            top_left = self.index(0, 0)
+            # -1 because Qt index end bounds are inclusive
+            bottom_right = self.index(self.nrows - 1, self.ncols - 1)
+            self.dataChanged.emit(top_left, bottom_right)
+
+    def _begin_insert_remove(self, action, target, parent, start, stop):
+        if start >= stop:
+            return False
+        funcs = {
+            ('remove', 'rows'): self.beginRemoveRows,
+            ('insert', 'rows'): self.beginInsertRows,
+            ('remove', 'columns'): self.beginRemoveColumns,
+            ('insert', 'columns'): self.beginInsertColumns,
+        }
+        funcs[action, target](parent, start, stop - 1)
+        return True
+
+    def _end_insert_remove(self, action, target):
+        funcs = {
+            ('remove', 'rows'): self.endRemoveRows,
+            ('insert', 'rows'): self.endInsertRows,
+            ('remove', 'columns'): self.endRemoveColumns,
+            ('insert', 'columns'): self.endInsertColumns,
+        }
+        funcs[action, target]()
+
+    # FIXME: review all API methods and be consistent in argument order: h, v or v, h.
+    #        I think Qt always uses v, h but we sometime use h, v
+
+    # TODO: make this a private method (it is not called anymore but SHOULD be called (or inlined) in set_offset)
+    def set_bounds(self, v_start=None, h_start=None, v_stop=None, h_stop=None):
+        """stop bounds are *exclusive*
+        any None is replaced by its previous value"""
+
+        oldvstart, oldhstart = self.v_offset, self.h_offset
+        oldvstop, oldhstop = oldvstart + self.nrows, oldhstart + self.ncols
+        newvstart, newhstart, newvstop, newhstop = v_start, h_start, v_stop, h_stop
+        print("set bounds", v_start, h_start, v_stop, h_stop)
+        if newvstart is None:
+            newvstart = oldvstart
+        if newhstart is None:
+            newhstart = oldhstart
+        if newvstop is None:
+            newvstop = oldvstop
+        if newhstop is None:
+            newhstop = oldhstop
+
+        nrows = newvstop - newvstart
+        ncols = newhstop - newhstart
+        # new_shape = nrows, ncols
+
+        # if new_shape != old_shape:
+        #     self.reset()
+        # else:
+
+        # we could generalize this to allow moving the "viewport" and shrinking/enlarging it at the same time
+        # but this is a BAD idea as we should very rarely shrink/enlarge the buffer
+
+        # assert we_are_enlarging or shrinking in one direction only
+        # we have 9 cases total: same shape or 4 cases for each direction: enlarging|shrinking * moving start|stop
+        # ensure we have some overlap between old and new
+
+        #                                              ENLARGE
+        #                                              -------
+
+        #  start  stop             start  stop                    start  stop       start  stop
+        #  |---old---|             |---old---|                    |---old---|       |---old---|
+        #  v         v             v         v                    v         v       v         v
+        # ----------------- OR ---------------- OR --------------------------- OR  --------------------------
+        #    ^           ^      ^           ^       ^           ^                              ^           ^
+        #    |----new----|      |----new----|       |----new----|                              |----new----|
+        #    start    stop      start    stop       start    stop                              start    stop
+
+        #                                              SHRINK
+        #                                              ------
+
+        #  start    stop       start    stop                 start    stop       start    stop
+        #  |----old----|       |----old----|                 |----old----|       |----old----|
+        #  v           v       v           v                 v           v       v           v
+        # --------------- OR ---------------- OR -------------------------- OR  --------------------------
+        #   ^         ^       ^         ^         ^         ^                                 ^         ^
+        #   |---new---|       |---new---|         |---new---|                                 |---new---|
+        #   start  stop       start  stop         start  stop                                 start  stop
+
+        parent = QModelIndex()
+
+        end_todo = {}
+        for action in ('remove', 'insert'):
+            for target in ('rows', 'columns'):
+                end_todo[action, target] = False
+
+        target = 'rows'
+        oldstart, oldstop, newstart, newstop = oldvstart, oldvstop, newvstart, newvstop
+
+        # remove oldstart:newstart
+        end_todo['remove', target] |= self._begin_insert_remove('remove', target, parent,
+                                                                oldstart, min(newstart, oldstop))
+        # remove newstop:oldstop
+        end_todo['remove', target] |= self._begin_insert_remove('remove', target, parent,
+                                                                max(newstop, oldstart), oldstop)
+        # insert newstart:oldstart
+        end_todo['insert', target] |= self._begin_insert_remove('insert', target, parent,
+                                                                newstart, min(oldstart, newvstop))
+        # insert oldstop:newstop
+        end_todo['insert', target] |= self._begin_insert_remove('insert', target, parent,
+                                                                max(oldstop, newstart), newstop)
+
+        target = 'columns'
+        oldstart, oldstop, newstart, newstop = oldhstart, oldhstop, newhstart, newhstop
+
+        # remove oldstart:newstart
+        end_todo['remove', target] |= self._begin_insert_remove('remove', target, parent,
+                                                                oldstart, min(newstart, oldstop))
+        # remove newstop:oldstop
+        end_todo['remove', target] |= self._begin_insert_remove('remove', target, parent,
+                                                                max(newstop, oldstart), oldstop)
+        # insert newstart:oldstart
+        end_todo['insert', target] |= self._begin_insert_remove('insert', target, parent,
+                                                                newstart, min(oldstart, newvstop))
+        # insert oldstop:newstop
+        end_todo['insert', target] |= self._begin_insert_remove('insert', target, parent,
+                                                                max(oldstop, newstart), newstop)
+
+        assert newvstart is not None and newhstart is not None
+        self.v_offset, self.h_offset = newvstart, newhstart
+        self.nrows, self.ncols = nrows, ncols
+
+        # TODO: we should only get data we do not have yet
+        self._get_data()
+        # TODO: we should only process data we do not have yet
+        self._process_data()
+
+        for action in ('remove', 'insert'):
+            for target in ('rows', 'columns'):
+                if end_todo[action, target]:
+                    self._end_insert_remove(action, target)
+
+        # removed_rows_start, remove_rows_stop = ... # correspond to old_rows - nrows
+        # changed_rows_start, changed_rows_stop = ... # other rows
+        # if v_stop > oldvstop and v_start < oldvstop:  # 10 < 11 => 10.. & ..10 => intersection = 10
+        #     insertRows
+        # elif v_start < oldvstart and v_stop > oldvstart:  # 11 > 10 => ..10 & 10.. => intersection = 10
+        #     insertRows
+        # elif v_stop < oldvstop and v_stop > oldvstart:  # 11 > 10 => ..10 & 10.. => intersection = 10
+        #     removeRows
+        # elif v_start < oldvstart and v_stop > oldvstart:  # 11 > 10 => ..10 & 10.. => intersection = 10
+        #     removeRows
+        # if new_shape == old_shape:
+        #     # FIXME: this method will never be called for this case, unless I suppress set_offset
+        #     top_left = self.index(0, 0)
+        #     # -1 because Qt index end bounds are inclusive
+        #     bottom_right = self.index(nrows - 1, ncols - 1)
+        #     self.dataChanged.emit(top_left, bottom_right)
+        # elif nrows == old_rows and ncols > old_cols:
+        #     if ...:
+        #         pass
+        #     else:
+        #         pass
+        # elif nrows == old_rows and ncols < old_cols:
+        #     if ...:
+        #         pass
+        #     else:
+        #         ...
+        # elif nrows == old_rows and ncols < old_cols:
+        #     self.beginRemoveRows(parent, first, last)
+        #     self.beginInsertRows(QModelIndex(), self.nrows, self.nrows + items_to_fetch - 1)
+        #     self.nrows += items_to_fetch
+        #     self._get_data()
+        #     self._process_data()
+        #     self.endInsertRows()
+        #     top_left = self.index(0, 0)
+        #     # -1 because Qt index end bounds are inclusive
+        #     bottom_right = self.index(nrows - 1, ncols - 1)
+        #     self.dataChanged.emit(top_left, bottom_right)
+
+    def _process_data(self):
+        pass
+
+    def _get_data(self):
+        raise NotImplementedError()
 
     def rowCount(self, parent=QModelIndex()):
-        return self.rows_loaded
+        return self.nrows
 
     def columnCount(self, parent=QModelIndex()):
-        return self.cols_loaded
+        return self.ncols
 
-    def fetch_more_rows(self):
-        if self.total_rows > self.rows_loaded:
-            remainder = self.total_rows - self.rows_loaded
-            items_to_fetch = min(remainder, self.ROWS_TO_LOAD)
-            self.beginInsertRows(QModelIndex(), self.rows_loaded,
-                                 self.rows_loaded + items_to_fetch - 1)
-            self.rows_loaded += items_to_fetch
-            self.endInsertRows()
-
-    def fetch_more_columns(self):
-        if self.total_cols > self.cols_loaded:
-            remainder = self.total_cols - self.cols_loaded
-            items_to_fetch = min(remainder, self.COLS_TO_LOAD)
-            self.beginInsertColumns(QModelIndex(), self.cols_loaded,
-                                    self.cols_loaded + items_to_fetch - 1)
-            self.cols_loaded += items_to_fetch
-            self.endInsertColumns()
-
+    # FIXME: either move this to DataArrayModel (raise NotImplementedError here) or use raw_data & process_data
+    #        for other models too.
+    # AFAICT, this is only used in the ArrayDelegate
     def get_value(self, index):
-        raise NotImplementedError()
-
-    def _compute_rows_cols_loaded(self):
-        # Use paging when the total size, number of rows or number of
-        # columns is too large
-        size = self.total_rows * self.total_cols
-        if size > LARGE_SIZE:
-            self.rows_loaded = min(self.ROWS_TO_LOAD, self.total_rows)
-            self.cols_loaded = min(self.COLS_TO_LOAD, self.total_cols)
-        else:
-            if self.total_rows > LARGE_NROWS:
-                self.rows_loaded = self.ROWS_TO_LOAD
-            else:
-                self.rows_loaded = self.total_rows
-            if self.total_cols > LARGE_COLS:
-                self.cols_loaded = self.COLS_TO_LOAD
-            else:
-                self.cols_loaded = self.total_cols
+        return broadcast_get(self.raw_data['values'], index.row(), index.column())
 
     def flags(self, index):
-        raise NotImplementedError()
+        if not index.isValid():
+            return Qt.ItemIsEnabled
+        flags = self.data(index, 'flags')
+        if flags is not None:
+            return flags
+        else:
+            return QAbstractTableModel.flags(self, index)
+            # return Qt.ItemIsEnabled
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         return None
 
     def data(self, index, role=Qt.DisplayRole):
-        raise NotImplementedError()
+        if not index.isValid():
+            return None
+
+        role_map = self.processed_data
+        if role in role_map:
+            role_data = role_map[role]
+        else:
+            role_data = self.role_defaults.get(role)
+
+        row = index.row()
+        column = index.column()
+        if row >= self.nrows or column >= self.ncols:
+            return None
+        return broadcast_get(role_data, row, column)
+        # res = broadcast_get_index(role_data, index)
+        # if role == Qt.DisplayRole:
+        #     print("data", index.row(), index.column(), "=>", res)
+        # return res
 
     def reset(self):
         self.beginResetModel()
+        self._process_data()
         self.endResetModel()
         if logger.isEnabledFor(logging.DEBUG):
             caller = stack()[1]
@@ -127,52 +371,33 @@ class AxesArrayModel(AbstractArrayModel):
     font : QFont, optional
         Font. Default is `Calibri` with size 11.
     """
-    def __init__(self, parent=None, readonly=False, font=None):
-        AbstractArrayModel.__init__(self, parent, readonly, font)
-        self.font.setBold(True)
+    def __init__(self, parent=None, adapter=None):
+        AbstractArrayModel.__init__(self, parent, adapter)
+        default_font = get_default_font()
+        default_font.setBold(True)
+        default_background = QColor(Qt.lightGray)
+        default_background.setAlphaF(.4)
+        self.role_defaults = {
+            Qt.TextAlignmentRole: int(Qt.AlignCenter | Qt.AlignVCenter),
+            Qt.FontRole: default_font,
+            Qt.BackgroundColorRole: default_background,
+            # Qt.DisplayRole: '',
+            # Qt.ToolTipRole:
+        }
 
-    def _set_data(self, data):
-        # TODO: use sequence instead
-        if not isinstance(data, (list, tuple)):
-            QMessageBox.critical(self.dialog, "Error", "Expected list or tuple")
-            data = []
-        self._data = data
-        self.total_rows = 1
-        self.total_cols = len(data)
-        self._compute_rows_cols_loaded()
+    def _get_data(self):
+        names = self.adapter.get_axes_area()
+        self.processed_data = {
+            Qt.DisplayRole: names
+        }
+        self.nrows = len(names)
+        self.ncols = len(names[0])
 
-    def flags(self, index):
-        """Set editable flag"""
-        return Qt.ItemIsEnabled
-
-    def get_value(self, index):
-        i = index.column()
-        return str(self._data[i])
-
-    def get_values(self, left=0, right=None):
-        if right is None:
-            right = self.total_cols
-        values = self._data[left:right]
-        return values
-
-    def data(self, index, role=Qt.DisplayRole):
-        if not index.isValid():
-            return None
-
-        if role == Qt.TextAlignmentRole:
-            return int(Qt.AlignCenter | Qt.AlignVCenter)
-        elif role == Qt.FontRole:
-            return self.font
-        elif role == Qt.BackgroundColorRole:
-            color = QColor(Qt.lightGray)
-            color.setAlphaF(.4)
-            return color
-        elif role == Qt.DisplayRole:
-            return self.get_value(index)
-        # elif role == Qt.ToolTipRole:
-        #     return None
-        else:
-            return None
+    # def get_values(self, left=0, right=None):
+    #     if right is None:
+    #         right = self.total_cols
+    #     values = self._data[left:right]
+    #     return values
 
 
 class LabelsArrayModel(AbstractArrayModel):
@@ -187,57 +412,134 @@ class LabelsArrayModel(AbstractArrayModel):
     font : QFont, optional
         Font. Default is `Calibri` with size 11.
     """
-    def __init__(self, parent=None, readonly=False, font=None):
-        AbstractArrayModel.__init__(self, parent, readonly, font)
-        self.font.setBold(True)
-
-    def _set_data(self, data):
-        # TODO: use sequence instead
-        if not isinstance(data, (list, tuple, Product)):
-            QMessageBox.critical(self.dialog, "Error", "Expected list, tuple or Product")
-            data = [[]]
-        self._data = data
-        self.total_rows = len(data[0])
-        self.total_cols = len(data) if self.total_rows > 0 else 0
-        self._compute_rows_cols_loaded()
-
-    def flags(self, index):
-        """Set editable flag"""
-        return Qt.ItemIsEnabled
-
-    def get_value(self, index):
-        i = index.row()
-        j = index.column()
-        # we need to inverse column and row because of the way vlabels are generated
-        return str(self._data[j][i])
+    def __init__(self, parent=None, adapter=None):
+        AbstractArrayModel.__init__(self, parent, adapter)
+        default_font = get_default_font()
+        default_font.setBold(True)
+        default_background = QColor(Qt.lightGray)
+        default_background.setAlphaF(.4)
+        self.role_defaults = {
+            Qt.TextAlignmentRole: int(Qt.AlignCenter | Qt.AlignVCenter),
+            Qt.FontRole: default_font,
+            Qt.BackgroundColorRole: default_background,
+            # Qt.ToolTipRole:
+        }
 
     # XXX: I wonder if we shouldn't return a 2D Numpy array of strings?
-    def get_values(self, left=0, top=0, right=None, bottom=None):
-        if right is None:
-            right = self.total_rows
-        if bottom is None:
-            bottom = self.total_cols
-        values = [list(line[left:right]) for line in self._data[top:bottom]]
-        return values
+    # def get_values(self, left=0, top=0, right=None, bottom=None):
+    #     if right is None:
+    #         right = self.total_rows
+    #     if bottom is None:
+    #         bottom = self.total_cols
+    #     values = [list(line[left:right]) for line in self._data[top:bottom]]
+    #     return values
 
-    def data(self, index, role=Qt.DisplayRole):
-        if not index.isValid():
-            return None
 
-        if role == Qt.TextAlignmentRole:
-            return int(Qt.AlignCenter | Qt.AlignVCenter)
-        elif role == Qt.FontRole:
-            return self.font
-        elif role == Qt.BackgroundColorRole:
-            color = QColor(Qt.lightGray)
-            color.setAlphaF(.4)
-            return color
-        elif role == Qt.DisplayRole:
-            return self.get_value(index)
-        # elif role == Qt.ToolTipRole:
-        #     return None
-        else:
-            return None
+class VLabelsArrayModel(LabelsArrayModel):
+    def _get_data(self):
+        max_row, max_col = self.adapter.shape2d()
+
+        rows_to_ask = max(self.nrows, self.default_buffer_rows)
+        v_stop = min(self.v_offset + rows_to_ask, max_row)
+
+        print("asking", rows_to_ask, "vlabels")
+        # TODO: the adapter should have the possibility to return a dict, like for DataArrayModel.
+        #
+        labels = self.adapter.get_vlabels(self.v_offset, v_stop)
+        print(f" > received {len(labels)}")
+        self.processed_data = {
+            Qt.DisplayRole: [[str(l) for l in row] for row in labels],
+            'flags': Qt.ItemIsEnabled,
+        }
+        self.nrows = len(labels)
+        self.ncols = len(labels[0]) if len(labels) else 0
+
+
+class HLabelsArrayModel(LabelsArrayModel):
+    def _get_data(self):
+        max_row, max_col = self.adapter.shape2d()
+
+        cols_to_ask = max(self.ncols, self.default_buffer_cols)
+        h_stop = min(self.h_offset + cols_to_ask, max_col)
+
+        print("asking", cols_to_ask, "hlabels")
+        labels = self.adapter.get_hlabels(self.h_offset, h_stop)
+        print(f" > received {len(labels)}")
+        self.processed_data = {
+            Qt.DisplayRole: [[str(l) for l in row] for row in labels],
+            # TODO: move this to role_defaults
+            'flags': Qt.ItemIsEnabled,
+        }
+        self.nrows = len(labels)
+        self.ncols = len(labels[0]) if len(labels) else 0
+
+
+def seq_broadcast(*seqs):
+    """
+    Examples
+    --------
+    >>> seq_broadcast(["a"], ["b1", "b2"])
+    (['a', 'a'], ['b1', 'b2'])
+    >>> seq_broadcast(["a1", "a2"], ["b"])
+    (['a1', 'a2'], ['b', 'b'])
+    >>> seq_broadcast(["a1", "a2"], ["b1", "b2"])
+    (['a1', 'a2'], ['b1', 'b2'])
+    >>> seq_broadcast(["a1", "a2"], ["b1", "b2", "b3"])
+    Traceback (most recent call last):
+    ...
+    ValueError: all sequences lengths must be 1 or the same
+    """
+    seqs = [seq if isinstance(seq, (tuple, list)) else [seq]
+            for seq in seqs]
+    assert all(hasattr(seq, '__getitem__') for seq in seqs)
+    length = max(len(seq) for seq in seqs)
+    if not all(len(seq) == 1 or len(seq) == length for seq in seqs):
+        raise ValueError("all sequences lengths must be 1 or the same")
+    return tuple(seq * length if len(seq) == 1 else seq
+                 for seq in seqs)
+
+
+def seq_zip_broadcast(*seqs):
+    """
+    Zip sequences but broadcasting (repeating) length 1 sequences to the length of the
+    longest sequence.
+
+    Examples
+    --------
+    >>> list(seq_zip_broadcast(["a"], ["b1", "b2"]))
+    [('a', 'b1'), ('a', 'b2')]
+    >>> list(seq_zip_broadcast(["a1", "a2"], ["b"]))
+    [('a1', 'b'), ('a2', 'b')]
+    >>> list(seq_zip_broadcast(["a1", "a2"], ["b1", "b2"]))
+    [('a1', 'b1'), ('a2', 'b2')]
+    >>> list(seq_zip_broadcast(["a1", "a2"], ["b1", "b2", "b3"]))
+    Traceback (most recent call last):
+    ...
+    ValueError: all sequences lengths must be 1 or the same
+    """
+    # this is the tricky part
+    # TODO: accept Sequence too
+    sequence = (tuple, list, np.ndarray)
+    seqs = [seq if isinstance(seq, sequence) or
+            (isinstance(seq, np.void) and seq.dtype.names is not None)
+            else [seq]
+            for seq in seqs]
+    # assert all(hasattr(seq, '__getitem__') for seq in seqs)
+    length = 1 if all(len(seq) == 1 for seq in seqs) else max(len(seq) for seq in seqs if len(seq) != 1)
+    if not all(len(seq) == 1 or len(seq) == length for seq in seqs):
+        raise ValueError(f"all sequences lengths must be 1 or the same: {seqs}")
+    return zip(*(itertools.repeat(seq[0], length) if len(seq) == 1 else seq
+                 for seq in seqs))
+    # return zip(*(seq * length if len(seq) == 1 else seq
+    #              for seq in seqs))
+
+
+def map_nested_sequence(seq, func):
+    sequence = (tuple, list, np.ndarray)
+    if isinstance(seq, sequence):
+        return [map_nested_sequence(elem, func) for elem in seq]
+    else:
+        return func(seq)
 
 
 class DataArrayModel(AbstractArrayModel):
@@ -247,6 +549,7 @@ class DataArrayModel(AbstractArrayModel):
     ----------
     parent : QWidget, optional
         Parent Widget.
+    FIXME: update this
     readonly : bool, optional
         If True, data cannot be changed. False by default.
     format : str, optional
@@ -254,98 +557,86 @@ class DataArrayModel(AbstractArrayModel):
         By default, they are represented as floats with 3 decimal points.
     font : QFont, optional
         Font. Default is `Calibri` with size 11.
-    bg_gradient : LinearGradient, optional
-        Background color gradient
-    bg_value : Numpy ndarray, optional
-        Background color value. Must have the shape as data
-    minvalue : scalar, optional
-        Minimum value allowed.
-    maxvalue : scalar, optional
-        Maximum value allowed.
     """
 
-    ROWS_TO_LOAD = 500
-    COLS_TO_LOAD = 40
     newChanges = Signal(dict)
 
-    def __init__(self, parent=None, readonly=False, format="%.3f", font=None, minvalue=None, maxvalue=None):
-        AbstractArrayModel.__init__(self, parent, readonly, font)
-        self._format = format
+    def __init__(self, parent=None, adapter=None):
+        # readonly=False, format="%.3f", font=None):
+        AbstractArrayModel.__init__(self, parent, adapter)
+        # self._default_format = '%.3f'
 
-        self.minvalue = minvalue
-        self.maxvalue = maxvalue
-
-        self.color_func = None
-
-        self.vmin = None
-        self.vmax = None
-        self.bgcolor_possible = False
-
-        self.bg_value = None
+        default_font = get_default_font()
+        self.role_defaults = {
+            Qt.TextAlignmentRole: int(Qt.AlignRight | Qt.AlignVCenter),
+            Qt.FontRole: default_font,
+            # Qt.ToolTipRole:
+        }
         self.bg_gradient = None
 
-    def get_format(self):
-        """Return current format"""
-        # Avoid accessing the private attribute _format from outside
-        return self._format
+    def _get_data(self):
+        max_row, max_col = self.adapter.shape2d()
 
-    def get_data(self):
-        """Return data"""
-        return self._data
+        rows_to_ask = max(self.nrows, self.default_buffer_rows)
+        cols_to_ask = max(self.ncols, self.default_buffer_cols)
+        h_stop = min(self.h_offset + cols_to_ask, max_col)
+        v_stop = min(self.v_offset + rows_to_ask, max_row)
+        print(f"asking {rows_to_ask} rows / {cols_to_ask} columns of data")
+        self.raw_data = self.adapter.get_data(self.h_offset, self.v_offset, h_stop, v_stop)
+        # XXX: currently this can be a view on the original data
+        values = self.raw_data['values']
+        self.nrows = len(values)
+        # FIXME: this is problematic for list of sequences
+        first_row = values[0] if len(values) else []
+        self.ncols = len(first_row) if isinstance(first_row, (tuple, list, np.ndarray)) else 1
+        print(f" > received {self.nrows} rows / {self.ncols} cols")
+        if self.nrows > max_row:
+            print(f"WARNING: received too many rows ({self.nrows} > {max_row})!")
+        if self.ncols > max_col:
+            print(f"WARNING: received too many columns ({self.ncols} > {max_col})!")
 
-    def _set_data(self, data):
-        # TODO: check that data respects minvalue/maxvalue
-        assert isinstance(data, np.ndarray) and data.ndim == 2
-        self._data = data
+    def _process_data(self):
+        # None format => %user_format if number else %s
 
-        dtype = data.dtype
-        if dtype.names is None:
-            dtn = dtype.name
-            if dtn not in SUPPORTED_FORMATS and not dtn.startswith('str') \
-                    and not dtn.startswith('unicode'):
-                QMessageBox.critical(self.dialog, "Error", f"{dtn} arrays are currently not supported")
-                return
-        # for complex numbers, shading will be based on absolute value
-        # but for all other types it will be the real part
-        # TODO: there are a lot more complex dtypes than this. Is there a way to get them all in one shot?
-        if dtype in (np.complex64, np.complex128):
-            self.color_func = np.abs
+        # format per cell (in data) => decimal select will not work and that's fine
+        # we could make decimal select change adapter-provided format per cell
+        # which means the adapter can decide to ignore it or not
+        # default adapter implementation should affect only numeric cells and use %s for non numeric
+        values = self.raw_data.get('values', '')
+
+        if 'format_func' in self.raw_data:
+            format_func = self.raw_data['format_func']
         else:
-            self.color_func = None
-        # --------------------------------------
-        self.total_rows, self.total_cols = self._data.shape
-        self._compute_rows_cols_loaded()
+            def format_func(fmt, value):
+                fmt = fmt if is_number_value(value) else '%s'
+                return fmt % value
 
-    def reset_minmax(self):
-        try:
-            data = self.get_values(sample=True)
-            color_value = self.color_func(data) if self.color_func is not None else data
-            if color_value.dtype.type == np.object_:
-                color_value = color_value[is_number_value(color_value)]
-                # this is probably broken if we have complex numbers stored as objects but I don't foresee
-                # this case happening anytime soon.
-                color_value = color_value.astype(float)
-            # ignore nan, -inf, inf (setting them to 0 or to very large numbers is not an option)
-            color_value = color_value[np.isfinite(color_value)]
-            if color_value.size:
-                self.vmin = float(np.min(color_value))
-                self.vmax = float(np.max(color_value))
-            else:
-                self.vmin = np.nan
-                self.vmax = np.nan
+        # format_func = self.raw_data.get('format_func', [default_format])
+        data_format = self.raw_data.get('data_format', '%s')
 
-            self.bgcolor_possible = True
-        # ValueError for empty arrays, TypeError for object/string arrays
-        except (TypeError, ValueError):
-            self.vmin = None
-            self.vmax = None
-            self.bgcolor_possible = False
+        formatted_values = [[func(fmt, value) for func, fmt, value in seq_zip_broadcast(rowfunc, rowfmt, rowvalue)]
+                            for rowfunc, rowfmt, rowvalue in seq_zip_broadcast(format_func, data_format, values)]
 
-    def set_format(self, format, reset=True):
-        """Change display format"""
-        self._format = format
-        if reset:
-            self.reset()
+        bg_value = self.raw_data.get('bg_value')
+        # TODO: implement a way to specify bg_gradient per row or per column
+        bg_color = self.bg_gradient[bg_value] if bg_value is not None else None
+
+        editable = self.raw_data.get('editable')
+
+        def editable_to_flags(elem_editable):
+            return Qt.ItemIsEnabled | Qt.ItemIsSelectable | (Qt.ItemIsEditable if elem_editable else 0)
+
+        flags = map_nested_sequence(editable, editable_to_flags)
+        self.processed_data = {
+            Qt.DisplayRole: formatted_values,
+            Qt.BackgroundColorRole: bg_color,
+            # TODO: store flags in a separate dict?
+            # TODO: move this to role_defaults
+            'flags': flags,
+            # XXX: maybe split this into font_name, font_size, font_flags, or make that data item a dict itself
+            # Qt.FontRole: None,
+            # Qt.ToolTipRole: None,
+        }
 
     def set_bg_gradient(self, bg_gradient, reset=True):
         if bg_gradient is not None and not isinstance(bg_gradient, LinearGradient):
@@ -354,103 +645,14 @@ class DataArrayModel(AbstractArrayModel):
         if reset:
             self.reset()
 
-    def set_bg_value(self, bg_value, reset=True):
-        if bg_value is not None and not (isinstance(bg_value, np.ndarray) and bg_value.shape == self._data.shape):
-            raise ValueError(f"Expected None or 2D Numpy ndarray with shape {self._data.shape} for `bg_value` argument")
-        self.bg_value = bg_value
-        if reset:
-            self.reset()
-
-    def get_value(self, index):
-        i, j = index.row(), index.column()
-        return self._data[i, j]
-
-    def flags(self, index):
-        """Set editable flag"""
-        if not index.isValid():
-            return Qt.ItemIsEnabled
-        flags = QAbstractTableModel.flags(self, index)
-        if not self.readonly:
-            flags |= Qt.ItemIsEditable
-        return flags
-
-    def data(self, index, role=Qt.DisplayRole):
-        """Cell content"""
-        if not index.isValid():
-            return None
-        # if role == Qt.DecorationRole:
-        #     return ima.icon('editcopy')
-        # if role == Qt.DisplayRole:
-        #     return ""
-
-        if role == Qt.TextAlignmentRole:
-            return int(Qt.AlignRight | Qt.AlignVCenter)
-        elif role == Qt.FontRole:
-            return self.font
-
-        value = self.get_value(index)
-        if role == Qt.DisplayRole:
-            if value is np.ma.masked:
-                return ''
-            # for headers
-            elif isinstance(value, str) and not isinstance(value, np.str_):
-                return value
-            else:
-                return self._format % value
-        elif role == Qt.BackgroundColorRole:
-            if self.bgcolor_possible and self.bg_gradient is not None and value is not np.ma.masked:
-                if self.bg_value is None:
-                    try:
-                        v = self.color_func(value) if self.color_func is not None else value
-                        if np.isnan(v):
-                            v = np.nan
-                        else:
-                            do_reset = False
-                            if np.isnan(self.vmin) or -np.inf < v < self.vmin:
-                                # TODO: this is suboptimal, as it can reset many times (though in practice, it is
-                                #       usually ok). When we get buffering, we will need to compute vmin/vmax on the
-                                #       whole buffer at once, eliminating this problem (and we could even compute final
-                                #       colors directly all at once)
-                                self.vmin = v
-                                do_reset = True
-                            if np.isnan(self.vmax) or self.vmax < v < np.inf:
-                                self.vmax = v
-                                do_reset = True
-
-                            if do_reset:
-                                self.reset()
-                        v = scale_to_01range(v, self.vmin, self.vmax)
-                    except TypeError:
-                        v = np.nan
-                else:
-                    i, j = index.row(), index.column()
-                    v = self.bg_value[i, j]
-                return self.bg_gradient[v]
-        # elif role == Qt.ToolTipRole:
-        #     return f"{repr(value)}\n{self.get_labels(index)}"
-        return None
-
-    def get_values(self, left=0, top=0, right=None, bottom=None, sample=False):
-        width, height = self.total_rows, self.total_cols
-        if right is None:
-            right = width
-        if bottom is None:
-            bottom = height
-        values = self._data[left:right, top:bottom]
-        if sample:
-            sample_indices = get_sample_indices(values, 500)
-            # we need to keep the dtype, otherwise numpy might convert mixed object arrays to strings
-            return np.array([values[i, j] for i, j in zip(*sample_indices)], dtype=values.dtype)
-        else:
-            return values
-
+    # TODO: use ast.literal_eval instead of convert_value?
     def convert_value(self, value):
         """
         Parameters
         ----------
         value : str
         """
-        dtype = self._data.dtype
+        dtype = self.raw_data['values'].dtype
         if dtype.name == "bool":
             try:
                 return bool(float(value))
@@ -458,20 +660,25 @@ class DataArrayModel(AbstractArrayModel):
                 return value.lower() == "true"
         elif dtype.name.startswith("string") or dtype.name.startswith("unicode"):
             return str(value)
-        elif is_float(dtype):
+        elif is_float_dtype(dtype):
             return float(value)
-        elif is_number(dtype):
+        elif is_number_dtype(dtype):
             return int(value)
         else:
             return complex(value)
 
     def convert_values(self, values):
         values = np.asarray(values)
-        res = np.empty_like(values, dtype=self._data.dtype)
+        # FIXME: for some adapters, we cannot rely on having a single dtype
+        #        the dtype could be per-column, per-row, per-cell, or even, for some adapters
+        #        (e.g. list), not fixed/changeable dynamically
+        dtype = self.raw_data['values'].dtype
+        res = np.empty_like(values, dtype=dtype)
         try:
             # TODO: use array/vectorized conversion functions (but watch out
             # for bool)
             # new_data = str_array.astype(data.dtype)
+            # TODO: do this in two steps. Get convertion_func for the dtype then call it
             for i, v in enumerate(values.flat):
                 res.flat[i] = self.convert_value(v)
         except ValueError as e:
@@ -486,8 +693,8 @@ class DataArrayModel(AbstractArrayModel):
     # and DataArrayModel.setData should call another method "queueValueChange" or something like that. In any case
     # it must be absolutely clear from either the method name, an argument (eg. update_data=False) or from the
     # class name that the data is not changed directly.
-    # I am also unsure how this all thing will interect with the big adapter/model refactor in the buffer branch.
-    def set_values(self, left, top, right, bottom, values):
+    # I am also unsure how this all thing will interact with the big adapter/model refactor in the buffer branch.
+    def set_values(self, top, left, bottom, right, values):
         """
         This does NOT actually change any data directly. It will emit a signal that the data was changed,
         which is intercepted by the undo-redo system which creates a command to change the values, execute it and
@@ -500,14 +707,14 @@ class DataArrayModel(AbstractArrayModel):
 
         Parameters
         ----------
-        left : int
         top : int
-        right : int
-            exclusive
+        left : int
         bottom : int
             exclusive
+        right : int
+            exclusive
         values : ndarray
-            must not be of the correct type
+            may be of incorrect type
 
         Returns
         -------
@@ -519,60 +726,44 @@ class DataArrayModel(AbstractArrayModel):
         if values is None:
             return
         values = np.atleast_2d(values)
-        vshape = values.shape
-        vwidth, vheight = vshape
-        width, height = right - left, bottom - top
-        assert vwidth == 1 or vwidth == width
-        assert vheight == 1 or vheight == height
+        values_height, values_width = values.shape
+        selection_height, selection_width = bottom - top, right - left
+        assert values_height == 1 or values_height == selection_height
+        assert values_width == 1 or values_width == selection_width
 
-        # Add change to self.changes
-        # requires numpy 1.10
+        # compute changes dict
         changes = {}
-        newvalues = np.broadcast_to(values, (width, height))
-        oldvalues = np.empty_like(newvalues)
-        for i in range(width):
-            for j in range(height):
-                pos = left + i, top + j
-                old_value = self._data[pos]
-                oldvalues[i, j] = old_value
-                new_value = newvalues[i, j]
+        # requires numpy 1.10
+        new_values = np.broadcast_to(values, (selection_height, selection_width))
+        old_values = self.raw_data['values']
+        for j in range(selection_height):
+            for i in range(selection_width):
+                old_value = old_values[top + j, left + i]
+                new_value = new_values[j, i]
                 if new_value != old_value:
-                    changes[pos] = (old_value, new_value)
+                    changes[top + j + self.v_offset, left + i + self.h_offset] = (old_value, new_value)
 
-        # Update vmin/vmax if necessary
-        if self.vmin is not None and self.vmax is not None:
-            # FIXME: -inf/+inf and non-number values should be ignored here too
-            colorval = self.color_func(values) if self.color_func is not None else values
-            old_colorval = self.color_func(oldvalues) if self.color_func is not None else oldvalues
-            # we need to lower vmax or increase vmin
-            if np.any(((old_colorval == self.vmax) & (colorval < self.vmax)) |
-                      ((old_colorval == self.vmin) & (colorval > self.vmin))):
-                self.reset_minmax()
-                self.reset()
-            # this is faster, when the condition is False (which should be most of the cases) than computing
-            # subset_max and checking if subset_max > self.vmax
-            if np.any(colorval > self.vmax):
-                self.vmax = float(np.nanmax(colorval))
-                self.reset()
-            if np.any(colorval < self.vmin):
-                self.vmin = float(np.nanmin(colorval))
-                self.reset()
-
-        # DataArrayModel should have a reference to an adapter?
         if len(changes) > 0:
+            # the array widget will use the adapter to translate those changes to global changes then push them to
+            # the undo/redo stack, which will execute them and that will actually modify the array
             self.newChanges.emit(changes)
 
-        # XXX: I wonder if emitting dataChanged makes any sense since data has not actually changed!
-        top_left = self.index(left, top)
+        top_left = self.index(top, left)
         # -1 because Qt index end bounds are inclusive
-        bottom_right = self.index(right - 1, bottom - 1)
+        bottom_right = self.index(bottom - 1, right - 1)
+
+        # emitting dataChanged only makes sense because a signal .emit call only returns when all its
+        # slots have executed, so the newChanges signal emitted above has already triggered the whole
+        # chain of code which effectively changes the data
         self.dataChanged.emit(top_left, bottom_right)
         return top_left, bottom_right
 
     def setData(self, index, value, role=Qt.EditRole):
         """Cell content change"""
-        if not index.isValid() or self.readonly:
+        # FIXME: this is too late to check for readonly, the editor, should not be created by the ArrayDelegate
+        #        in that case.
+        if not index.isValid():
             return False
-        i, j = index.row(), index.column()
-        result = self.set_values(i, j, i + 1, j + 1, value)
+        row, col = index.row(), index.column()
+        result = self.set_values(row, col, row + 1, col + 1, value)
         return result is not None

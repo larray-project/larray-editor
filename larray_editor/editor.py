@@ -7,10 +7,9 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Union
 
-
 # Python3.8 switched from a Selector to a Proactor based event loop for asyncio but they do not offer the same
 # features, which breaks Tornado and all projects depending on it, including Jupyter consoles
-# refs: https://github.com/larray-project/larray-editor/issues/208
+# ref: https://github.com/larray-project/larray-editor/issues/208
 if sys.platform.startswith("win") and sys.version_info >= (3, 8):
     import asyncio
 
@@ -26,14 +25,9 @@ if sys.platform.startswith("win") and sys.version_info >= (3, 8):
 import matplotlib
 import matplotlib.axes
 import numpy as np
+import pandas as pd
 
 import larray as la
-
-from larray_editor.traceback_tools import StackSummary
-from larray_editor.utils import (_, create_action, show_figure, ima, commonpath, dependencies,
-                                 get_versions, get_documentation_url, urls, RecentlyUsedList)
-from larray_editor.arraywidget import ArrayEditorWidget
-from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayCommand
 
 from qtpy.QtCore import Qt, QUrl, QSettings
 from qtpy.QtGui import QDesktopServices, QKeySequence
@@ -47,6 +41,13 @@ except ImportError:
     # PySide6 provides QUndoStack in QtGui
     # unsure qtpy has been fixed yet (see https://github.com/spyder-ide/qtpy/pull/366 for the fix for QUndoCommand)
     from qtpy.QtGui import QUndoStack
+
+from larray_editor.traceback_tools import StackSummary
+from larray_editor.utils import (_, create_action, show_figure, ima, commonpath, dependencies,
+                                 get_versions, get_documentation_url, urls, RecentlyUsedList)
+from larray_editor.arraywidget import ArrayEditorWidget
+from larray_editor.arrayadapter import get_adapter_creator
+from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayCommand
 
 try:
     from qtconsole.rich_jupyter_widget import RichJupyterWidget
@@ -80,7 +81,7 @@ history_vars_pattern = re.compile(r'_i?\d+')
 # XXX: add all scalars except strings (from numpy or plain Python)?
 # (long) strings are not handled correctly so should NOT be in this list
 # tuple, list
-DISPLAY_IN_GRID = (la.Array, np.ndarray)
+DISPLAY_IN_GRID = (la.Array, np.ndarray, pd.DataFrame)
 
 
 class AbstractEditor(QMainWindow):
@@ -273,30 +274,45 @@ class AbstractEditor(QMainWindow):
         message += "</ul>"
         QMessageBox.about(self, _("About LArray Editor"), message.format(**kwargs))
 
-    def _update_title(self, title, array, name):
+    def _update_title(self, title, value, name):
         if title is None:
             title = []
 
-        if array is not None:
-            dtype = array.dtype.name
-            # current file (if not None)
-            if isinstance(array, la.Array):
-                # array info
-                shape = [f'{display_name} ({len(axis)})'
-                         for display_name, axis in zip(array.axes.display_names, array.axes)]
+        if value is not None:
+            # TODO: the type-specific information added to the title should be computed by a method on the adapter
+            #       (self.arraywidget.data_adapter)
+            if hasattr(value, 'dtype'):
+                try:
+                    dtype_str = f' [{value.dtype.name}]'
+                except:
+                    dtype_str = ''
             else:
-                # if it's not an Array, it must be a Numpy ndarray
-                assert isinstance(array, np.ndarray)
-                shape = [str(length) for length in array.shape]
+                dtype_str = ''
+
+            if hasattr(value, 'shape'):
+                if isinstance(value, la.Array):
+                    shape = [f'{display_name} ({len(axis)})'
+                             for display_name, axis in zip(value.axes.display_names, value.axes)]
+                else:
+                    try:
+                        shape = [str(length) for length in value.shape]
+                    except:
+                        shape = []
+                shape_str = ' x '.join(shape)
+            else:
+                shape_str = ''
+
             # name + shape + dtype
-            array_info = ' x '.join(shape) + f' [{dtype}]'
-            if name:
-                title += [name + ': ' + array_info]
-            else:
-                title += [array_info]
+            value_info = shape_str + dtype_str
+            if name and value_info:
+                title.append(name + ': ' + value_info)
+            elif name:
+                title.append(name)
+            elif value_info:
+                title.append(value_info)
 
         # extra info
-        title += [self._title]
+        title.append(self._title)
         # set title
         self.setWindowTitle(' - '.join(title))
 
@@ -379,7 +395,10 @@ class MappingEditor(AbstractEditor):
         self.data = la.Session()
         self.arraywidget = ArrayEditorWidget(self, readonly=readonly)
         self.arraywidget.dataChanged.connect(self.push_changes)
-        self.arraywidget.model_data.dataChanged.connect(self.update_title)
+        # FIXME: this is currently broken as it fires for each scroll
+        #        we either need to fix model_data.dataChanged (but that might be needed for display)
+        #        or find another way to add a star to the window title *only* when the user actually changed something
+        # self.arraywidget.model_data.dataChanged.connect(self.update_title)
 
         if qtconsole_available:
             # silence a warning on Python 3.11 (see issue #263)
@@ -682,7 +701,8 @@ class MappingEditor(AbstractEditor):
         self.set_current_array(array, expr)
 
     def _display_in_grid(self, k, v):
-        return not k.startswith('__') and isinstance(v, DISPLAY_IN_GRID)
+        # return not k.startswith('__') and isinstance(v, DISPLAY_IN_GRID)
+        return not k.startswith('__') and get_adapter_creator(v) is not None
 
     def ipython_cell_executed(self):
         user_ns = self.kernel.shell.user_ns
@@ -779,6 +799,8 @@ class MappingEditor(AbstractEditor):
     def set_current_array(self, array, name):
         # we should NOT check that "array is not self.current_array" because this method is also called to
         # refresh the widget value because of an inplace setitem
+
+        # FIXME: we should never store the current_array but current_adapter instead
         self.current_array = array
         self.arraywidget.set_data(array)
         self.current_array_name = name
@@ -1047,6 +1069,7 @@ class MappingEditor(AbstractEditor):
                 if overwrite and os.path.isfile(filepath):
                     ret = QMessageBox.warning(self, "Warning",
                                               f"File `{filepath}` exists. Are you sure to overwrite it?",
+                                              # TODO: Discard is useless I think
                                               QMessageBox.Save | QMessageBox.Cancel)
                     if ret == QMessageBox.Save:
                         self._save_script(filepath, lines, overwrite)
