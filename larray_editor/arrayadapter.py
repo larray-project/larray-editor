@@ -1065,6 +1065,32 @@ class PolarsDataFrameAdapter(AbstractAdapter):
         return {'values': buf, 'bg_value': color_value}
 
 
+# TODO: reuse NumpyStructuredArrayAdapter
+# TODO: this does not work super nicely for pandas tables (which store all compatible numeric columns in a single
+#       "array" column values_block0
+@adapter_for('tables.Table')
+class PytablesTableAdapter(AbstractAdapter):
+    def __init__(self, data, bg_value):
+        AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
+
+    def shape2d(self):
+        return len(self.data), len(self.data.dtype.names)
+
+    def get_hlabels(self, start, stop):
+        return [list(self.data.dtype.names[start:stop])]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        # TODO: when we scroll horizontally, we fetch the data over and over while we could only fetch it once
+        #       given that pytables fetches entire rows anyway. Several solutions:
+        #       * cache "current" rows in the adapter
+        #       * have a way for the arraymodel to ask the adapter for the minimum buffer size
+        #       * allow the adapter to return more data than what the model asked for and have the model actually
+        #         use/take that extra data into account. This would require the adapter to return
+        #         real_h_start, real_v_start (stop values can be deduced) in addition to actual values
+        names = self.get_hlabels(h_start, h_stop)[0]
+        return self.data[v_start:v_stop][names]
+
+
 @adapter_for('pstats.Stats')
 class ProfilingStatsAdapter(AbstractAdapter):
     def __init__(self, data, bg_value):
