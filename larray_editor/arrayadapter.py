@@ -1,3 +1,4 @@
+import collections.abc
 import sys
 import itertools
 
@@ -477,6 +478,77 @@ class AbstractAdapter:
             ax.legend(**kwargs)
 
         return figure
+
+
+@adapter_for(collections.abc.Sequence)
+class SequenceAdapter(AbstractAdapter):
+    def shape2d(self):
+        return len(self.data), 1
+
+    def get_axes_area(self):
+        return [['index']]
+
+    def get_hlabels(self, start, stop):
+        return [['value']]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        return self.data[v_start:v_stop]
+
+
+@adapter_for(collections.abc.Mapping)
+class MappingAdapter(AbstractAdapter):
+    def shape2d(self):
+        return len(self.data), 1
+
+    def get_axes_area(self):
+        return [['key']]
+
+    def get_hlabels(self, start, stop):
+        return [['value']]
+
+    def get_vlabels(self, start, stop):
+        # using islice instead of caching list(data.keys()) and list(data.values()) in __init__
+        # make things *much* faster to display the first elements of very large dicts at
+        # the expense of making the display of the last elements about twice as slow.
+        # It seems a desirable tradeoff, especially given the lower memory usage and
+        # the absence of stale cache problem. Performance-wise, we could cache keys() and
+        # values() here (instead of in __init__) if start or stop is above some threshold
+        # but I am unsure it is worth the added complexity.
+        return [[k] for k in itertools.islice(self.data.keys(), start, stop)]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        return list(itertools.islice(self.data.values(), v_start, v_stop))
+
+
+@adapter_for(collections.abc.Collection)
+class CollectionAdapter(AbstractAdapter):
+    def shape2d(self):
+        return len(self.data), 1
+
+    def get_hlabels(self, start, stop):
+        return [['value']]
+
+    def get_vlabels(self, start, stop):
+        return [[''] for i in range(start, stop)]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        return list(itertools.islice(self.data, v_start, v_stop))
+
+
+# Specific adapter just to change the label
+@adapter_for(collections.abc.KeysView)
+class KeysViewAdapter(CollectionAdapter):
+    def get_hlabels(self, start, stop):
+        return [['key']]
+
+
+@adapter_for(collections.abc.ItemsView)
+class ItemsViewAdapter(CollectionAdapter):
+    def shape2d(self):
+        return len(self.data), 2
+
+    def get_hlabels(self, start, stop):
+        return [['key', 'value']]
 
 
 def get_color_value(sample_array_data, global_vmin, global_vmax, axis=None):

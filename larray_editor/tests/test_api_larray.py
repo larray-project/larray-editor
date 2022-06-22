@@ -1,6 +1,7 @@
 """Array editor test"""
 
 import logging
+from collections import OrderedDict
 # from pathlib import Path
 
 import qtpy
@@ -12,6 +13,43 @@ from larray_editor.utils import logger
 
 print(f"Using {qtpy.API_NAME} as Qt API")
 logger.setLevel(logging.DEBUG)
+
+# list
+list_empty = []
+list_int = [2, 5, 7, 3]
+list_mixed = ['abc', 1.1, True, 1.0, 42, [1, 2]]
+list_seq_mixed = [[1], [2, 3, 4], [5, 6]]
+list_seq_regular = [[1, 2], [3, 4], [5, 6]]
+
+# tuple
+tuple_empty = ()
+tuple_int = (2, 5, 7, 3)
+tuple_mixed = ('abc', 1.1, True, 1.0, 42, (1, 2))
+tuple_seq_mixed = ((1,), (2, 3, 4), (5, 6))
+tuple_seq_regular = ((1, 2), (3, 4), (5, 6))
+
+# set
+set_int = {2, 4, 7, 3}
+set_int_big = set(range(10 ** 7))
+set_mixed = {2, "hello", 7.0, True}
+set_str = {"a", "b", "c", "d"}
+
+# dict
+dict_str_int = {"a": 2, "b": 5, "c": 7, "d": 3}
+dict_int_int = {0: 2, 2: 4, 5: 7, 1: 3}
+dict_int_str = {0: "a", 2: "b", 5: "c", 1: "d"}
+dict_str_mixed = {"a": 2, "b": "hello", "c": 7.0, "d": True}
+
+# dict views
+dictview_keys = dict_str_mixed.keys()
+dictview_items = dict_str_mixed.items()
+dictview_values = dict_str_mixed.values()
+
+# OrderedDict
+odict_int_int = OrderedDict(dict_int_int)
+odict_int_str = OrderedDict(dict_int_str)
+odict_str_int = OrderedDict(dict_str_int)
+odict_str_mixed = OrderedDict(dict_str_mixed)
 
 
 def make_circle(width=20, radius=9):
