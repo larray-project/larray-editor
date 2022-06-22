@@ -3,7 +3,7 @@
 import array
 import logging
 from collections import OrderedDict, namedtuple
-# from pathlib import Path
+from pathlib import Path
 
 import numpy as np
 import qtpy
@@ -248,6 +248,9 @@ pd_df3 = pd_df2.T
 pd_df4 = pd_df2.unstack()
 pd_df_str = pd_df2.astype(str)
 pd_series = pd_df2.stack()
+
+path_dir = Path('.')
+path_py = Path('test_adapter.py')
 
 try:
     import pyarrow as pa

@@ -13,6 +13,7 @@ import os
 import math
 import itertools
 import time
+from datetime import datetime
 
 import numpy as np
 import larray as la
@@ -1217,6 +1218,45 @@ def chunks_to_lines(chunks, num_lines_required=None):
     return lines[:num_lines_required]
 
 
+PATH_ADAPTERS = {}
+
+
+def register_path_adapter(suffix, adapter_creator, required_module=None):
+    """Register an adapter to display a file type (extension)
+
+    Parameters
+    ----------
+    suffix : str
+        File type for which the adapter should be used.
+    adapter_creator : callable
+        Callable which will return an Adapter instance
+    required_module : str
+        Name of module required to handle this file type.
+    """
+    if suffix in PATH_ADAPTERS:
+        print(f"Warning: replacing adapter for {suffix}")
+    PATH_ADAPTERS[suffix] = (adapter_creator, required_module)
+
+
+def path_adapter_for(suffix, required_module=None):
+    """Class/function decorator to register new file-type adapters
+
+    Parameters
+    ----------
+    suffix : str
+        File type associated with adapter class.
+    required_module : str
+        Name of module required to handle this file type.
+    """
+    def decorate_callable(adapter_creator):
+        register_path_adapter(suffix, adapter_creator, required_module)
+        return adapter_creator
+    return decorate_callable
+
+
+@path_adapter_for('.txt')
+@path_adapter_for('.py')
+@path_adapter_for('.yml')
 @adapter_for('io.TextIOWrapper')
 class TextFileAdapter(AbstractAdapter):
     def __init__(self, data, bg_value):
@@ -1369,6 +1409,49 @@ class TextFileAdapter(AbstractAdapter):
     def get_values(self, h_start, v_start, h_stop, v_stop):
         """*_stop are exclusive"""
         return self._get_lines(v_start, v_stop)
+
+
+class DirectoryPathAdapter(AbstractAdapter):
+    def __init__(self, data, bg_value):
+        AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
+        path_objs = list(data.iterdir())
+        # sort by type then name
+        path_objs.sort(key=lambda p: (not p.is_dir(), p.name))
+        stat_objs = [os.stat(p) for p in path_objs]
+        self._list = [(p.name,
+                       datetime.fromtimestamp(s.st_mtime).strftime('%d/%m/%Y %H:%M'),
+                       '<directory>' if p.is_dir() else s.st_size)
+                      for p, s in zip(path_objs, stat_objs)]
+        self._colnames = ['Name', 'Time Modified', 'Size']
+
+    def shape2d(self):
+        return len(self._list), len(self._colnames)
+
+    def get_hlabels(self, start, stop):
+        return [self._colnames[start:stop]]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        return self._list[v_start:v_stop]
+
+
+@adapter_for('pathlib.Path')
+def get_path_adapter(data, bg_value):
+    print("get_path_adapter", data, bg_value)
+    print("suffix", data.suffix)
+    if data.suffix in PATH_ADAPTERS:
+        cls, required_module = PATH_ADAPTERS[data.suffix]
+        if required_module is not None:
+            if required_module not in sys.modules:
+                import importlib
+                try:
+                    importlib.import_module(required_module)
+                except ImportError:
+                    return None
+        return cls(data, bg_value)
+    elif data.is_dir():
+        return DirectoryPathAdapter(data, bg_value)
+    else:
+        return None
 
 
 @adapter_for('pstats.Stats')
