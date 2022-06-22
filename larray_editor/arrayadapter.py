@@ -815,3 +815,70 @@ class ArrayArrayAdapter(AbstractAdapter):
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
         return self.data[v_start:v_stop].tolist()
+
+
+class NumpyHomogeneousArrayAdapter(AbstractAdapter):
+    def shape2d(self):
+        return nd_shape_to_2d(self.data.shape, num_h_axes=1)
+
+    def get_vnames(self):
+        return ['' for axis_len in self.data.shape[:-1]]
+
+    def get_hlabels(self, start, stop):
+        if self.data.ndim > 0:
+            return [list(range(start, stop))]
+        else:
+            return [['']]
+
+    def get_vlabels(self, start, stop):
+        if self.data.ndim > 0:
+            vlabels = Product([range(axis_len) for axis_len in self.data.shape[:-1]])
+            return vlabels[start:stop]
+        else:
+            return [['']]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        data2d = self.data.reshape(nd_shape_to_2d(self.data.shape))
+        return data2d[v_start:v_stop, h_start:h_stop]
+
+
+class NumpyStructuredArrayAdapter(AbstractAdapter):
+    def shape2d(self):
+        shape = self.data.shape + (len(self.data.dtype.names),)
+        return nd_shape_to_2d(shape, num_h_axes=1)
+
+    def get_vnames(self):
+        return ['' for axis_len in self.data.shape]
+
+    def get_hlabels(self, start, stop):
+        return [list(self.data.dtype.names[start:stop])]
+
+    def get_vlabels(self, start, stop):
+        vlabels = Product([range(axis_len) for axis_len in self.data.shape])
+        return vlabels[start:stop]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        # TODO: this works nicely but isn't any better for users because number of decimals
+        #       is not auto-detected and cannot be changed. I think I could implement
+        #       auto-detection *relatively* easily but at this point I don't know how
+        #       to implement changing it.
+        #       One option would be that the ndigits box would set the number of digits for
+        #       all *numeric* columns (or even cells?) instead of trying to set it for all columns.
+        #       Another option would be that the ndigits box would not be the
+        #       number of digits for each column but rather the "bonus" number compared to
+        #       the autodetected value.
+        #       Yet another option would be to keep track of the number of digits per column
+        #       (or cell) and change it only for currently selected cells.
+        #       Selecting the entire column would then set it "globally" for the column.
+        data1d = self.data.reshape(-1)
+        # Each field of a "row" can be accessed via either its name (row['age']) or its position
+        # (row[1]) but rows *cannot* be sliced, hence going via tuple(row_data)
+        return [tuple(row_data)[h_start:h_stop] for row_data in data1d[v_start:v_stop]]
+
+
+@adapter_for(np.ndarray)
+def get_np_array_adapter(data, bg_value):
+    if data.dtype.names is not None:
+        return NumpyStructuredArrayAdapter(data, bg_value)
+    else:
+        return NumpyHomogeneousArrayAdapter(data, bg_value)

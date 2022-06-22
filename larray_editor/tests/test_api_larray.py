@@ -5,6 +5,7 @@ import logging
 from collections import OrderedDict, namedtuple
 # from pathlib import Path
 
+import numpy as np
 import qtpy
 import larray as la
 
@@ -62,6 +63,24 @@ odict_int_int = OrderedDict(dict_int_int)
 odict_int_str = OrderedDict(dict_int_str)
 odict_str_int = OrderedDict(dict_str_int)
 odict_str_mixed = OrderedDict(dict_str_mixed)
+
+# numpy arrays
+np_arr0d = np.full((), 42, dtype=float)
+np_arr1d = np.random.normal(0, 1, size=100)
+np_arr1d_empty = np.random.normal(0, 1, size=0)
+np_arr2d = np.random.normal(0, 1, size=(100, 100))
+np_arr2d_0col = np.random.normal(0, 1, size=(10, 0))
+np_arr2d_0row = np.random.normal(0, 1, size=(0, 10))
+np_arr3d = np.random.normal(0, 1, size=(10, 10, 10))
+np_dtype = np.dtype([('name', '<U11'), ('age', int), ('male', bool), ('height', float)])
+np_struct_arr = np.array([('name1', 42,  True, 1.80),
+                          ('name2', 41, False, 1.76),
+                          ('name3', 43, False, 1.78),
+                          ('name4', 44,  True, 1.77)], dtype=np_dtype)
+np_struct_arr_2d = np.array([[('name1', 41,  True, 1.80),
+                              ('name2', 42, False, 1.79)],
+                             [('name3', 43, False, 1.78),
+                              ('name4', 44,  True, 1.77)]], dtype=np_dtype)
 
 
 def make_circle(width=20, radius=9):
