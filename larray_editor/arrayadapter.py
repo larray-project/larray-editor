@@ -1,3 +1,12 @@
+# TODO (long term): add support for streaming data source. In that case, the behavior should be what we had before
+#                   (when we scroll, it requests more data and the total length of the scrollbar is updated)
+#
+# TODO (even longer term): add support for streaming data source with a limit (ie keep last N entries)
+#
+# TODO: add support for "progressive" data sources, e.g. pandas SAS reader
+#       (from pandas.io.sas.sas7bdat import SAS7BDATReader), which can read by chunks but cannot
+#       read a particular offset. It would be crazy to re-read the whole thing up to the requested
+#       data each time, but caching the whole file in memory probably isn't desirable/feasible either...
 import collections.abc
 import sys
 import itertools
