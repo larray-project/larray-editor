@@ -897,6 +897,40 @@ class DataFrameAdapter(AbstractAdapter):
     def shape2d(self):
         return self.data.shape
 
+    def get_filters(self):
+        """return [(combo_label, combo_values_sequence)]"""
+        return []
+        # df = self.data
+        # assert isinstance(df, pd.DataFrame)
+        #
+        # def get_name_values(index):
+        #     if isinstance(index, pd.MultiIndex):
+        #         return [(name, labels) for name, labels in zip(index.names, index.levels)]
+        #     else:
+        #         name = index.name if index.name is not None else ''
+        #         return [(name, index.values)]
+        #
+        # return get_name_values(df.index) + get_name_values(df.columns)
+        #
+
+    def filter_data(self, data, filter):
+        """
+        filter is a {axis_idx: axis_indices} dict
+        """
+        if data is None or filter is None:
+            return data
+
+        assert isinstance(data, pd.DataFrame)
+        if isinstance(data.index, pd.MultiIndex) or isinstance(data.columns, pd.MultiIndex):
+            print("WARNING: filtering with ndim > 2 not implemented yet")
+            return data
+
+        indexer = tuple(filter.get(axis_idx, slice(None)) for axis_idx in range(self.data.ndim))
+        res = data.iloc[indexer]
+        if isinstance(res, pd.Series):
+            res = res.to_frame()
+        return res
+
     # FIXME: this is currently required but should not be (=> need to fix super.get_axes_area to make it work)
     def get_axes_area(self):
         idx_names = self.get_vnames()
