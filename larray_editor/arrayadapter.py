@@ -9,6 +9,8 @@
 #       data each time, but caching the whole file in memory probably isn't desirable/feasible either...
 import collections.abc
 import sys
+import os
+import math
 import itertools
 
 import numpy as np
@@ -1098,6 +1100,64 @@ class PytablesTableAdapter(AbstractAdapter):
         #         real_h_start, real_v_start (stop values can be deduced) in addition to actual values
         names = self.get_hlabels(h_start, h_stop)[0]
         return self.data[v_start:v_stop][names]
+
+
+# TODO: options to display as hex or decimal
+# >>> s = f.read(20)
+# >>> s
+# b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xc2\xea\x81\xb3\x14\x11\xcf\xbd
+@adapter_for('io.BufferedReader')
+class BinaryFileAdapter(AbstractAdapter):
+    def __init__(self, data, bg_value):
+        AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
+        self._nbytes = os.path.getsize(data.name)
+        self._width = 16
+
+    def shape2d(self):
+        return math.ceil(self._nbytes / self._width), self._width
+
+    def get_vlabels(self, start, stop):
+        start, stop, step = slice(start, stop).indices(self.shape2d()[0])
+        return [[i * self._width] for i in range(start, stop)]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        f = self.data
+        width = self._width
+
+        backup_pos = f.tell()
+
+        # read data (ignoring horizontal bounds at this point)
+        start_pos = v_start * width
+        stop_pos = v_stop * width
+        f.seek(start_pos)
+        s = f.read(stop_pos - start_pos)
+
+        # restore file position
+        f.seek(backup_pos)
+
+        # load the string as an array of unsigned bytes
+        buffer1d = np.frombuffer(s, dtype='u1')
+
+        # enlarge the array so that it is divisible by width (so that we can reshape it)
+        buffer_size = len(buffer1d)
+        size_remainder = buffer_size % width
+        if size_remainder != 0:
+            filler_size = width - size_remainder
+            rounded_size = buffer_size + filler_size
+            try:
+                # first try inplace resize
+                buffer1d.resize(rounded_size, refcheck=False)
+            except:
+                buffer1d = np.append(buffer1d, np.zeros(filler_size, dtype='u1'))
+
+        # change undisplayable characters to '.'
+        buffer1d = np.where((buffer1d < 32) | (buffer1d >= 128), ord('.'), buffer1d).view('S1')
+
+        # reshape to 2d
+        buffer2d = buffer1d.reshape((-1, width))
+
+        # take what we were asked for
+        return buffer2d[:, h_start:h_stop]
 
 
 @adapter_for('pstats.Stats')
