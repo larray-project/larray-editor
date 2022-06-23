@@ -893,6 +893,33 @@ class RangeAdapter(AbstractAdapter):
         return self.data[v_start:v_stop, h_start:h_stop].__array__()
 
 
+class MemoryViewArrayAdapter(AbstractAdapter):
+    def shape2d(self):
+        return nd_shape_to_2d(self.data.shape, num_h_axes=1)
+
+    # FIXME: vlabels are broken for ndim > 2
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        data = self.data
+        if data.ndim == 1:
+            return [data[h_start:h_stop].tolist()]
+        elif data.ndim == 2:
+            # memoryviews do not support multidimensional slicing
+            return [[data[v_idx, h_idx] for h_idx in range(h_start, h_stop)] for v_idx in range(v_start, v_stop)]
+        else:
+            shape = data.shape
+            return [[data[v_idx_tuple + (h_idx,)] for h_idx in range(h_start, h_stop)]
+                    for v_idx_tuple in zip(*np.unravel_index(range(v_start, v_stop), shape[:-1]))]
+
+
+@adapter_for(memoryview)
+def get_mv_array_adapter(data, bg_value):
+    if len(data.format) > 1:
+        # memoryview with 'structured' formats cannot be indexed
+        return None
+    else:
+        return MemoryViewArrayAdapter(data, bg_value)
+
+
 class NumpyHomogeneousArrayAdapter(AbstractAdapter):
     def shape2d(self):
         return nd_shape_to_2d(self.data.shape, num_h_axes=1)

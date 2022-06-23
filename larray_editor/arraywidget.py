@@ -1246,6 +1246,10 @@ class ArrayEditorWidget(QWidget):
     def set_data(self, data, bg_value=None, frac_digits=None):
         # get new adapter instance + set data
         # TODO: pass a dict to get_adapter {'data': data, 'bg_value': bg_value}
+        # TODO: add a mechanism that adapters can use to tell whether they support a
+        #       particular instance of a data structure. This should probably be a class method.
+        #       For example for memoryview, "structured"
+        #       memoryview are not supported and get_adapter currently returns None
         self.data_adapter = get_adapter(data=data, bg_value=bg_value)
         # reset scrollbars
         self.vscrollbar.setValue(0)

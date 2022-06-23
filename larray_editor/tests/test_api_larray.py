@@ -85,6 +85,12 @@ np_struct_arr_2d = np.array([[('name1', 41,  True, 1.80),
                               ('name2', 42, False, 1.79)],
                              [('name3', 43, False, 1.78),
                               ('name4', 44,  True, 1.77)]], dtype=np_dtype)
+mv_arr1d = memoryview(np_arr1d)
+mv_arr2d = memoryview(np_arr2d)
+mv_arr3d = memoryview(np_arr3d)
+# these are not supported
+# mv_struct_arr = memoryview(np_struct_arr)
+# mv_struct_arr_2d = memoryview(np_struct_arr_2d)
 
 
 def make_circle(width=20, radius=9):
