@@ -1452,6 +1452,29 @@ class CsvPathAdapter(TextFileAdapter):
         return [line[h_start:h_stop] for line in reader]
 
 
+@path_adapter_for('.sas7bdat', 'pyreadstat')
+class Sas7BdatPathAdapter(AbstractAdapter):
+    def __init__(self, data, bg_value):
+        # we know the module is loaded but it is not in the current namespace
+        pyreadstat = sys.modules['pyreadstat']
+        AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
+        df, meta = pyreadstat.read_sas7bdat(str(data), metadataonly=True)
+        self._colnames = meta.column_names
+        self._numrows = meta.number_rows
+
+    def shape2d(self):
+        return self._numrows, len(self._colnames)
+
+    def get_hlabels(self, start, stop):
+        return [self._colnames[start:stop]]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        # we know the module is loaded but it is not in the current namespace
+        pyreadstat = sys.modules['pyreadstat']
+        df, meta = pyreadstat.read_sas7bdat(str(self.data), row_offset=v_start, row_limit=v_stop - v_start)
+        return df.iloc[:, h_start:h_stop].values
+
+
 class DirectoryPathAdapter(AbstractAdapter):
     def __init__(self, data, bg_value):
         AbstractAdapter.__init__(self, data=data, bg_value=bg_value)
