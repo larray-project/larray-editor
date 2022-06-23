@@ -297,9 +297,11 @@ class PlotDialog(QDialog):
         canvas.draw()
 
 
-def show_figure(parent, figure):
+def show_figure(parent, figure, title=None):
     canvas = FigureCanvas(figure)
     main = PlotDialog(canvas, parent)
+    if title is not None:
+        main.setWindowTitle(title)
     main.show()
 
 
