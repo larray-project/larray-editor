@@ -830,6 +830,69 @@ class ArrayArrayAdapter(AbstractAdapter):
         return self.data[v_start:v_stop].tolist()
 
 
+def excel_colname(col):
+    """col is a *zero* based column number
+
+    >>> excel_colname(0)
+    'A'
+    >>> excel_colname(25)
+    'Z'
+    >>> excel_colname(26)
+    'AA'
+    >>> excel_colname(51)
+    'AZ'
+    """
+    letters = []
+    value_a = ord("A")
+    while col >= 0:
+        letters.append(chr(value_a + col % 26))
+        col = (col // 26) - 1
+    return "".join(reversed(letters))
+
+
+@adapter_for('larray.inout.xw_excel.Workbook')
+class WorkbookAdapter(SequenceAdapter):
+    def __init__(self, data, bg_value):
+        SequenceAdapter.__init__(self, data=data.sheet_names(), bg_value=bg_value)
+
+    def get_hlabels(self, start, stop):
+        return [['sheet name']]
+
+
+@adapter_for('larray.inout.xw_excel.Sheet')
+class SheetAdapter(AbstractAdapter):
+    def shape2d(self):
+        return self.data.shape
+
+    def get_hlabels(self, start, stop):
+        return [[excel_colname(i) for i in range(start, stop)]]
+
+    def get_vlabels(self, start, stop):
+        # +1 because excel rows are 1 based
+        return [[i] for i in range(start + 1, stop + 1)]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        return self.data[v_start:v_stop, h_start:h_stop].__array__()
+
+
+@adapter_for('larray.inout.xw_excel.Range')
+class RangeAdapter(AbstractAdapter):
+    def shape2d(self):
+        return self.data.shape
+
+    def get_hlabels(self, start, stop):
+        # - 1 because data.column is 1-based (Excel) while excel_colname is 0-based
+        offset = self.data.column - 1
+        return [[excel_colname(i) for i in range(offset + start, offset + stop)]]
+
+    def get_vlabels(self, start, stop):
+        offset = self.data.row
+        return [[i] for i in range(offset + start, offset + stop)]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        return self.data[v_start:v_stop, h_start:h_stop].__array__()
+
+
 class NumpyHomogeneousArrayAdapter(AbstractAdapter):
     def shape2d(self):
         return nd_shape_to_2d(self.data.shape, num_h_axes=1)
