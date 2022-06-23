@@ -35,7 +35,7 @@ New features
 Miscellaneous improvements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* improved something.
+* Plot windows title now include the name of the array used to make the plot (closes :editor_issue:`233`).
 
 
 Fixes

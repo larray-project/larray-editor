@@ -1133,11 +1133,15 @@ class ArrayEditorWidget(QWidget):
         self.view_data.selectionModel().select(QItemSelection(*result), QItemSelectionModel.ClearAndSelect)
 
     def plot(self):
+        from larray_editor.utils import show_figure
+        from larray_editor.editor import AbstractEditor, MappingEditor
         raw_data, axes_names, vlabels, hlabels = self._selection_data()
         try:
-            from larray_editor.utils import show_figure
             figure = self.data_adapter.plot(raw_data, axes_names, vlabels, hlabels)
-            # Display figure
-            show_figure(self, figure)
+            widget = self
+            while widget is not None and not isinstance(widget, AbstractEditor):
+                widget = widget.parent()
+            title = widget.current_array_name if isinstance(widget, MappingEditor) else None
+            show_figure(self, figure, title)
         except ImportError:
             QMessageBox.critical(self, "Error", "plot() is not available because matplotlib is not installed")
