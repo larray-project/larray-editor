@@ -1411,6 +1411,47 @@ class TextFileAdapter(AbstractAdapter):
         return self._get_lines(v_start, v_stop)
 
 
+@path_adapter_for('.csv', 'csv')
+class CsvPathAdapter(TextFileAdapter):
+    def __init__(self, data, bg_value):
+        # we know the module is loaded but it is not in the current namespace
+        csv = sys.modules['csv']
+        data = str(data)
+        TextFileAdapter.__init__(self, data=data, bg_value=bg_value)
+        first_line = self._get_lines(0, 1)
+        # TODO: gracefully handle empty file
+        assert len(first_line) == 1
+        reader = csv.reader([first_line[0].decode('utf8')])
+        self._colnames = next(reader)
+
+    # note that for large files, this is approximate
+    def shape2d(self):
+        # - 1 for header row
+        return self._num_lines - 1, len(self._colnames)
+
+    def get_hlabels(self, start, stop):
+        return [self._colnames[start:stop]]
+
+    def get_vlabels(self, start, stop):
+        # + 1 for header row
+        return super().get_vlabels(start + 1, stop + 1)
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        """*_stop are exclusive"""
+        print("get_values", h_start, v_start, h_stop, v_stop)
+
+        # + 1 because the header row is not part of the data but _get_lines works
+        # on the actual file lines
+        lines = self._get_lines(v_start + 1, v_stop + 1)
+        if not lines:
+            return []
+        # we know the module is loaded but it is not in the current namespace
+        csv = sys.modules['csv']
+        # Note that csv reader actually needs a line-based input
+        reader = csv.reader([line.decode('utf8') for line in lines])
+        return [line[h_start:h_stop] for line in reader]
+
+
 class DirectoryPathAdapter(AbstractAdapter):
     def __init__(self, data, bg_value):
         AbstractAdapter.__init__(self, data=data, bg_value=bg_value)

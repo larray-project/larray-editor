@@ -251,6 +251,7 @@ pd_series = pd_df2.stack()
 
 path_dir = Path('.')
 path_py = Path('test_adapter.py')
+path_csv = Path('be.csv')
 
 try:
     import pyarrow as pa
