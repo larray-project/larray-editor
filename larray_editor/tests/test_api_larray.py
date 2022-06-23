@@ -1,5 +1,6 @@
 """Array editor test"""
 
+import array
 import logging
 from collections import OrderedDict, namedtuple
 # from pathlib import Path
@@ -13,6 +14,12 @@ from larray_editor.utils import logger
 
 print(f"Using {qtpy.API_NAME} as Qt API")
 logger.setLevel(logging.DEBUG)
+
+# array objects
+array_double = array.array('d', [1.0, 2.0, 3.14])
+array_signed_int = array.array('l', [1, 2, 3, 4, 5])
+array_signed_int_empty = array.array('l')
+array_unicode = array.array('u', 'hello \u2641')
 
 # list
 list_empty = []

@@ -803,3 +803,15 @@ class LArrayArrayAdapter(AbstractAdapter):
             axis_pos if axis_idx not in filter or np.isscalar(filter[axis_idx]) else filter[axis_idx][axis_pos]
             for axis_idx, axis_pos in enumerate(localndkey)
         )
+
+
+@adapter_for('array.array')
+class ArrayArrayAdapter(AbstractAdapter):
+    def shape2d(self):
+        return len(self.data), 1
+
+    def get_hlabels(self, start, stop):
+        return [['']]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        return self.data[v_start:v_stop].tolist()
