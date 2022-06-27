@@ -1,5 +1,5 @@
 from qtpy import QtGui, QtCore, QtWidgets
-from qtpy.QtCore import QPoint
+from qtpy.QtCore import QPoint, Qt
 
 
 class StandardItemModelIterator:
@@ -51,13 +51,13 @@ class StandardItem(QtGui.QStandardItem):
         super().__init__(value)
 
     def get_checked(self):
-        return self.checkState() == QtCore.Qt.Checked
+        return self.checkState() == Qt.Checked
 
     def set_checked(self, value):
         if isinstance(value, bool):
-            qtvalue = (QtCore.Qt.Unchecked, QtCore.Qt.Checked)[value]
+            qtvalue = (Qt.Unchecked, Qt.Checked)[value]
         else:
-            qtvalue = QtCore.Qt.PartiallyChecked
+            qtvalue = Qt.PartiallyChecked
         self.setCheckState(qtvalue)
     checked = property(get_checked, set_checked)
 
@@ -148,7 +148,7 @@ class FilterMenu(QtWidgets.QMenu):
     def addItem(self, text):
         item = StandardItem(text)
         # not editable
-        item.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled)
+        item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
         item.checked = True
         self._model.appendRow(item)
 
@@ -163,14 +163,13 @@ class FilterMenu(QtWidgets.QMenu):
             key = event.key()
 
             # tab key closes the popup
-            if obj == self._list_view.window() and key == QtCore.Qt.Key_Tab:
+            if obj == self._list_view.window() and key == Qt.Key_Tab:
                 self.hide()
 
             # return key activates *one* item and closes the popup
             # first time the key is sent to the menu, afterwards to
             # list_view
-            elif (obj == self._list_view and
-                          key in (QtCore.Qt.Key_Enter, QtCore.Qt.Key_Return)):
+            elif obj == self._list_view and key in (Qt.Key_Enter, Qt.Key_Return):
                 self.activate.emit(self._list_view.currentIndex().row())
                 self.hide()
                 return True
@@ -220,8 +219,7 @@ class FilterComboBox(QtWidgets.QToolButton):
         #     key = event.key()
         #
         #     # allow opening the popup via enter/return
-        #     if (obj == self and
-        #             key in (QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter)):
+        #     if obj == self and key in (Qt.Key_Return, Qt.Key_Enter):
         #         self.showMenu()
         #         return True
 
@@ -229,16 +227,13 @@ class FilterComboBox(QtWidgets.QToolButton):
             key = event.key()
 
             # allow opening the popup with up/down
-            if (obj == self and
-                    key in (QtCore.Qt.Key_Up, QtCore.Qt.Key_Down,
-                            QtCore.Qt.Key_Space)):
+            if obj == self and key in (Qt.Key_Up, Qt.Key_Down, Qt.Key_Space):
                 self.showMenu()
                 return True
 
             # return key activates *one* item and closes the popup
             # first time the key is sent to self, afterwards to list_view
-            elif (obj == self and
-                    key in (QtCore.Qt.Key_Enter, QtCore.Qt.Key_Return)):
+            elif obj == self and key in (Qt.Key_Enter, Qt.Key_Return):
                 self._menu.activate.emit(self._list_view.currentIndex().row())
                 self._menu.hide()
                 return True
