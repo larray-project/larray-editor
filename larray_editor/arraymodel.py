@@ -4,7 +4,7 @@ from inspect import stack
 import numpy as np
 from larray_editor.utils import (get_default_font,
                                  is_float, is_number, LinearGradient, SUPPORTED_FORMATS, scale_to_01range,
-                                 Product, is_number_value, get_sample, get_sample_indices, logger)
+                                 Product, is_number_value, get_sample_indices, logger)
 from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel, Signal
 from qtpy.QtGui import QColor
 from qtpy.QtWidgets import QMessageBox
