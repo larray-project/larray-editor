@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import collections
 from pathlib import Path
 from typing import Union
 
@@ -23,7 +24,6 @@ if sys.platform.startswith("win") and sys.version_info >= (3, 8):
 import matplotlib
 import matplotlib.axes
 import numpy as np
-import collections
 
 import larray as la
 
