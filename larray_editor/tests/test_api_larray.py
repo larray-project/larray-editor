@@ -133,7 +133,7 @@ long_axes_names = la.zeros('first_axis=a0,a1; second_axis=b0,b1')
 # import cProfile as profile
 # profile.runctx('edit(Session(arr2=arr2))', vars(), {},
 #                'c:\\tmp\\edit.profile')
-debug()
+# debug()
 edit()
 # edit(ses)
 # edit(file)
@@ -180,11 +180,12 @@ edit()
 # compare(arr1, arr2, arr3, bg_gradient='blue-red')
 
 
-def test_run_editor_on_exception(local_arr1):
-    return arr2['my_invalid_key']
+def test_run_editor_on_exception(local_arr):
+    return local_arr['my_invalid_key']
+
 
 run_editor_on_exception()
 # run_editor_on_exception(usercode_traceback=False)
 # run_editor_on_exception(usercode_traceback=False, usercode_frame=False)
 
-test_run_editor_on_exception(arr1)
+# test_run_editor_on_exception(arr2)
