@@ -43,6 +43,10 @@ Miscellaneous improvements
 * when displaying an expression (computed array), the window title includes the actual expression
   instead of using '<expr>'.
 
+* :py:obj:`compare()` can now take filepaths as argument (and will load them as a Session) to make
+  comparing a in-memory Session with an earlier Session saved on the disk. Those filepaths
+  can be given as both str or Path objects. Closes :editor_issue:`229`.
+
 * added support for Path objects (in addition to str representing paths) in :py:obj:`view()` and :py:obj:`edit()`.
   See :issue:`896`.
 
