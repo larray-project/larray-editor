@@ -1,4 +1,6 @@
 import ast
+import warnings
+
 import numpy as np
 import larray as la
 
@@ -14,7 +16,7 @@ from larray_editor.editor import AbstractEditor, DISPLAY_IN_GRID
 
 class ComparatorWidget(QWidget):
     """Comparator Widget"""
-    def __init__(self, parent=None, bg_gradient='red-white-blue', rtol=0, atol=0, nans_equal=True, **kwargs):
+    def __init__(self, parent=None, bg_gradient='red-white-blue', rtol=0, atol=0, nans_equal=True):
         QWidget.__init__(self, parent)
 
         layout = QVBoxLayout()
@@ -179,27 +181,33 @@ class ArrayComparator(AbstractEditor):
         ----------
         widget: QWidget
             Parent widget.
-        data: list or tuple of Array, ndarray
-            Arrays to compare.
+        data: dict of Array
+            Arrays to compare as a {name: Array} dict.
         title: str
             Title.
         readonly: bool
+            Ignored argument (comparator is always read only)
         kwargs:
 
           * rtol: int or float
           * atol: int or float
           * nans_equal: bool
           * bg_gradient: str
-          * names: list of str
         """
-        arrays = [la.asarray(array) for array in data if isinstance(array, DISPLAY_IN_GRID)]
-        names = kwargs.get('names', [f"Array{i}" for i in range(len(arrays))])
+        if isinstance(data, (list, tuple)):
+            names = kwargs.pop('names', [f"Array{i}" for i in range(len(data))])
+            data = dict(zip(names, data))
+            warnings.warn("For ArrayComparator.setup_and_check, using a list or tuple for the data argument, "
+                          "and using the names argument are both deprecated. Please use a dict instead",
+                          FutureWarning, stacklevel=3)
+
+        assert all(isinstance(s, la.Array) for s in data.values())
 
         layout = QVBoxLayout()
         widget.setLayout(layout)
 
         comparator_widget = ComparatorWidget(self, **kwargs)
-        comparator_widget.set_data(arrays, la.Axis(names, 'array'))
+        comparator_widget.set_data(data.values(), la.Axis(data.keys(), 'array'))
         layout.addWidget(comparator_widget)
 
 
@@ -224,26 +232,29 @@ class SessionComparator(AbstractEditor):
         ----------
         widget: QWidget
             Parent widget.
-        data: list or tuple of Session
-            Sessions to compare.
+        data: dict of Session
+            Sessions to compare as a {name: Session} dict.
         title: str
             Title.
         readonly: bool
+            Ignored argument (comparator is always read only)
         kwargs:
 
           * rtol: int or float
           * atol: int or float
           * nans_equal: bool
           * bg_gradient: str
-          * names: list of str
-          * colors: str
         """
-        sessions = data
-        names = kwargs.get('names', [f"Session{i}" for i in range(len(sessions))])
+        if isinstance(data, (list, tuple)):
+            names = kwargs.pop('names', [f"Session{i}" for i in range(len(data))])
+            data = dict(zip(names, data))
+            warnings.warn("For SessionComparator.setup_and_check, using a list or tuple for the data argument, "
+                          "and using the names argument are both deprecated. Please use a dict instead",
+                          FutureWarning, stacklevel=3)
 
-        assert all(isinstance(s, la.Session) for s in sessions)
-        self.sessions = sessions
-        self.stack_axis = la.Axis(names, 'session')
+        assert all(isinstance(s, la.Session) for s in data.values())
+        self.sessions = data.values()
+        self.stack_axis = la.Axis(data.keys(), 'session')
 
         layout = QVBoxLayout()
         widget.setLayout(layout)
@@ -260,6 +271,7 @@ class SessionComparator(AbstractEditor):
         self.listwidget = listwidget
 
         comparatorwidget = ComparatorWidget(self, **kwargs)
+        # do not call set_data on the comparatorwidget as it will be done by the setCurrentRow below
         self.arraywidget = comparatorwidget
 
         main_splitter = QSplitter(Qt.Horizontal)

@@ -145,9 +145,13 @@ edit()
 # edit(arr2)
 
 # compare(arr3, arr3 + 1.0)
+# compare(arr3, arr3 + 1.0, names=['arr3', 'arr3 + 1.0'])
 # compare(np.random.normal(0, 1, size=(10, 2)), np.random.normal(0, 1, size=(10, 2)))
-# compare(la.Session(arr4=arr4, arr3=arr3, data=data3),
-#         la.Session(arr4=arr4 + 1.0, arr3=arr3 * 2.0, data=data3 * 1.05))
+# sess1 = la.Session(arr4=arr4, arr3=arr3, data=data3)
+# sess1.save('sess1.h5')
+# sess2 = la.Session(arr4=arr4 + 1.0, arr3=arr3 * 2.0, data=data3 * 1.05)
+# compare('sess1.h5', sess2)
+# compare(Path('sess1.h5'), sess2)
 # compare(la.Session(arr2=arr2, arr3=arr3),
 #         la.Session(arr2=arr2 + 1.0, arr3=arr3 * 2.0))
 

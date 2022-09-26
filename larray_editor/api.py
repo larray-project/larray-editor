@@ -256,7 +256,8 @@ def _compare_dialog(parent, *args, **kwargs):
     else:
         caller_info = None
 
-    if any(isinstance(a, la.Session) for a in args):
+    compare_sessions = any(isinstance(a, (la.Session, str, Path)) for a in args)
+    if compare_sessions:
         from larray_editor.comparator import SessionComparator
         dlg = SessionComparator(parent)
         default_name = 'session'
@@ -267,15 +268,24 @@ def _compare_dialog(parent, *args, **kwargs):
 
     if names is None:
         def get_name(i, obj, depth=0):
-            obj_names = _find_names(obj, depth=depth + 1)
-            return obj_names[0] if obj_names else f'{default_name} {i:d}'
+            if isinstance(obj, (str, Path)):
+                return os.path.basename(obj)
+            else:
+                obj_names = _find_names(obj, depth=depth + 1)
+                return obj_names[0] if obj_names else f'{default_name} {i:d}'
 
         # depth + 2 because of the list comprehension
         names = [get_name(i, a, depth=depth + 2) for i, a in enumerate(args)]
     else:
         assert isinstance(names, list) and len(names) == len(args)
 
-    if dlg.setup_and_check(args, names=names, title=title, caller_info=caller_info, **kwargs):
+    if compare_sessions:
+        args = [la.Session(a) if not isinstance(a, la.Session) else a
+                for a in args]
+
+    data = dict(zip(names, args))
+
+    if dlg.setup_and_check(data, title=title, caller_info=caller_info, **kwargs):
         return dlg
     else:
         return None
@@ -287,8 +297,8 @@ def compare(*args, **kwargs):
 
     Parameters
     ----------
-    *args : Arrays or Sessions
-        Arrays or sessions to compare.
+    *args : Arrays, Sessions, str or Path.
+        Arrays or sessions to compare. Strings or Path will be loaded as Sessions from the corresponding files.
     title : str, optional
         Title for the window. Defaults to ''.
     names : list of str, optional
