@@ -1,7 +1,7 @@
 import os
 import re
 import sys
-import collections
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Union
 
@@ -725,7 +725,7 @@ class MappingEditor(AbstractEditor):
                         # we use a different path for sequences than for arrays to avoid copying potentially
                         # big non-array sequences using np.ravel(). This code does not support nested sequences,
                         # but I am already unsure supporting simple non-array sequences is useful.
-                        elif isinstance(cur_output, collections.Sequence) and len(cur_output) > 0:
+                        elif isinstance(cur_output, Sequence) and len(cur_output) > 0:
                             first_output = cur_output[0]
                             if isinstance(first_output, matplotlib.axes.Subplot):
                                 show_figure(self, first_output.figure)
