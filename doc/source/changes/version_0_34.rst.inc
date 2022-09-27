@@ -17,6 +17,8 @@ Backward incompatible changes
 New features
 ^^^^^^^^^^^^
 
+* added support for Python 3.10.
+
 * the initial column width is now set depending on the content and resized automatically when changing the number of
   digits (closes :editor_issue:`145`).
 
