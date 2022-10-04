@@ -298,11 +298,17 @@ class PlotDialog(QDialog):
 
 
 def show_figure(parent, figure, title=None):
-    canvas = FigureCanvas(figure)
-    main = PlotDialog(canvas, parent)
+    if (figure.canvas is not None and figure.canvas.manager is not None and
+            figure.canvas.manager.window is not None):
+        figure.canvas.draw()
+        window = figure.canvas.manager.window
+        window.raise_()
+    else:
+        canvas = FigureCanvas(figure)
+        window = PlotDialog(canvas, parent)
     if title is not None:
-        main.setWindowTitle(title)
-    main.show()
+        window.setWindowTitle(title)
+    window.show()
 
 
 class Axis:
