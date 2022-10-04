@@ -358,7 +358,7 @@ class MappingEditor(AbstractEditor):
 
         self.current_file = None
         self.current_array = None
-        self.current_array_name = None
+        self.current_expr_text = None
 
         self._listwidget = None
         self.eval_box = None
@@ -497,8 +497,8 @@ class MappingEditor(AbstractEditor):
         self.data = data if isinstance(data, la.Session) else la.Session(data)
         if qtconsole_available:
             self.kernel.shell.push(dict(self.data.items()))
-        arrays = [k for k, v in self.data.items() if self._display_in_grid(k, v)]
-        self.add_list_items(arrays)
+        var_names = [k for k, v in self.data.items() if self._display_in_varlist(k, v)]
+        self.add_list_items(var_names)
         self._listwidget.setCurrentRow(0)
 
     def on_stack_frame_changed(self):
@@ -526,7 +526,7 @@ class MappingEditor(AbstractEditor):
         self.data = la.Session()
         self._listwidget.clear()
         self.current_array = None
-        self.current_array_name = None
+        self.current_expr_text = None
         self.edit_undo_stack.clear()
         if qtconsole_available:
             self.kernel.shell.reset()
@@ -580,7 +580,7 @@ class MappingEditor(AbstractEditor):
         file_menu.addAction(create_action(self, _('&Quit'), shortcut="Ctrl+Q", triggered=self.close))
 
     def push_changes(self, changes):
-        self.edit_undo_stack.push(EditSessionArrayCommand(self, self.current_array_name, changes))
+        self.edit_undo_stack.push(EditSessionArrayCommand(self, self.current_expr_text, changes))
 
     @property
     def unsaved_modifications(self):
@@ -620,7 +620,7 @@ class MappingEditor(AbstractEditor):
         else:
             self._listwidget.setCurrentItem(changed_items[0])
 
-    def update_mapping(self, value):
+    def update_mapping_and_varlist(self, value):
         # XXX: use ordered set so that the order is non-random if the underlying container is ordered?
         keys_before = set(self.data.keys())
         keys_after = set(value.keys())
@@ -629,12 +629,12 @@ class MappingEditor(AbstractEditor):
         changed_keys = [k for k in keys_after if value[k] is not self.data.get(k)]
 
         # when a key is re-assigned, it can switch from being displayable to non-displayable or vice versa
-        displayable_keys_before = set(k for k in keys_before if self._display_in_grid(k, self.data[k]))
-        displayable_keys_after = set(k for k in keys_after if self._display_in_grid(k, value[k]))
+        displayable_keys_before = set(k for k in keys_before if self._display_in_varlist(k, self.data[k]))
+        displayable_keys_after = set(k for k in keys_after if self._display_in_varlist(k, value[k]))
         deleted_displayable_keys = displayable_keys_before - displayable_keys_after
         new_displayable_keys = displayable_keys_after - displayable_keys_before
         # this can contain more keys than new_displayble_keys (because of existing keys which changed value)
-        changed_displayable_keys = [k for k in changed_keys if self._display_in_grid(k, value[k])]
+        changed_displayable_keys = [k for k in changed_keys if self._display_in_varlist(k, value[k])]
 
         # 1) update session/mapping
         # a) deleted old keys
@@ -653,12 +653,9 @@ class MappingEditor(AbstractEditor):
         if len(changed_displayable_keys) > 0 or deleted_displayable_keys:
             self.unsaved_modifications = True
 
-        # 4) change displayed array in the array widget
-        # only display first result if there are more than one
-        to_display = changed_displayable_keys[0] if changed_displayable_keys else None
-        if to_display is not None:
-            self.select_list_item(to_display)
-        return to_display
+        # 4) return variable to display, if any (if there are more than one,
+        #    return first)
+        return changed_displayable_keys[0] if changed_displayable_keys else None
 
     def delete_current_item(self):
         current_item = self._listwidget.currentItem()
@@ -675,78 +672,123 @@ class MappingEditor(AbstractEditor):
         if ASSIGNMENT_PATTERN.match(last_input):
             context = self.data._objects.copy()
             exec(last_input, la.__dict__, context)
-            varname = self.update_mapping(context)
+            varname = self.update_mapping_and_varlist(context)
             if varname is not None:
+                self.select_list_item(varname)
                 self.expressions[varname] = last_input
         else:
             cur_output = eval(last_input, la.__dict__, self.data)
             self.view_expr(cur_output, last_input)
 
-    def view_expr(self, array, expr):
+    def view_expr(self, array, expr_text):
         self._listwidget.clearSelection()
-        self.set_current_array(array, expr)
+        self.set_current_array(array, expr_text)
 
-    def _display_in_grid(self, k, v):
-        return not k.startswith('__') and isinstance(v, DISPLAY_IN_GRID)
+    def _display_in_varlist(self, k, v):
+        return self._display_in_grid(v) and not k.startswith('__')
+
+    def _display_in_grid(self, v):
+        return isinstance(v, DISPLAY_IN_GRID)
 
     def ipython_cell_executed(self):
         user_ns = self.kernel.shell.user_ns
         ip_keys = {'In', 'Out', '_', '__', '___', '__builtin__', '_dh', '_ih', '_oh', '_sh', '_i', '_ii', '_iii',
                    'exit', 'get_ipython', 'quit'}
         # '__builtins__', '__doc__', '__loader__', '__name__', '__package__', '__spec__',
-        clean_ns = {k: v for k, v in user_ns.items() if k not in ip_keys and not HISTORY_VARS_PATTERN.match(k)}
+        clean_ns = {k: v for k, v in user_ns.items()
+                    if k not in ip_keys and not HISTORY_VARS_PATTERN.match(k)}
 
         # user_ns['_i'] is not updated yet (refers to the -2 item)
-        # 'In' and '_ih' point to the same object (but '_ih' is supposed to be the non-overridden one)
+        # 'In' and '_ih' point to the same object (but '_ih' is supposed to be
+        # the non-overridden one)
         cur_input_num = len(user_ns['_ih']) - 1
         last_input = user_ns['_ih'][-1]
-        setitem_match = SUBSET_UPDATE_PATTERN.match(last_input)
-        if setitem_match:
-            varname = setitem_match.group(1)
-            # setitem to (i)python special variables do not concern us
-            if varname in clean_ns:
-                if self._display_in_grid(varname, clean_ns[varname]):
-                    # For better or worse, _save_data() only saves "displayable data"
-                    # so changes to variables we cannot display do not concern us,
-                    # and this line should not be moved outside the if condition.
-                    self.unsaved_modifications = True
-                    # XXX: this completely refreshes the array, including detecting scientific & ndigits, which might
-                    # not be what we want in this case
-                    self.select_list_item(varname)
+
+        # In case of multi-line input, only care about the last line. This is
+        # not perfect as things like:
+        #   arr3[1] = 42
+        #   a = 1
+        # will not be picked up. But the setitem thing cannot be done perfectly
+        # anyway (any called function can modify any array), short of hashing
+        # the content of all variables and checking which ones actually
+        # changed, which would be too slow when working with large arrays.
+        # At least this is predicatable.
+        # last_input can be an empty string (e.g. when running ipython_cell_executed() manually)
+        last_input_last_line = last_input.splitlines()[-1].strip() if last_input else ''
+
+        # _oh and Out are supposed to be synonyms but "_oh" is supposed to be the non-overridden one.
+        # It would be easier to use '_' instead but that refers to the last output, not the output of the
+        # last command. Which means that if the last command did not produce any output, _ is not modified.
+        cur_output = user_ns['_oh'].get(cur_input_num)
+        setitem_pattern_match = SUBSET_UPDATE_PATTERN.match(last_input_last_line)
+        # setitem
+        if setitem_pattern_match is not None:
+            varname = setitem_pattern_match.group(1)
+        # simple variable
+        elif last_input_last_line in clean_ns:
+            varname = last_input_last_line
+        # any other statement
         else:
-            # not setitem => assume expr or normal assignment
-            if last_input in clean_ns:
-                # the name exists in the session (variable)
-                if self._display_in_grid('', self.data[last_input]):
-                    # select and display it
-                    self.select_list_item(last_input)
-            else:
-                # any statement can contain a call to a function which updates globals
-                # this will select (or refresh) the "first" changed array
-                self.update_mapping(clean_ns)
+            # any statement can contain a call to a function which adds or
+            # removes globals.
+            # This gives the name of the first changed array. Changed in this
+            # context is either newly defined, or assigned to a new object
+            # (arrays changed via setitem are *NOT* picked up here).
+            varname = self.update_mapping_and_varlist(clean_ns)
 
-                # if the statement produced any output (probably because it is a simple expression), display it.
+        # Can we display the output?
+        if (varname is not None and
+                # this is necessary to avoid an error if a user ever does
+                # setitem on an (i)python special variables. Those do not
+                # concern us
+                varname in clean_ns and
+                # we prefer displaying cur_output via selecting a variable
+                # in the list but want to avoid selecting a variable if
+                # cur_output is also displayble but does not correspond
+                (not self._display_in_grid(cur_output) or
+                 clean_ns[varname] is cur_output) and
+                self._display_in_varlist(varname, clean_ns[varname])):
 
-                # _oh and Out are supposed to be synonyms but "_oh" is supposed to be the non-overridden one.
-                # It would be easier to use '_' instead but that refers to the last output, not the output of the
-                # last command. Which means that if the last command did not produce any output, _ is not modified.
-                cur_output = user_ns['_oh'].get(cur_input_num)
-                if cur_output is not None:
-                    if 'inline' not in matplotlib.get_backend():
-                        if isinstance(cur_output, np.ndarray) and cur_output.size > 0:
-                            first_output = cur_output.flat[0]
-                        # we use a different path for sequences than for arrays to avoid copying potentially
-                        # big non-array sequences using np.ravel(). This code does not support nested sequences,
-                        # but I am already unsure supporting simple non-array sequences is useful.
-                        elif isinstance(cur_output, Sequence) and len(cur_output) > 0:
-                            first_output = cur_output[0]
-                        else:
-                            first_output = cur_output
-                        if isinstance(first_output, matplotlib.axes.Subplot):
-                            show_figure(self, first_output.figure, last_input)
+            # For better or worse, _save_data() only saves "displayable data"
+            # so changes to variables we cannot display do not concern us,
+            # and this line should not be moved outside the if condition.
+            if setitem_pattern_match is not None:
+                self.unsaved_modifications = True
 
-                    if self._display_in_grid('<expr>', cur_output):
-                        self.view_expr(cur_output, last_input)
+            # TODO: this completely refreshes the array, including detecting
+            #       scientific & ndigits, which is not always what we want for
+            #       setitem on the current array.
+            self.select_list_item(varname)
+        elif cur_output is not None:
+            if self._display_in_grid(cur_output):
+                self.view_expr(cur_output, last_input_last_line)
+
+        # This should *NOT* be combined in the "elif cur_output is not None"
+        # block above because this can happen in the first "if" branch too
+        if cur_output is not None:
+            if 'inline' not in matplotlib.get_backend():
+                figure = self._get_figure(cur_output)
+                if figure is not None:
+                    show_figure(self, figure, title=last_input_last_line)
+
+    def _get_figure(self, cur_output):
+        if isinstance(cur_output, matplotlib.figure.Figure):
+            return cur_output
+
+        if isinstance(cur_output, np.ndarray) and cur_output.size > 0:
+            first_output = cur_output.flat[0]
+        # we use a different path for sequences than for arrays to avoid copying potentially
+        # big non-array sequences using np.ravel(). This code does not support nested sequences,
+        # but I am already unsure supporting simple non-array sequences is useful.
+        elif isinstance(cur_output, Sequence) and len(cur_output) > 0:
+            first_output = cur_output[0]
+        else:
+            first_output = cur_output
+
+        if isinstance(first_output, matplotlib.axes.Axes):
+            return first_output.figure
+
+        return None
 
     def on_selection_changed(self):
         selected = self._listwidget.selectedItems()
@@ -768,7 +810,7 @@ class MappingEditor(AbstractEditor):
                 self.eval_box.setText(expr)
 
     def update_title(self):
-        name = self.current_array_name if self.current_array_name is not None else ''
+        name = self.current_expr_text if self.current_expr_text is not None else ''
         unsaved_marker = '*' if self.unsaved_modifications else ''
         if self.current_file is not None:
             basename = os.path.basename(self.current_file)
@@ -785,12 +827,12 @@ class MappingEditor(AbstractEditor):
         title = [f'{unsaved_marker}{fname}']
         self._update_title(title, array, name)
 
-    def set_current_array(self, array, name):
+    def set_current_array(self, array, expr_text):
         # we should NOT check that "array is not self.current_array" because this method is also called to
         # refresh the widget value because of an inplace setitem
         self.current_array = array
         self.arraywidget.set_data(array)
-        self.current_array_name = name
+        self.current_expr_text = expr_text
         self.update_title()
 
     def set_current_file(self, filepath: Union[str, Path]):
@@ -1124,7 +1166,7 @@ class MappingEditor(AbstractEditor):
 
     def _save_data(self, filepath):
         try:
-            session = la.Session({k: v for k, v in self.data.items() if self._display_in_grid(k, v)})
+            session = la.Session({k: v for k, v in self.data.items() if self._display_in_varlist(k, v)})
             session.save(filepath)
             self.set_current_file(filepath)
             self.edit_undo_stack.clear()

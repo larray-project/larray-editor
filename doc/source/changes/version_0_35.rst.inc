@@ -32,7 +32,20 @@ New features
 Miscellaneous improvements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* improved something.
+* typing the name of a variable holding a matplotlib figure (or axes) in the console shows it
+  (previously, only expressions were displayed and *not* simple variables).
+  For example: ::
+
+     >>> arr.plot()
+
+  already displayed a plot, but: ::
+
+     >>> ax = arr.plot()
+     >>> ax
+
+  did not.
+
+* display matplotlib Figure objects in addition to Axes objects
 
 
 Fixes

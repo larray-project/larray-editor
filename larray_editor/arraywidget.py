@@ -1143,7 +1143,7 @@ class ArrayEditorWidget(QWidget):
             widget = self
             while widget is not None and not isinstance(widget, AbstractEditor) and callable(widget.parent):
                 widget = widget.parent()
-            title = widget.current_array_name if isinstance(widget, MappingEditor) else None
+            title = widget.current_expr_text if isinstance(widget, MappingEditor) else None
             show_figure(self, figure, title)
         except ImportError:
             QMessageBox.critical(self, "Error", "plot() is not available because matplotlib is not installed")
