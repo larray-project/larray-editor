@@ -13,22 +13,24 @@ from larray_editor.utils import (get_default_font,
                                  is_number_value, is_float_dtype, is_number_dtype,
                                  LinearGradient, Product, logger, broadcast_get)
 
-# FIXME:
+# FIXME before release:
 # * scrolling via the scrollbar cannot reach some columns (if the viewport is < buffer) because
-#   it does not allow scrolling the internal
+#   it does not allow scrolling the internal buffer
 # * selection vs moving the buffer offset
-
-# * mouse selection on "edges" does not move the buffer
-# * changed column width vs moving the buffer offset
 # * scrolling on filtered arrays gives wrong results
-# * editing values on filtered array does not work
 # * cell colors vs moving the buffer offset
 # * changing from an array to another is sometimes broken (new array not displayed, old array axes
 #   still present)
+# * update initial sizes
+# * disable editing and mention it in the release notes as known regression
+
+# FIXME post release (move to issues):
+# * editing values on filtered array does not work
 # * paste does not work (copy works fine)
+# * mouse selection on "edges" does not move the buffer
+# * changed column width vs moving the buffer offset
 # * massive cleanup (many methods would probably be better in either their superclass
 #   or one of their subclasses)
-# * update initial sizes
 
 role_map = {
     'data': Qt.DisplayRole,
