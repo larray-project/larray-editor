@@ -179,12 +179,17 @@ edit()
 # arr3 = la.where(arr1 % 2 == 0, arr1, -arr1)
 # compare(arr1, arr2, arr3, bg_gradient='blue-red')
 
+# test for arr.plot(show=True) which is the default
+# =================================================
+# arr = la.ndtest((20, 5)) + la.random.randint(0, 3, axes="a=a0..a19;b=b0..b4")
+# arr.plot(animate='a')
+
 
 def test_run_editor_on_exception(local_arr):
     return local_arr['my_invalid_key']
 
 
-run_editor_on_exception()
+# run_editor_on_exception()
 # run_editor_on_exception(usercode_traceback=False)
 # run_editor_on_exception(usercode_traceback=False, usercode_frame=False)
 
