@@ -924,6 +924,28 @@ class MappingEditor(AbstractEditor):
             overwrite = '-f' if overwrite else '-a'
             if lines:
                 lines = lines.replace('..', '-')
+
+                def complete_slice(s):
+                    if '-' not in s and ':' not in s:
+                        return s
+                    elif '-' in s and ':' in s:
+                        raise ValueError('cannot have both .. (or -) and : in the same slice')
+                    elif '-' in s:
+                        sep = '-'
+                    else:
+                        assert ':' in s
+                        sep = ':'
+
+                    start, stop = s.split(sep)
+                    if start == '':
+                        start = 1
+                    if stop == '':
+                        stop = self.kernel.shell.execution_count
+                        if sep == ':':
+                            stop += 1
+                    return f'{start}{sep}{stop}'
+
+                lines = ' '.join(complete_slice(s) for s in lines.split(' '))
             else:
                 lines = f'1-{self.kernel.shell.execution_count}'
 
