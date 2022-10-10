@@ -1,7 +1,9 @@
+import io
 import os
 import re
 import sys
 from collections.abc import Sequence
+from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Union
 
@@ -924,7 +926,13 @@ class MappingEditor(AbstractEditor):
                 lines = lines.replace('..', '-')
             else:
                 lines = f'1-{self.kernel.shell.execution_count}'
-            self.kernel.shell.run_line_magic('save', f'{overwrite} {filepath} {lines}')
+
+            with io.StringIO() as tmp_out:
+                with redirect_stdout(tmp_out):
+                    self.kernel.shell.run_line_magic('save', f'{overwrite} {filepath} {lines}')
+                stdout = tmp_out.getvalue()
+            if 'commands were written to file' not in stdout:
+                raise Exception(stdout)
             self.recent_saved_scripts.add(filepath)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Cannot save history as {os.path.basename(filepath)}:\n{e}")
