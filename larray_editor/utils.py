@@ -214,10 +214,10 @@ class IconManager:
             icon_path = os.path.join(self._icon_dir, self._icons[ref])
             return QIcon(icon_path)
         else:
-        # By default, only X11 will support themed icons. In order to use
-        # themed icons on Mac and Windows, you will have to bundle a compliant
-        # theme in one of your PySide.QtGui.QIcon.themeSearchPaths() and set the
-        # appropriate PySide.QtGui.QIcon.themeName() .
+            # By default, only X11 will support themed icons. In order to use
+            # themed icons on Mac and Windows, you will have to bundle a compliant
+            # theme in one of your PySide.QtGui.QIcon.themeSearchPaths() and set the
+            # appropriate PySide.QtGui.QIcon.themeName() .
             return QIcon.fromTheme(ref)
 
 
