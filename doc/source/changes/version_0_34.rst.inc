@@ -48,6 +48,10 @@ Miscellaneous improvements
   LArray functions are not made available systematically in the console anymore (what is available in the console is
   really what was available in the users code). This closes :editor_issue:`199`.
 
+* added support for incomplete slices in "save command history", like in Python slices.
+  For example, one can save from line 10 onwards by using "10:" or "10..", i.e. without specifying the last line.
+  See :editor_issue:`225`.
+
 
 Fixes
 ^^^^^
