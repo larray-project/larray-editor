@@ -37,7 +37,11 @@ New features
 Miscellaneous improvements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* Plot windows title now include the name of the array used to make the plot (closes :editor_issue:`233`).
+* Plot windows title now include the expression used to make the plot (the name of the array
+  in most cases) (closes :editor_issue:`233`).
+
+* when displaying an expression (computed array), the window title includes the actual expression
+  instead of using '<expr>'.
 
 * When the editor displays currently defined variables (via `debug()` `edit()` or
   `view()` without argument within user code or via an exception when run_editor_on_exception is active),

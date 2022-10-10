@@ -659,19 +659,20 @@ class MappingEditor(AbstractEditor):
 
     def line_edit_update(self):
         import larray as la
-        s = self.eval_box.text()
-        if assignment_pattern.match(s):
+        last_input = self.eval_box.text()
+        if assignment_pattern.match(last_input):
             context = self.data._objects.copy()
-            exec(s, la.__dict__, context)
+            exec(last_input, la.__dict__, context)
             varname = self.update_mapping(context)
             if varname is not None:
-                self.expressions[varname] = s
+                self.expressions[varname] = last_input
         else:
-            self.view_expr(eval(s, la.__dict__, self.data))
+            cur_output = eval(last_input, la.__dict__, self.data)
+            self.view_expr(cur_output, last_input)
 
-    def view_expr(self, array):
+    def view_expr(self, array, expr):
         self._listwidget.clearSelection()
-        self.set_current_array(array, '<expr>')
+        self.set_current_array(array, expr)
 
     def _display_in_grid(self, k, v):
         return not k.startswith('__') and isinstance(v, DISPLAY_IN_GRID)
@@ -726,10 +727,10 @@ class MappingEditor(AbstractEditor):
                         else:
                             first_output = cur_output
                         if isinstance(first_output, matplotlib.axes.Subplot):
-                            show_figure(self, first_output.figure)
+                            show_figure(self, first_output.figure, last_input)
 
                     if self._display_in_grid('<expr>', cur_output):
-                        self.view_expr(cur_output)
+                        self.view_expr(cur_output, last_input)
 
     def on_selection_changed(self):
         selected = self._listwidget.selectedItems()
