@@ -1042,7 +1042,7 @@ class MappingEditor(AbstractEditor):
                 if overwrite and os.path.isfile(filepath):
                     ret = QMessageBox.warning(self, "Warning",
                                               f"File `{filepath}` exists. Are you sure to overwrite it?",
-                                              QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
+                                              QMessageBox.Save | QMessageBox.Cancel)
                     if ret == QMessageBox.Save:
                         self._save_script(filepath, lines, overwrite)
                 else:
