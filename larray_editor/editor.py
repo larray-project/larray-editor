@@ -956,6 +956,7 @@ class MappingEditor(AbstractEditor):
             if 'commands were written to file' not in stdout:
                 raise Exception(stdout)
             self.recent_saved_scripts.add(filepath)
+            self.statusBar().showMessage(f"Command history was saved to {os.path.basename(filepath)}", 6000)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Cannot save history as {os.path.basename(filepath)}:\n{e}")
 
