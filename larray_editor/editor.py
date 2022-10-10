@@ -962,6 +962,10 @@ class MappingEditor(AbstractEditor):
     # See http://ipython.readthedocs.io/en/stable/interactive/magics.html#magic-save
     # for more details
     def save_script(self):
+        if self.kernel.shell.execution_count == 1:
+            QMessageBox.critical(self, "Error", "Cannot save an empty command history")
+            return
+
         # %save add automatically the extension .py if not present in passed filename
         dialog = QDialog(self)
         layout = QGridLayout()
