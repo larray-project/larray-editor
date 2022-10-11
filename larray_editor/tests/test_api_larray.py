@@ -1,6 +1,7 @@
 """Array editor test"""
 
 import logging
+from pathlib import Path
 
 import numpy as np
 import larray as la
@@ -135,6 +136,7 @@ long_axes_names = la.zeros('first_axis=a0,a1; second_axis=b0,b1')
 #                'c:\\tmp\\edit.profile')
 # debug()
 edit()
+# edit(Path('../test_object.h5'))
 # edit(ses)
 # edit(file)
 # edit('fake_path')

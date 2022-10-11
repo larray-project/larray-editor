@@ -2,6 +2,7 @@ import os
 import sys
 import traceback
 from inspect import getframeinfo
+from pathlib import Path
 
 from qtpy.QtWidgets import QApplication
 import larray as la
@@ -125,7 +126,7 @@ def _edit_dialog(parent, obj=None, title='', minvalue=None, maxvalue=None, reado
     if not title and obj is not REOPEN_LAST_FILE:
         title = _get_title(obj, depth=depth + 1)
 
-    if obj is REOPEN_LAST_FILE or isinstance(obj, (str, la.Session)):
+    if obj is REOPEN_LAST_FILE or isinstance(obj, (str, Path, la.Session)):
         dlg = MappingEditor(parent)
         assert minvalue is None and maxvalue is None
         setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, caller_info=caller_info,
@@ -147,8 +148,8 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
 
     Parameters
     ----------
-    obj : np.ndarray, Array, Session, dict, str, REOPEN_LAST_FILE or None, optional
-        Object to visualize. If string, array(s) will be loaded from the file given as argument.
+    obj : np.ndarray, Array, Session, dict, str, Path, REOPEN_LAST_FILE or None, optional
+        Object to visualize. If string or Path, array(s) will be loaded from the file given as argument.
         Passing the constant REOPEN_LAST_FILE loads the last opened file.
         Defaults to None, which gathers all variables (global and local) where the function was called.
     title : str, optional
@@ -190,8 +191,8 @@ def view(obj=None, title='', depth=0, display_caller_info=True, add_larray_funct
 
     Parameters
     ----------
-    obj : np.ndarray, Array, Session, dict or str, optional
-        Object to visualize. If string, array(s) will be loaded from the file given as argument.
+    obj : np.ndarray, Array, Session, dict, str or Path, optional
+        Object to visualize. If string or Path, array(s) will be loaded from the file given as argument.
         Defaults to the collection of all local variables where the function was called.
     title : str, optional
         Title for the current object. Defaults to the name of the first object found in the caller namespace which

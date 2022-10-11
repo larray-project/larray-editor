@@ -475,7 +475,7 @@ class MappingEditor(AbstractEditor):
                 data = la.Session()
 
         # load file if any
-        if isinstance(data, str):
+        if isinstance(data, (str, Path)):
             if os.path.isfile(data):
                 self._open_file(data)
             else:

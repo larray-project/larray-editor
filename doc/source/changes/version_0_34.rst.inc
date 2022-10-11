@@ -43,6 +43,9 @@ Miscellaneous improvements
 * when displaying an expression (computed array), the window title includes the actual expression
   instead of using '<expr>'.
 
+* added support for Path objects (in addition to str representing paths) in :py:obj:`view()` and :py:obj:`edit()`.
+  See :issue:`896`.
+
 * When the editor displays currently defined variables (via `debug()` `edit()` or
   `view()` without argument within user code or via an exception when run_editor_on_exception is active),
   LArray functions are not made available systematically in the console anymore (what is available in the console is
