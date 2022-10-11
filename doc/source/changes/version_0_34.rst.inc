@@ -37,7 +37,7 @@ New features
 Miscellaneous improvements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* Plot windows title now include the expression used to make the plot (the name of the array
+* plot windows title now include the expression used to make the plot (the name of the array
   in most cases) (closes :editor_issue:`233`).
 
 * when displaying an expression (computed array), the window title includes the actual expression
@@ -50,8 +50,8 @@ Miscellaneous improvements
 * added support for Path objects (in addition to str representing paths) in :py:obj:`view()` and :py:obj:`edit()`.
   See :issue:`896`.
 
-* When the editor displays currently defined variables (via `debug()` `edit()` or
-  `view()` without argument within user code or via an exception when run_editor_on_exception is active),
+* when the editor displays currently defined variables (via :py:obj:`debug()` :py:obj:`edit()` or
+  :py:obj:`view()` without argument within user code or via an exception when run_editor_on_exception is active),
   LArray functions are not made available systematically in the console anymore (what is available in the console is
   really what was available in the users code). This closes :editor_issue:`199`.
 
@@ -63,11 +63,13 @@ Miscellaneous improvements
 Fixes
 ^^^^^
 
-* fixed `run_editor_on_exception` so that the larray editor is not opened when trying to stop a program (via Ctrl-C or
-  the IDE stop button). Closes :editor_issue:`231`.
+* fixed :py:obj:`run_editor_on_exception()` so that the larray editor is not opened when trying to stop a program
+  (via Ctrl-C or the IDE stop button). Closes :editor_issue:`231`.
 
-* fixed the larray editor window not closing when trying to stop a program (via `Ctrl-C` or the IDE stop button) with
-  such a window open (closes :editor_issue:`231`). With PyCharm for example, to actually close the program, the user
-  had to press the IDE stop button a second time (which killed the program instead of stopping it cleanly).
+* improved the situation when trying to stop a program (via `Ctrl-C` or the IDE stop button) with an LArray Editor
+  window open. It used to ignore such events altogether, forcing the IDE to send a "kill" event when pressing the
+  button a second time, which could leave some ressource open (e.g Excel instances). Now, the LArray Editor will
+  close itself when its parent program is asked to stop *but* so far, it will only do so when the window is active
+  again. This makes for an odd behavior but at least cleans up the program properly (closes :editor_issue:`231`).
 
 * when save command history fails, do not do so silently. Closes :editor_issue:`225`.
