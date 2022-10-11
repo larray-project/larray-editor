@@ -1,11 +1,11 @@
 import os
 import sys
 
-from larray_editor import edit
+from larray_editor.api import _show_dialog, create_edit_dialog
 
 
 def call_edit():
-    edit(*sys.argv[1:], display_caller_info=False, add_larray_functions=True)
+    _show_dialog("Viewer", create_edit_dialog, *sys.argv[1:], display_caller_info=False, add_larray_functions=True)
 
 
 def main():

@@ -106,8 +106,37 @@ def _get_title(obj, depth=0, maxnames=3):
     return ', '.join(names)
 
 
-def _edit_dialog(parent, obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0,
-                 display_caller_info=True, add_larray_functions=None):
+def create_edit_dialog(parent, obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0,
+                       display_caller_info=True, add_larray_functions=None):
+    """
+    Opens a new editor window.
+
+    Parameters
+    ----------
+    obj : np.ndarray, Array, Session, dict, str, Path, REOPEN_LAST_FILE or None, optional
+        Object to visualize. If string or Path, array(s) will be loaded from the file given as argument.
+        Passing the constant REOPEN_LAST_FILE loads the last opened file.
+        Defaults to None, which gathers all variables (global and local) where the function was called.
+    title : str, optional
+        Title for the current object. Defaults to the name of the first object found in the caller namespace which
+        corresponds to `obj` (it will use a combination of the 3 first names if several names correspond to the same
+        object).
+    minvalue : scalar, optional
+        Minimum value allowed.
+    maxvalue : scalar, optional
+        Maximum value allowed.
+    readonly : bool, optional
+        Whether editing array values is forbidden. Defaults to False.
+    depth : int, optional
+        Stack depth where to look for variables. Defaults to 0 (where this function was called).
+    display_caller_info: bool, optional
+        Whether to display the filename and line number where the Editor has been called.
+        Defaults to True.
+    add_larray_functions: bool or None, optional
+        Whether to make LArray top-level functions (e.g. ndtest, zeros, ...) available in the console.
+        Defaults to None, which means False when obj is None and True otherwise.
+    """
+
     caller_frame = sys._getframe(depth + 1)
     caller_info = getframeinfo(caller_frame) if display_caller_info else None
     if add_larray_functions is None:
@@ -141,87 +170,7 @@ def _edit_dialog(parent, obj=None, title='', minvalue=None, maxvalue=None, reado
         return None
 
 
-def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0, display_caller_info=True,
-         add_larray_functions=None):
-    """
-    Opens a new editor window.
-
-    Parameters
-    ----------
-    obj : np.ndarray, Array, Session, dict, str, Path, REOPEN_LAST_FILE or None, optional
-        Object to visualize. If string or Path, array(s) will be loaded from the file given as argument.
-        Passing the constant REOPEN_LAST_FILE loads the last opened file.
-        Defaults to None, which gathers all variables (global and local) where the function was called.
-    title : str, optional
-        Title for the current object. Defaults to the name of the first object found in the caller namespace which
-        corresponds to `obj` (it will use a combination of the 3 first names if several names correspond to the same
-        object).
-    minvalue : scalar, optional
-        Minimum value allowed.
-    maxvalue : scalar, optional
-        Maximum value allowed.
-    readonly : bool, optional
-        Whether or not editing array values is forbidden. Defaults to False.
-    depth : int, optional
-        Stack depth where to look for variables. Defaults to 0 (where this function was called).
-    display_caller_info: bool, optional
-        Whether or not to display the filename and line number where the Editor has been called.
-        Defaults to True.
-    add_larray_functions: bool or None, optional
-        Whether or not to make LArray top-level functions (e.g. ndtest, zeros, ...) available in the console.
-        Defaults to None, which means False when obj is None and True otherwise.
-
-    Examples
-    --------
-    >>> a1 = ndtest(3)                                                                                 # doctest: +SKIP
-    >>> a2 = ndtest(3) + 1                                                                             # doctest: +SKIP
-    >>> # will open an editor with all the arrays available at this point
-    >>> # (a1 and a2 in this case)
-    >>> edit()                                                                                         # doctest: +SKIP
-    >>> # will open an editor for a1 only
-    >>> edit(a1)                                                                                       # doctest: +SKIP
-    """
-    _show_dialog("Viewer", _edit_dialog, obj=obj, title=title, minvalue=minvalue, maxvalue=maxvalue, readonly=readonly,
-                 depth=depth + 2, display_caller_info=display_caller_info, add_larray_functions=add_larray_functions)
-
-
-def view(obj=None, title='', depth=0, display_caller_info=True, add_larray_functions=None):
-    """
-    Opens a new viewer window. Arrays are loaded in readonly mode and their content cannot be modified.
-
-    Parameters
-    ----------
-    obj : np.ndarray, Array, Session, dict, str or Path, optional
-        Object to visualize. If string or Path, array(s) will be loaded from the file given as argument.
-        Defaults to the collection of all local variables where the function was called.
-    title : str, optional
-        Title for the current object. Defaults to the name of the first object found in the caller namespace which
-        corresponds to `obj` (it will use a combination of the 3 first names if several names correspond to the same
-        object).
-    depth : int, optional
-        Stack depth where to look for variables. Defaults to 0 (where this function was called).
-    display_caller_info: bool, optional
-        Whether or not to display the filename and line number where the Editor has been called.
-        Defaults to True.
-    add_larray_functions: bool or None, optional
-        Whether or not to make LArray top-level functions (e.g. ndtest, zeros, ...) available in the console.
-        Defaults to None, which means False when obj is None and True otherwise.
-
-    Examples
-    --------
-    >>> a1 = ndtest(3)                                                                                 # doctest: +SKIP
-    >>> a2 = ndtest(3) + 1                                                                             # doctest: +SKIP
-    >>> # will open a viewer showing all the arrays available at this point
-    >>> # (a1 and a2 in this case)
-    >>> view()                                                                                         # doctest: +SKIP
-    >>> # will open a viewer showing only a1
-    >>> view(a1)                                                                                       # doctest: +SKIP
-    """
-    _show_dialog("Viewer", _edit_dialog, obj=obj, title=title, readonly=True,
-                 depth=depth + 2, display_caller_info=display_caller_info, add_larray_functions=add_larray_functions)
-
-
-def _debug_dialog(parent, stack_summary, stack_pos=None):
+def create_debug_dialog(parent, stack_summary, stack_pos=None):
     assert isinstance(stack_summary, StackSummary)
     dlg = MappingEditor(parent)
     if dlg.setup_and_check(stack_summary, stack_pos=stack_pos):
@@ -230,26 +179,7 @@ def _debug_dialog(parent, stack_summary, stack_pos=None):
         return None
 
 
-def debug(depth=0):
-    r"""
-    Opens a new debug window.
-
-    Parameters
-    ----------
-    depth : int, optional
-        Stack depth where to look for variables. Defaults to 0 (where this function was called).
-    """
-    caller_frame = sys._getframe(depth + 1)
-    stack_summary = extract_stack(caller_frame)
-    _show_dialog("Debugger", _debug_dialog, stack_summary)
-
-
-def _compare_dialog(parent, *args, **kwargs):
-    title = kwargs.pop('title', '')
-    names = kwargs.pop('names', None)
-    depth = kwargs.pop('depth', 0)
-    display_caller_info = kwargs.pop('display_caller_info', True)
-
+def create_compare_dialog(parent, *args, title='', names=None, depth=0, display_caller_info=True, **kwargs):
     caller_frame = sys._getframe(depth + 1)
     if display_caller_info:
         caller_info = getframeinfo(caller_frame)
@@ -289,50 +219,6 @@ def _compare_dialog(parent, *args, **kwargs):
         return dlg
     else:
         return None
-
-
-def compare(*args, **kwargs):
-    """
-    Opens a new comparator window, comparing arrays or sessions.
-
-    Parameters
-    ----------
-    *args : Arrays, Sessions, str or Path.
-        Arrays or sessions to compare. Strings or Path will be loaded as Sessions from the corresponding files.
-    title : str, optional
-        Title for the window. Defaults to ''.
-    names : list of str, optional
-        Names for arrays or sessions being compared. Defaults to the name of the first objects found in the caller
-        namespace which correspond to the passed objects.
-    depth : int, optional
-        Stack depth where to look for variables. Defaults to 0 (where this function was called).
-    display_caller_info: bool, optional
-        Whether or not to display the filename and line number where the Editor has been called.
-        Defaults to True.
-    rtol : float or int, optional
-        The relative tolerance parameter (see Notes). Defaults to 0.
-    atol : float or int, optional
-        The absolute tolerance parameter (see Notes). Defaults to 0.
-    nans_equal : boolean, optional
-        Whether or not to consider NaN values at the same positions in the two arrays as equal.
-        By default, an array containing NaN values is never equal to another array, even if that other array
-        also contains NaN values at the same positions. The reason is that a NaN value is different from
-        *anything*, including itself. Defaults to True.
-
-    Notes
-    -----
-    For finite values, the following equation is used to test whether two values are equal:
-
-        absolute(array1 - array2) <= (atol + rtol * absolute(array2))
-
-    Examples
-    --------
-    >>> a1 = ndtest(3)                                                                                 # doctest: +SKIP
-    >>> a2 = ndtest(3) + 1                                                                             # doctest: +SKIP
-    >>> compare(a1, a2, title='first comparison')                                                      # doctest: +SKIP
-    >>> compare(a1 + 1, a2, title='second comparison', names=['a1+1', 'a2'])                           # doctest: +SKIP
-    """
-    _show_dialog("Comparator", _compare_dialog, *args, **kwargs)
 
 
 _orig_except_hook = sys.excepthook
@@ -418,9 +304,130 @@ def _get_debug_except_hook(root_path=None, usercode_traceback=True, usercode_fra
             stack = extract_tb(main_tb, limit=tb_limit)
             stack_pos = user_tb_length - 1 if user_tb_length is not None and usercode_frame else None
             print("\nlaunching larray editor to debug...", file=sys.stderr)
-            _show_dialog("Debugger", _debug_dialog, stack, stack_pos=stack_pos)
+            _show_dialog("Debugger", create_debug_dialog, stack, stack_pos=stack_pos)
 
     return excepthook
+
+
+def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0):
+    """
+    Opens a new editor window.
+
+    Parameters
+    ----------
+    obj : np.ndarray, Array, Session, dict, str, Path, REOPEN_LAST_FILE or None, optional
+        Object to visualize. If string or Path, array(s) will be loaded from the file given as argument.
+        Passing the constant REOPEN_LAST_FILE loads the last opened file.
+        Defaults to None, which gathers all variables (global and local) where the function was called.
+    title : str, optional
+        Title for the current object. Defaults to the name of the first object found in the caller namespace which
+        corresponds to `obj` (it will use a combination of the 3 first names if several names correspond to the same
+        object).
+    minvalue : scalar, optional
+        Minimum value allowed.
+    maxvalue : scalar, optional
+        Maximum value allowed.
+    readonly : bool, optional
+        Whether editing array values is forbidden. Defaults to False.
+    depth : int, optional
+        Stack depth where to look for variables. Defaults to 0 (where this function was called).
+
+    Examples
+    --------
+    >>> a1 = ndtest(3)                                                                                 # doctest: +SKIP
+    >>> a2 = ndtest(3) + 1                                                                             # doctest: +SKIP
+    >>> # will open an editor with all the arrays available at this point
+    >>> # (a1 and a2 in this case)
+    >>> edit()                                                                                         # doctest: +SKIP
+    >>> # will open an editor for a1 only
+    >>> edit(a1)                                                                                       # doctest: +SKIP
+    """
+    _show_dialog("Viewer", create_edit_dialog, obj=obj, title=title, minvalue=minvalue, maxvalue=maxvalue,
+                 readonly=readonly, depth=depth + 1)
+
+
+def view(obj=None, title='', depth=0):
+    """
+    Opens a new viewer window. Arrays are loaded in readonly mode and their content cannot be modified.
+
+    Parameters
+    ----------
+    obj : np.ndarray, Array, Session, dict, str or Path, optional
+        Object to visualize. If string or Path, array(s) will be loaded from the file given as argument.
+        Defaults to the collection of all local variables where the function was called.
+    title : str, optional
+        Title for the current object. Defaults to the name of the first object found in the caller namespace which
+        corresponds to `obj` (it will use a combination of the 3 first names if several names correspond to the same
+        object).
+    depth : int, optional
+        Stack depth where to look for variables. Defaults to 0 (where this function was called).
+
+    Examples
+    --------
+    >>> a1 = ndtest(3)                                                                                 # doctest: +SKIP
+    >>> a2 = ndtest(3) + 1                                                                             # doctest: +SKIP
+    >>> # will open a viewer showing all the arrays available at this point
+    >>> # (a1 and a2 in this case)
+    >>> view()                                                                                         # doctest: +SKIP
+    >>> # will open a viewer showing only a1
+    >>> view(a1)                                                                                       # doctest: +SKIP
+    """
+    _show_dialog("Viewer", create_edit_dialog, obj=obj, title=title, readonly=True, depth=depth + 1)
+
+
+def debug(depth=0):
+    r"""
+    Opens a new debug window.
+
+    Parameters
+    ----------
+    depth : int, optional
+        Stack depth where to look for variables. Defaults to 0 (where this function was called).
+    """
+    caller_frame = sys._getframe(depth + 1)
+    stack_summary = extract_stack(caller_frame)
+    _show_dialog("Debugger", create_debug_dialog, stack_summary)
+
+
+def compare(*args, depth=0, **kwargs):
+    """
+    Opens a new comparator window, comparing arrays or sessions.
+
+    Parameters
+    ----------
+    *args : Arrays, Sessions, str or Path.
+        Arrays or sessions to compare. Strings or Path will be loaded as Sessions from the corresponding files.
+    title : str, optional
+        Title for the window. Defaults to ''.
+    names : list of str, optional
+        Names for arrays or sessions being compared. Defaults to the name of the first objects found in the caller
+        namespace which correspond to the passed objects.
+    rtol : float or int, optional
+        The relative tolerance parameter (see Notes). Defaults to 0.
+    atol : float or int, optional
+        The absolute tolerance parameter (see Notes). Defaults to 0.
+    nans_equal : boolean, optional
+        Whether to consider NaN values at the same positions in the two arrays as equal.
+        By default, an array containing NaN values is never equal to another array, even if that other array
+        also contains NaN values at the same positions. The reason is that a NaN value is different from
+        *anything*, including itself. Defaults to True.
+    depth : int, optional
+        Stack depth where to look for variables. Defaults to 0 (where this function was called).
+
+    Notes
+    -----
+    For finite values, the following equation is used to test whether two values are equal:
+
+        absolute(array1 - array2) <= (atol + rtol * absolute(array2))
+
+    Examples
+    --------
+    >>> a1 = ndtest(3)                                                                                 # doctest: +SKIP
+    >>> a2 = ndtest(3) + 1                                                                             # doctest: +SKIP
+    >>> compare(a1, a2, title='first comparison')                                                      # doctest: +SKIP
+    >>> compare(a1 + 1, a2, title='second comparison', names=['a1+1', 'a2'])                           # doctest: +SKIP
+    """
+    _show_dialog("Comparator", create_compare_dialog, *args, depth=depth + 1, **kwargs)
 
 
 def run_editor_on_exception(root_path=None, usercode_traceback=True, usercode_frame=True):
