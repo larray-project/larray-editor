@@ -73,3 +73,6 @@ Fixes
   again. This makes for an odd behavior but at least cleans up the program properly (closes :editor_issue:`231`).
 
 * when save command history fails, do not do so silently. Closes :editor_issue:`225`.
+
+* fixed compare() background color being red for two equal integer arrays instead of white
+  (closes :editor_issue:`246`).

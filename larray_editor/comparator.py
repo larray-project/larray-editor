@@ -139,11 +139,13 @@ class ComparatorWidget(QWidget):
                 # scale reldiff to range 0-1 with 0.5 for reldiff = 0
                 self.bg_value = (reldiff / maxabsreldiff) / 2 + 0.5
             else:
-                self.bg_value = la.full_like(self.array, 0.5)
+                # do NOT use full_like as we don't want to inherit array dtype
+                self.bg_value = la.full(self.array.axes, 0.5)
         except TypeError:
             # str/object array
             maxabsreldiff = la.nan
-            self.bg_value = la.full_like(self.array, 0.5)
+            # do NOT use full_like as we don't want to inherit array dtype
+            self.bg_value = la.full(self.array.axes, 0.5)
 
         self.maxdiff_label.setText(str(maxabsreldiff))
         self.display(self.diff_checkbox.isChecked())
