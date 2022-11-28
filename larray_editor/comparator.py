@@ -183,8 +183,8 @@ class ArrayComparator(AbstractEditor):
         ----------
         widget: QWidget
             Parent widget.
-        data: dict of Array
-            Arrays to compare as a {name: Array} dict.
+        data: list or tuple of Array or ndarray
+            Arrays to compare.
         title: str
             Title.
         readonly: bool
@@ -195,21 +195,16 @@ class ArrayComparator(AbstractEditor):
           * atol: int or float
           * nans_equal: bool
           * bg_gradient: str
+          * names: list of str
         """
-        if isinstance(data, (list, tuple)):
-            names = kwargs.pop('names', [f"Array{i}" for i in range(len(data))])
-            data = dict(zip(names, data))
-            warnings.warn("For ArrayComparator.setup_and_check, using a list or tuple for the data argument, "
-                          "and using the names argument are both deprecated. Please use a dict instead",
-                          FutureWarning, stacklevel=3)
-
-        assert all(isinstance(s, la.Array) for s in data.values())
+        arrays = [la.asarray(array) for array in data if isinstance(array, DISPLAY_IN_GRID)]
+        names = kwargs.pop('names', [f"Array{i}" for i in range(len(arrays))])
 
         layout = QVBoxLayout()
         widget.setLayout(layout)
 
         comparator_widget = ComparatorWidget(self, **kwargs)
-        comparator_widget.set_data(data.values(), la.Axis(data.keys(), 'array'))
+        comparator_widget.set_data(arrays, la.Axis(names, 'array'))
         layout.addWidget(comparator_widget)
 
 
@@ -234,8 +229,8 @@ class SessionComparator(AbstractEditor):
         ----------
         widget: QWidget
             Parent widget.
-        data: dict of Session
-            Sessions to compare as a {name: Session} dict.
+        data: list or tuple of Session
+            Sessions to compare.
         title: str
             Title.
         readonly: bool
@@ -246,17 +241,14 @@ class SessionComparator(AbstractEditor):
           * atol: int or float
           * nans_equal: bool
           * bg_gradient: str
+          * names: list of str
         """
-        if isinstance(data, (list, tuple)):
-            names = kwargs.pop('names', [f"Session{i}" for i in range(len(data))])
-            data = dict(zip(names, data))
-            warnings.warn("For SessionComparator.setup_and_check, using a list or tuple for the data argument, "
-                          "and using the names argument are both deprecated. Please use a dict instead",
-                          FutureWarning, stacklevel=3)
+        sessions = data
+        names = kwargs.pop('names', [f"Session{i}" for i in range(len(sessions))])
 
-        assert all(isinstance(s, la.Session) for s in data.values())
-        self.sessions = data.values()
-        self.stack_axis = la.Axis(data.keys(), 'session')
+        assert all(isinstance(s, la.Session) for s in sessions)
+        self.sessions = sessions
+        self.stack_axis = la.Axis(names, 'session')
 
         layout = QVBoxLayout()
         widget.setLayout(layout)

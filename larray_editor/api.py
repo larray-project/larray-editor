@@ -213,9 +213,7 @@ def create_compare_dialog(parent, *args, title='', names=None, depth=0, display_
         args = [la.Session(a) if not isinstance(a, la.Session) else a
                 for a in args]
 
-    data = dict(zip(names, args))
-
-    if dlg.setup_and_check(data, title=title, caller_info=caller_info, **kwargs):
+    if dlg.setup_and_check(args, names=names, title=title, caller_info=caller_info, **kwargs):
         return dlg
     else:
         return None

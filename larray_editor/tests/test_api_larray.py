@@ -144,13 +144,16 @@ edit()
 
 # edit(arr2)
 
+# test issue #247 (same names)
+# compare(arr3, arr3)
 # compare(arr3, arr3 + 1.0)
 # compare(arr3, arr3 + 1.0, names=['arr3', 'arr3 + 1.0'])
 # compare(np.random.normal(0, 1, size=(10, 2)), np.random.normal(0, 1, size=(10, 2)))
+
 # sess1 = la.Session(arr4=arr4, arr3=arr3, data=data3)
 # sess1.save('sess1.h5')
 # sess2 = la.Session(arr4=arr4 + 1.0, arr3=arr3 * 2.0, data=data3 * 1.05)
-# compare('sess1.h5', sess2)
+# compare('sess1.h5', sess2)   # sess1.h5/data is nan because np arrays are not saved to H5
 # compare(Path('sess1.h5'), sess2)
 # compare(la.Session(arr2=arr2, arr3=arr3),
 #         la.Session(arr2=arr2 + 1.0, arr3=arr3 * 2.0))
@@ -176,14 +179,18 @@ edit()
 # compare(arr1, arr2, rtol=0.3)
 #
 # arr2 = la.where(arr2 > 1, arr1, -arr1)
+# arr1_m = arr1['M'].copy()
 # arr1['M'] = la.nan
+# compare(arr1, arr2, nans_equal=False, title='with nans on left side')
 # arr2['M'] = la.nan
-# compare(arr1, arr2, nans_equal=False)
+# compare(arr1, arr2, nans_equal=False, title='with nans on both sides')
+# arr1['M'] = arr1_m
+# compare(arr1, arr2, nans_equal=False, title='with nans on right side')
 #
 # arr1 = la.ndtest((3, 3))
 # arr2 = 2 * arr1
 # arr3 = la.where(arr1 % 2 == 0, arr1, -arr1)
-# compare(arr1, arr2, arr3, bg_gradient='blue-red')
+# compare(arr1, arr2, arr3, bg_gradient='blue-white-red')
 
 # test for arr.plot(show=True) which is the default
 # =================================================
