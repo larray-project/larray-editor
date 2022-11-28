@@ -952,7 +952,7 @@ class MappingEditor(AbstractEditor):
 
             with io.StringIO() as tmp_out:
                 with redirect_stdout(tmp_out):
-                    self.kernel.shell.run_line_magic('save', f'{overwrite} {filepath} {lines}')
+                    self.kernel.shell.run_line_magic('save', f'{overwrite} "{filepath}" {lines}')
                 stdout = tmp_out.getvalue()
             if 'commands were written to file' not in stdout:
                 raise Exception(stdout)
