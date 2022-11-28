@@ -74,5 +74,7 @@ Fixes
 
 * when save command history fails, do not do so silently. Closes :editor_issue:`225`.
 
+* fixed saving command history to a path containing spaces. Closes :editor_issue:`244`.
+
 * fixed compare() background color being red for two equal integer arrays instead of white
   (closes :editor_issue:`246`).
