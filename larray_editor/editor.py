@@ -175,17 +175,17 @@ class AbstractEditor(QMainWindow):
 
     def _setup_help_menu(self, menu_bar):
         help_menu = menu_bar.addMenu('&Help')
-        #===============#
+        # ============= #
         # DOCUMENTATION #
-        #===============#
+        # ============= #
         help_menu.addAction(create_action(self, _('Online &Documentation'), shortcut="Ctrl+H",
                                           triggered=self.open_documentation))
         help_menu.addAction(create_action(self, _('Online &Tutorial'), triggered=self.open_tutorial))
         help_menu.addAction(create_action(self, _('Online Objects and Functions (API) &Reference'),
                                           triggered=self.open_api_documentation))
-        #======================#
+        # ==================== #
         # ISSUES/GOOGLE GROUPS #
-        #======================#
+        # ==================== #
         help_menu.addSeparator()
         report_issue_menu = help_menu.addMenu("Report &Issue...")
         report_issue_menu.addAction(create_action(self, _('Report &Editor Issue...'),
@@ -197,9 +197,9 @@ class AbstractEditor(QMainWindow):
         help_menu.addAction(create_action(self, _('&Users Discussion...'), triggered=self.open_users_group))
         help_menu.addAction(create_action(self, _('New Releases And &Announces Mailing List...'),
                                           triggered=self.open_announce_group))
-        #=================#
+        # =============== #
         #       ABOUT     #
-        #=================#
+        # =============== #
         help_menu.addSeparator()
         help_menu.addAction(create_action(self, _('&About'), triggered=self.about))
 
@@ -528,14 +528,14 @@ class MappingEditor(AbstractEditor):
 
     def _setup_file_menu(self, menu_bar):
         file_menu = menu_bar.addMenu('&File')
-        #===============#
+        # ============= #
         #      NEW      #
-        #===============#
+        # ============= #
         file_menu.addAction(create_action(self, _('&New'), shortcut="Ctrl+N", triggered=self.new))
         file_menu.addSeparator()
-        #===============#
+        # ============= #
         #     DATA      #
-        #===============#
+        # ============= #
         file_menu.addSeparator()
         file_menu.addAction(create_action(self, _('&Open Data'), shortcut="Ctrl+O", triggered=self.open_data,
                                           statustip=_('Load session from file')))
@@ -548,24 +548,25 @@ class MappingEditor(AbstractEditor):
             recent_files_menu.addAction(action)
         recent_files_menu.addSeparator()
         recent_files_menu.addAction(create_action(self, _('&Clear List'), triggered=self.recent_data_files.clear))
-        #===============#
+        # ============= #
         #    EXAMPLES   #
-        #===============#
+        # ============= #
         file_menu.addSeparator()
         file_menu.addAction(create_action(self, _('&Load Example Dataset'), triggered=self.load_example))
-        #===============#
+        # ============= #
         #    SCRIPTS    #
-        #===============#
+        # ============= #
         if qtconsole_available:
             file_menu.addSeparator()
             file_menu.addAction(create_action(self, _('&Load from Script'), shortcut="Ctrl+Shift+O",
                                               triggered=self.load_script, statustip=_('Load script from file')))
             file_menu.addAction(create_action(self, _('&Save Command History To Script'), shortcut="Ctrl+Shift+S",
-                                              triggered=self.save_script, statustip=_('Save command history in a file')))
+                                              triggered=self.save_script,
+                                              statustip=_('Save command history in a file')))
 
-        #===============#
+        # ============= #
         #     QUIT      #
-        #===============#
+        # ============= #
         file_menu.addSeparator()
         file_menu.addAction(create_action(self, _('&Quit'), shortcut="Ctrl+Q", triggered=self.close))
 
@@ -826,9 +827,9 @@ class MappingEditor(AbstractEditor):
             self.unsaved_modifications = False
             self.statusBar().showMessage("Viewer has been reset", 4000)
 
-    #================================#
+    # ============================== #
     #  METHODS TO SAVE/LOAD SCRIPTS  #
-    #================================#
+    # ============================== #
 
     # See http://ipython.readthedocs.io/en/stable/interactive/magics.html#magic-load
     # for ideas (# IPython/core/magics/code.py -> CodeMagics -> load)
