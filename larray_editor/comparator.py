@@ -1,5 +1,4 @@
 import ast
-import warnings
 
 import numpy as np
 import larray as la

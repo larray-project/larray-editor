@@ -1,12 +1,13 @@
 """Array editor test"""
 
 import logging
-from pathlib import Path
+# from pathlib import Path
 
 import numpy as np
 import larray as la
 
-from larray_editor.api import *
+from larray_editor.api import edit
+# from larray_editor.api import view, edit, debug, compare
 from larray_editor.utils import logger
 
 import qtpy

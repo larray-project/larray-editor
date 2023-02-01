@@ -868,7 +868,6 @@ class ArrayEditorWidget(QWidget):
         assert frac_digits is None or isinstance(frac_digits, int)
         assert scientific is None or isinstance(scientific, bool)
         scientific_toggled = scientific is not None and scientific != self.use_scientific
-        compute_new_width = not scientific_toggled
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f"ArrayEditorWidget.set_format(frac_digits={frac_digits}, scientific={scientific})")
 
@@ -1032,7 +1031,7 @@ class ArrayEditorWidget(QWidget):
         def filter_changed(checked_items):
             self.change_filter(axis, checked_items)
         combo = FilterComboBox(self)
-        combo.addItems([str(l) for l in axis.labels])
+        combo.addItems([str(label) for label in axis.labels])
         combo.checkedItemsChanged.connect(filter_changed)
         return combo
 

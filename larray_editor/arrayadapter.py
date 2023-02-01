@@ -7,6 +7,7 @@ from larray_editor.commands import ArrayValueChange
 
 REGISTERED_ADAPTERS = {}
 
+
 def register_adapter(type):
     """Class decorator to register new adapter
 
@@ -362,8 +363,8 @@ class AbstractAdapter:
             # convert (row) generators to lists then array
             # TODO: the conversion to array is currently necessary even though xlwings will translate it back to a list
             #       anyway. The problem is that our lists contains numpy types and especially np.str_ crashes xlwings.
-            #       unsure how we should fix this properly: in xlwings, or change _selection_data to return only standard
-            #       Python types.
+            #       unsure how we should fix this properly: in xlwings, or change _selection_data to return only
+            #       standard Python types.
             array = np.array([list(r) for r in data])
             wb = la.open_excel()
             wb[0]['A1'] = array

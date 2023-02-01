@@ -75,8 +75,8 @@ def _find_names(obj, depth=0):
         computed an array just to view it.
     """
     # noinspection PyProtectedMember
-    l = sys._getframe(depth + 1).f_locals
-    names = [k for k, v in l.items() if v is obj]
+    local_vars = sys._getframe(depth + 1).f_locals
+    names = [k for k, v in local_vars.items() if v is obj]
     if any(not name.startswith('_') for name in names):
         names = [name for name in names if not name.startswith('_')]
     return sorted(names)
@@ -274,7 +274,7 @@ def _get_debug_except_hook(root_path=None, usercode_traceback=True, usercode_fra
 
     def excepthook(type, value, tback):
         # first try to go as far as the main module because in some cases (e.g. when we run the file via a debugger),
-        # the top of the traceback is not always the main module)
+        # the top of the traceback is not always the main module
         current_tb = tback
         while current_tb.tb_next and _trace_code_file(current_tb) != main_file:
             current_tb = current_tb.tb_next
