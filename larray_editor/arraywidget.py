@@ -1138,7 +1138,7 @@ class ArrayEditorWidget(QWidget):
         try:
             figure = self.data_adapter.plot(raw_data, axes_names, vlabels, hlabels)
             widget = self
-            while widget is not None and not isinstance(widget, AbstractEditor):
+            while widget is not None and not isinstance(widget, AbstractEditor) and callable(widget.parent):
                 widget = widget.parent()
             title = widget.current_array_name if isinstance(widget, MappingEditor) else None
             show_figure(self, figure, title)
