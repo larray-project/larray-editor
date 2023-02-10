@@ -222,9 +222,9 @@ def create_compare_dialog(parent, *args, title='', names=None, depth=0, display_
 _orig_except_hook = sys.excepthook
 
 
-def _qt_except_hook(type, value, tback):
+def _qt_except_hook(type_, value, tback):
     # only print the exception and do *not* exit the program
-    traceback.print_exception(type, value, tback)
+    traceback.print_exception(type_, value, tback)
     # only catch simple Exception (avoid catching KeyboardInterrupt, ...)
     if not isinstance(value, Exception):
         # in a Qt app, the except hook is only called when the window gets the focus again,
@@ -272,7 +272,7 @@ def _get_debug_except_hook(root_path=None, usercode_traceback=True, usercode_fra
     if root_path is None:
         root_path = os.path.dirname(main_file)
 
-    def excepthook(type, value, tback):
+    def excepthook(type_, value, tback):
         # first try to go as far as the main module because in some cases (e.g. when we run the file via a debugger),
         # the top of the traceback is not always the main module
         current_tb = tback
@@ -295,7 +295,7 @@ def _get_debug_except_hook(root_path=None, usercode_traceback=True, usercode_fra
                     user_tb_length += 1
 
         tb_limit = user_tb_length if usercode_traceback else None
-        traceback.print_exception(type, value, main_tb, limit=tb_limit)
+        traceback.print_exception(type_, value, main_tb, limit=tb_limit)
 
         # open the editor if this is a simple Exception (i.e. not KeyboardInterrupt, ...)
         if isinstance(value, Exception):

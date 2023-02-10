@@ -8,18 +8,18 @@ from larray_editor.commands import ArrayValueChange
 REGISTERED_ADAPTERS = {}
 
 
-def register_adapter(type):
+def register_adapter(target_type):
     """Class decorator to register new adapter
 
     Parameters
     ----------
-    type : type
-        Type associated with adapter class.
+    target_type : type
+        Type handled by adapter class.
     """
-    def decorate_class(cls):
-        if type not in REGISTERED_ADAPTERS:
-            REGISTERED_ADAPTERS[type] = cls
-        return  cls
+    def decorate_class(adapter_cls):
+        if target_type not in REGISTERED_ADAPTERS:
+            REGISTERED_ADAPTERS[target_type] = adapter_cls
+        return adapter_cls
     return decorate_class
 
 
