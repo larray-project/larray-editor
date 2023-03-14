@@ -46,7 +46,7 @@ def update_version_in_json_used_by_menuinst(build_dir, release_name, package_nam
 
     # check and add to next commit
     print(echocall(['git', 'diff', menuinst_file]))
-    if no('Do the version update changes look right?'):
+    if no('Do the version update changes for larray-editor.json look right?'):
         exit(1)
     doechocall('Adding', ['git', 'add', menuinst_file])
 
