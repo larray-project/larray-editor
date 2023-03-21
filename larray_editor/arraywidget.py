@@ -669,20 +669,22 @@ class ArrayEditorWidget(QWidget):
         gradient_chooser.setMaximumSize(120, 20)
         gradient_chooser.setIconSize(QSize(100, 20))
 
-        # add white option
         pixmap = QPixmap(100, 15)
-        pixmap.fill(Qt.white)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+
+        # add white option
+        # 1 (y) and 13 (height) instead of 0 and 15 to have a transparent border around/between the gradients
+        painter.fillRect(0, 1, 100, 13, Qt.white)
         gradient_chooser.addItem(QIcon(pixmap), "white")
 
         # add other options
-        pixmap.fill(Qt.transparent)
-        painter = QPainter(pixmap)
         for name, gradient in available_gradients[1:]:
             qgradient = gradient.as_qgradient()
 
             # * fill with white because gradient can be transparent and if we do not "start from white", it skews the
             #   colors.
-            # * 1 and 13 instead of 0 and 15 to have a transparent border around/between the gradients
+            # * 1 (y) and 13 (height) instead of 0 and 15 to have a transparent border around/between the gradients
             painter.fillRect(0, 1, 100, 13, Qt.white)
             painter.fillRect(0, 1, 100, 13, qgradient)
             gradient_chooser.addItem(QIcon(pixmap), name, gradient)
