@@ -669,10 +669,12 @@ class ArrayEditorWidget(QWidget):
         gradient_chooser.setMaximumSize(120, 20)
         gradient_chooser.setIconSize(QSize(100, 20))
 
+        # add white option
         pixmap = QPixmap(100, 15)
         pixmap.fill(Qt.white)
-        gradient_chooser.addItem(QIcon(pixmap), " ")
+        gradient_chooser.addItem(QIcon(pixmap), "white")
 
+        # add other options
         pixmap.fill(Qt.transparent)
         painter = QPainter(pixmap)
         for name, gradient in available_gradients[1:]:
