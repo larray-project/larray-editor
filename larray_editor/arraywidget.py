@@ -678,7 +678,7 @@ class ArrayEditorWidget(QWidget):
         for name, gradient in available_gradients[1:]:
             qgradient = gradient.as_qgradient()
 
-            # * fill with white because gradient can be transparent and if we do not "start from whilte", it skews the
+            # * fill with white because gradient can be transparent and if we do not "start from white", it skews the
             #   colors.
             # * 1 and 13 instead of 0 and 15 to have a transparent border around/between the gradients
             painter.fillRect(0, 1, 100, 13, Qt.white)
