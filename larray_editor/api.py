@@ -26,14 +26,19 @@ def _show_dialog(app_name, create_dialog_func, *args, **kwargs):
         The function which creates the dialog.
     """
     qt_app = QApplication.instance()
-    new_app = qt_app is None
-    if new_app:
+    if qt_app is None:
         qt_app = QApplication(sys.argv)
         qt_app.setOrganizationName("LArray")
         qt_app.setApplicationName(app_name)
         parent = None
     else:
+        # activeWindow is defined only if the Window has keyboard focus,
+        # so it could be None even if the app has a window open
         parent = qt_app.activeWindow()
+        if parent is None:
+            app_windows = qt_app.topLevelWindows()
+            if len(app_windows) > 0:
+                parent = app_windows[0]
 
     if 'depth' in kwargs:
         kwargs['depth'] += 1
@@ -43,7 +48,16 @@ def _show_dialog(app_name, create_dialog_func, *args, **kwargs):
         raise RuntimeError('Could not create dialog')
 
     dlg.show()
-    if new_app:
+
+    # We used to test whether qt_app was None, but it failed when an instance existed with no
+    # event loop started such as when running code via PyCharm's "Run File in Python Console"
+    # feature. See https://github.com/larray-project/larray-editor/issues/253.
+
+    # We use whether any Qt window exists in the application as a proxy to test whether
+    # Qt main event loop runs. This is probably wrong for an application which uses Qt event
+    # system but not its GUI (i.e. using QtCoreApplication) but I haven't found any way
+    # to check explicitly whether the main event loop is already running.
+    if parent is None:
         # We do not use install_except_hook/restore_except_hook so that we can restore the hook actually used when
         # this function is called instead of the one which was used when the module was loaded.
 
