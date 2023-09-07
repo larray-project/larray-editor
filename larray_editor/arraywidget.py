@@ -374,25 +374,16 @@ class DataView(AbstractView):
     def keyPressEvent(self, event):
         """Reimplement Qt method"""
 
-        # comparing with the keysequence and not with event directly as we
-        # did before because that only seems to work for shortcut
-        # defined using QKeySequence.StandardKey, which is not the case for
-        # Ctrl + E
-        # FIXME: this is no longer supported by PyQt6
-        # TypeError: unsupported operand type(s) for |: 'KeyboardModifier' and 'int'
-        keyseq = QKeySequence(event.modifiers() | event.key())
-        if keyseq == QKeySequence.Copy:
-            self.copy()
-        elif keyseq == QKeySequence.Paste:
-            self.paste()
-        elif keyseq == QKeySequence.Print:
-            self.parent().plot()
-        elif keyseq == "Ctrl+E":
-            self.to_excel()
         # allow to start editing cells by pressing Enter
-        elif event.key() == Qt.Key_Return and not self.model().readonly:
+        if event.key() == Qt.Key_Return and not self.model().readonly:
             index = self.currentIndex()
-            if self.itemDelegate(index).editor_count == 0:
+            try:
+                # qt6
+                delegate = self.itemDelegateForIndex(index)
+            except AttributeError:
+                # qt5
+                delegate = self.itemDelegate(index)
+            if delegate.editor_count == 0:
                 self.edit(index)
         else:
             QTableView.keyPressEvent(self, event)
