@@ -3,13 +3,9 @@ channels:
   - defaults
   - larray-project
 dependencies:
-  - pip
   - larray
   - pyqt >=5
   - qtpy >=2
-  - matplotlib
   - pytables
+  - matplotlib
   - pytest>=3.5
-  - flake8
-  - pip:
-    - pytest-flake8
