@@ -1,5 +1,12 @@
 ﻿.. py:currentmodule:: larray_editor
 
+
+New features
+^^^^^^^^^^^^
+
+* added support for Python 3.11.
+
+
 Fixes
 ^^^^^
 
