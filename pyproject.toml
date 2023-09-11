@@ -1,3 +1,24 @@
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = [
+    "larray_editor"
+]
+addopts = [
+    "-v",
+    "--doctest-modules",
+    # this test is not automation-friendly
+    "--ignore=larray_editor/tests/test_api_larray.py",
+    # this test cannot be run with pytest (must be run from within PyCharm)
+    "--ignore=larray_editor/tests/run_with_console.py",
+#    "--cov",
+]
+
+filterwarnings = [
+    # turn warnings into errors (unless they are explicitly handled in tests or ignored here)
+    "error",
+]
+
+
 [tool.ruff]
 # Enable Pyflakes `E` and `F` codes by default.
 select = ["E", "F"]
