@@ -8,4 +8,4 @@ dependencies:
   - qtpy >=2
   - pytables
   - matplotlib
-  - pytest>=3.5
+  - pytest >=6  # for configuring pytest via pyproject.toml
