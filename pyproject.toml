@@ -16,6 +16,7 @@ addopts = [
 filterwarnings = [
     # turn warnings into errors (unless they are explicitly handled in tests or ignored here)
     "error",
+    "ignore:Jupyter is migrating its paths to use standard platformdirs.*:DeprecationWarning:jupyter_client.connect.*:",
 ]
 
 
