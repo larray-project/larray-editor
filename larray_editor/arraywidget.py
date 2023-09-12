@@ -1032,7 +1032,7 @@ class ArrayEditorWidget(QWidget):
 
     def _selection_data(self, headers=True, none_selects_all=True):
         """
-        Returns selected labels as lists and raw data as Numpy ndarray
+        Return selected labels as lists and raw data as Numpy ndarray
         if headers=True or only the raw data otherwise
 
         Parameters

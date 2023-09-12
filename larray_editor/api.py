@@ -123,7 +123,7 @@ def _get_title(obj, depth=0, maxnames=3):
 def create_edit_dialog(parent, obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0,
                        display_caller_info=True, add_larray_functions=None):
     """
-    Opens a new editor window.
+    Open a new editor window.
 
     Parameters
     ----------
@@ -323,7 +323,7 @@ def _get_debug_except_hook(root_path=None, usercode_traceback=True, usercode_fra
 
 def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0):
     r"""
-    Opens a new editor window.
+    Open a new editor window.
 
     Parameters
     ----------
@@ -360,7 +360,7 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
 
 def view(obj=None, title='', depth=0):
     r"""
-    Opens a new viewer window. Arrays are loaded in readonly mode and their content cannot be modified.
+    Open a new viewer window. Arrays are loaded in readonly mode and their content cannot be modified.
 
     Parameters
     ----------
@@ -389,7 +389,7 @@ def view(obj=None, title='', depth=0):
 
 def debug(depth=0):
     r"""
-    Opens a new debug window.
+    Open a new debug window.
 
     Parameters
     ----------
@@ -403,7 +403,7 @@ def debug(depth=0):
 
 def compare(*args, depth=0, **kwargs):
     r"""
-    Opens a new comparator window, comparing arrays or sessions.
+    Open a new comparator window, comparing arrays or sessions.
 
     Parameters
     ----------
