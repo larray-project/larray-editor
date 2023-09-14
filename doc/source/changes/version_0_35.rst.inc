@@ -32,6 +32,9 @@ New features
 Miscellaneous improvements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+* made the editor interruptible by an outside program (i.e. made PyCharm stop & restart buttons work directly
+  instead of only when the editor receives the focus again). Closes :editor_issue:`257`.
+
 * typing the name of a variable holding a matplotlib figure (or axes) in the console shows it
   (previously, only expressions were displayed and *not* simple variables).
   For example: ::

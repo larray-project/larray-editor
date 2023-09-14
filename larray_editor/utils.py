@@ -1,7 +1,10 @@
 import os
+import signal
+import socket
 import sys
 import math
 import logging
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Union
 
@@ -13,6 +16,7 @@ try:
 except TypeError:
     pass
 
+from qtpy import QtCore
 from qtpy.QtCore import Qt, QSettings
 from qtpy.QtGui import QIcon, QColor, QFont, QKeySequence, QLinearGradient
 from qtpy.QtWidgets import QAction, QDialog, QVBoxLayout
@@ -660,3 +664,108 @@ def cached_property(must_invalidate_cache_method):
                 return value
         return property(caching_getter)
     return getter_decorator
+
+
+# The following two functions (_allow_interrupt and _allow_interrupt_qt) are
+# copied from matplotlib code, because they are not part of their public API
+# and relying on them would require us to pin the matplotlib version, which
+# is impractical.
+
+# They are thus both governed by the matplotlib license at:
+# https://github.com/matplotlib/matplotlib/blob/
+#     2b3eea58ab653bea0ee35c1e93a481acd9f1b8d0/LICENSE/LICENSE
+
+# Function copied from:
+# https://github.com/matplotlib/matplotlib/blob/
+#     2b3eea58ab653bea0ee35c1e93a481acd9f1b8d0/lib/matplotlib/backend_bases.py
+@contextmanager
+def _allow_interrupt(prepare_notifier, handle_sigint):
+    """
+    A context manager that allows terminating a plot by sending a SIGINT.  It
+    is necessary because the running backend prevents the Python interpreter
+    from running and processing signals (i.e., to raise a KeyboardInterrupt).
+    To solve this, one needs to somehow wake up the interpreter and make it
+    close the plot window.  We do this by using the signal.set_wakeup_fd()
+    function which organizes a write of the signal number into a socketpair.
+    A backend-specific function, *prepare_notifier*, arranges to listen to
+    the pair's read socket while the event loop is running.  (If it returns a
+    notifier object, that object is kept alive while the context manager runs.)
+
+    If SIGINT was indeed caught, after exiting the on_signal() function the
+    interpreter reacts to the signal according to the handler function which
+    had been set up by a signal.signal() call; here, we arrange to call the
+    backend-specific *handle_sigint* function.  Finally, we call the old SIGINT
+    handler with the same arguments that were given to our custom handler.
+
+    We do this only if the old handler for SIGINT was not None, which means
+    that a non-python handler was installed, i.e. in Julia, and not SIG_IGN
+    which means we should ignore the interrupts.
+
+    Parameters
+    ----------
+    prepare_notifier : Callable[[socket.socket], object]
+    handle_sigint : Callable[[], object]
+    """
+
+    old_sigint_handler = signal.getsignal(signal.SIGINT)
+    if old_sigint_handler in (None, signal.SIG_IGN, signal.SIG_DFL):
+        yield
+        return
+
+    handler_args = None
+    wsock, rsock = socket.socketpair()
+    wsock.setblocking(False)
+    rsock.setblocking(False)
+    old_wakeup_fd = signal.set_wakeup_fd(wsock.fileno())
+    _ = prepare_notifier(rsock)
+
+    def save_args_and_handle_sigint(*args):
+        nonlocal handler_args
+        handler_args = args
+        handle_sigint()
+
+    signal.signal(signal.SIGINT, save_args_and_handle_sigint)
+    try:
+        yield
+    finally:
+        wsock.close()
+        rsock.close()
+        signal.set_wakeup_fd(old_wakeup_fd)
+        signal.signal(signal.SIGINT, old_sigint_handler)
+        if handler_args is not None:
+            old_sigint_handler(*handler_args)
+
+
+# Function copied from:
+# https://github.com/matplotlib/matplotlib/blob/
+#     2b3eea58ab653bea0ee35c1e93a481acd9f1b8d0/lib/matplotlib/backends/backend_qt.py
+def _allow_interrupt_qt(qapp_or_eventloop):
+    """A context manager that allows terminating a plot by sending a SIGINT."""
+
+    # Use QSocketNotifier to read the socketpair while the Qt event loop runs.
+
+    def prepare_notifier(rsock):
+        sn = QtCore.QSocketNotifier(rsock.fileno(), QtCore.QSocketNotifier.Type.Read)
+
+        @sn.activated.connect
+        def _may_clear_sock():
+            # Running a Python function on socket activation gives the interpreter a
+            # chance to handle the signal in Python land.  We also need to drain the
+            # socket with recv() to re-arm it, because it will be written to as part of
+            # the wakeup.  (We need this in case set_wakeup_fd catches a signal other
+            # than SIGINT and we shall continue waiting.)
+            try:
+                rsock.recv(1)
+            except BlockingIOError:
+                # This may occasionally fire too soon or more than once on Windows, so
+                # be forgiving about reading an empty socket.
+                pass
+
+        return sn  # Actually keep the notifier alive.
+
+    def handle_sigint():
+        if hasattr(qapp_or_eventloop, 'closeAllWindows'):
+            qapp_or_eventloop.closeAllWindows()
+        qapp_or_eventloop.quit()
+
+    return _allow_interrupt(prepare_notifier, handle_sigint)

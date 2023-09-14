@@ -9,6 +9,7 @@ import larray as la
 
 from larray_editor.editor import REOPEN_LAST_FILE, MappingEditor, ArrayEditor, AbstractEditor
 from larray_editor.traceback_tools import extract_stack, extract_tb, StackSummary
+from larray_editor.utils import _allow_interrupt_qt
 
 __all__ = ['view', 'edit', 'debug', 'compare', 'REOPEN_LAST_FILE', 'run_editor_on_exception']
 
@@ -76,7 +77,8 @@ def _show_dialog(app_name, create_dialog_func, *args, **kwargs):
         orig_except_hook = sys.excepthook
         sys.excepthook = _qt_except_hook
 
-        qt_app.exec_()
+        with _allow_interrupt_qt(qt_app):
+            qt_app.exec_()
 
         sys.excepthook = orig_except_hook
 
