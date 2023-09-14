@@ -23,6 +23,8 @@ requirements:
     - python >=3.7
     # requires larray >= 0.32 because of the LArray -> Array rename
     - larray >=0.32
+    # it is indirectly pulled from larray, but let us be explicit about this
+    - numpy
     - matplotlib
     - pyqt >=5
     - qtpy >=2  # for Qt6 support
