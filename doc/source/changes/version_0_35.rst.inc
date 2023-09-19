@@ -17,7 +17,16 @@ Backward incompatible changes
 New features
 ^^^^^^^^^^^^
 
-* added a feature (see the :ref:`miscellaneous section <misc_editor>` for details).
+* allow comparing arrays/sessions with different axes in :py:obj:`compare()`.
+  The function gained ``align`` and ``fill_value`` arguments and the interface has a new
+  combobox to change the alignment method during the comparison:
+      - outer: will use a label if it is in any array (ordered like the first array).
+               This is the default as it results in no information loss.
+      - inner: will use a label if it is in all arrays (ordered like the first array).
+      - left: will use the first array axis labels.
+      - right: will use the last array axis labels.
+      - exact: raise an error when axes are not equal.
+  Closes :editor_issue:`214` and :editor_issue:`251`.
 
 * added another feature in the editor (closes :editor_issue:`1`).
 
@@ -27,13 +36,15 @@ New features
      - It does not work for foo baz !
 
 
-.. _misc_editor:
-
 Miscellaneous improvements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * made the editor interruptible by an outside program (i.e. made PyCharm stop & restart buttons work directly
   instead of only when the editor receives the focus again). Closes :editor_issue:`257`.
+
+* when comparing sessions via :py:obj:`compare()`, the color of arrays in the list is now updated depending
+  on the tolerance. To reflect that the tolerance widget moved to the top of the interface.
+  Closes :editor_issue:`201`.
 
 * typing the name of a variable holding a matplotlib figure (or axes) in the console shows it
   (previously, only expressions were displayed and *not* simple variables).

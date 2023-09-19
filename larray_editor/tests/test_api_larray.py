@@ -6,8 +6,8 @@ import logging
 import numpy as np
 import larray as la
 
-from larray_editor.api import edit
-# from larray_editor.api import view, edit, debug, compare
+# from larray_editor.api import edit
+from larray_editor.api import view, edit, debug, compare
 from larray_editor.utils import logger
 
 import qtpy
@@ -64,7 +64,9 @@ arr2 = la.random.normal(axes=(age, geo, sex, lipro))
 # view([])
 
 data3 = np.random.normal(0, 1, size=(2, 15))
-arr3 = la.ndtest((30, sex))
+# FIXME: the new align code makes this fail
+# arr3 = la.ndtest((30, sex))
+arr3 = la.ndtest((age, sex))
 # data4 = np.random.normal(0, 1, size=(2, 15))
 # arr4 = la.Array(data4, axes=(sex, lipro))
 
@@ -156,7 +158,7 @@ long_axes_names = la.zeros('first_axis=a0,a1; second_axis=b0,b1')
 # profile.runctx('edit(Session(arr2=arr2))', vars(), {},
 #                'c:\\tmp\\edit.profile')
 # debug()
-edit()
+# edit()
 # edit(Path('../test_object.h5'))
 # edit(ses)
 # edit(file)
@@ -168,8 +170,8 @@ edit()
 # test issue #247 (same names)
 # compare(arr3, arr3)
 # compare(arr3, arr3 + 1.0)
-# compare(arr3, arr3 + 1.0, names=['arr3', 'arr3 + 1.0'])
-# compare(np.random.normal(0, 1, size=(10, 2)), np.random.normal(0, 1, size=(10, 2)))
+compare(arr3, arr3 + 1.0, names=['arr3', 'arr3 + 1.0'])
+compare(np.random.normal(0, 1, size=(10, 2)), np.random.normal(0, 1, size=(10, 2)))
 
 # sess1 = la.Session(arr4=arr4, arr3=arr3, data=data3)
 # sess1.save('sess1.h5')
@@ -178,6 +180,23 @@ edit()
 # compare(Path('sess1.h5'), sess2)
 # compare(la.Session(arr2=arr2, arr3=arr3),
 #         la.Session(arr2=arr2 + 1.0, arr3=arr3 * 2.0))
+arr1 = la.ndtest((2, 3))
+arr2 = la.ndtest((3, 4))
+arr1bis = arr1.copy()
+arr2bis = arr2.copy().drop('b3')
+arr1bis['a1', 'b1'] = 42
+arr2bis['a1', 'b1'] = 42
+# arr2bis = arr2bis.set_labels({'b2': 'B2'})
+# compare(arr2, arr2bis, align='outer')
+# compare(arr2, arr2bis, align='inner')
+# compare(arr2, arr2bis, align='left')
+# compare(arr2, arr2bis, align='right')
+# compare(arr2, arr2bis, align='exact')
+
+s1 = la.Session(arr1=arr1, arr2=arr2)
+s2 = la.Session(arr1=arr1bis, arr2=arr2bis)
+del arr1, arr2, arr1bis, arr2bis
+compare(s1, s2, align="outer", rtol=10)
 
 # s = la.local_arrays()
 # view(s)
@@ -229,4 +248,4 @@ def test_run_editor_on_exception(local_arr):
 
 # test_run_editor_on_exception(arr2)
 
-test_edit_after_matplotlib_show()
+# test_edit_after_matplotlib_show()

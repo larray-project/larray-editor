@@ -93,12 +93,17 @@ class AbstractEditorWindow(QMainWindow):
     """Abstract Editor Window"""
 
     name = "Editor"
+    editable = False
+    file_menu = False
+    help_menu = False
+    default_width = 1000
+    default_height = 600
+    # This is more or less the minimum space required to display a 1D array
+    minimum_width = 300
+    minimum_height = 180
 
-    def __init__(self, parent=None, editable=False, file_menu=False, help_menu=False):
+    def __init__(self, title='', readonly=False, caller_info=None, parent=None):
         QMainWindow.__init__(self, parent)
-        self._file_menu = file_menu
-        self._edit_menu = editable
-        self._help_menu = help_menu
 
         # Destroying the C++ object right after closing the dialog box,
         # otherwise it may be garbage-collected in another QThread
@@ -107,15 +112,12 @@ class AbstractEditorWindow(QMainWindow):
         self.setAttribute(Qt.WA_DeleteOnClose)
 
         self.data = None
-        self.arraywidget = None
-        if editable:
+        if self.editable:
             self.edit_undo_stack = QUndoStack(self)
 
         self.settings_group_name = self.name.lower().replace(' ', '_')
         self.widget_state_settings = {}
 
-    def setup_and_check(self, data, title='', readonly=False, caller_info=None, **kwargs):
-        """Return False if data is not supported, True otherwise"""
         # set icon
         icon = ima.icon('larray')
         if icon is not None:
@@ -140,25 +142,14 @@ class AbstractEditorWindow(QMainWindow):
         widget = QWidget()
         self.setCentralWidget(widget)
 
-        # setup central widget
-        self._setup_and_check(widget, data, title, readonly, **kwargs)
-
-        if not self.restore_widgets_state_and_geometry():
-            # resize
-            self.resize(1000, 600)
-        # This is more or less the minimum space required to display a 1D array
-        self.setMinimumSize(300, 180)
-
-        return True
-
     def setup_menu_bar(self):
         """Setup menu bar"""
         menu_bar = self.menuBar()
-        if self._file_menu:
+        if self.file_menu:
             self._setup_file_menu(menu_bar)
-        if self._edit_menu:
+        if self.editable:
             self._setup_edit_menu(menu_bar)
-        if self._help_menu:
+        if self.help_menu:
             self._setup_help_menu(menu_bar)
 
     def _setup_file_menu(self, menu_bar):
@@ -336,8 +327,10 @@ class AbstractEditorWindow(QMainWindow):
         settings.endGroup()
         return (geometry is not None) or (state is not None)
 
-    def _setup_and_check(self, widget, data, title, readonly, **kwargs):
-        raise NotImplementedError()
+    def set_window_size_and_geometry(self):
+        if not self.restore_widgets_state_and_geometry():
+            self.resize(self.default_width, self.default_height)
+        self.setMinimumSize(self.minimum_width, self.minimum_height)
 
     def update_title(self):
         raise NotImplementedError()
@@ -347,29 +340,31 @@ class MappingEditorWindow(AbstractEditorWindow):
     """Session Editor Dialog"""
 
     name = "Session Editor"
+    editable = True
+    file_menu = True
+    help_menu = True
 
-    def __init__(self, parent=None):
-        AbstractEditorWindow.__init__(self, parent, editable=True, file_menu=True, help_menu=True)
+    def __init__(self, data, title='', readonly=False, caller_info=None, parent=None,
+                 stack_pos=None, add_larray_functions=False):
+        AbstractEditorWindow.__init__(self, title=title, readonly=readonly, caller_info=caller_info,
+                                      parent=parent)
+
+        self.current_file = None
+        self.current_array = None
+        self.current_expr_text = None
+
+        self.expressions = {}
+        self.kernel = None
+        self._unsaved_modifications = False
 
         # to handle recently opened data/script files
         self.recent_data_files = RecentlyUsedList("recentFileList", self, self.open_recent_file)
         self.recent_saved_scripts = RecentlyUsedList("recentSavedScriptList")
         self.recent_loaded_scripts = RecentlyUsedList("recentLoadedScriptList")
 
-        self.current_file = None
-        self.current_array = None
-        self.current_expr_text = None
-
-        self._listwidget = None
-        self.eval_box = None
-        self.expressions = {}
-        self.kernel = None
-        self._unsaved_modifications = False
-
         self.setup_menu_bar()
 
-    def _setup_and_check(self, widget, data, title, readonly, stack_pos=None, add_larray_functions=False):
-        """Setup MappingEditor"""
+        widget = self.centralWidget()
         layout = QVBoxLayout()
         widget.setLayout(layout)
 
@@ -492,6 +487,8 @@ class MappingEditorWindow(AbstractEditorWindow):
                 self.new()
         elif not debug:
             self._push_data(data)
+
+        self.set_window_size_and_geometry()
 
     def _push_data(self, data):
         self.data = data if isinstance(data, la.Session) else la.Session(data)
@@ -1213,14 +1210,17 @@ class ArrayEditorWindow(AbstractEditorWindow):
     """Array Editor Dialog"""
 
     name = "Array Editor"
+    editable = True
+    file_menu = False
+    help_menu = False
 
-    def __init__(self, parent=None):
-        AbstractEditorWindow.__init__(self, parent, editable=True)
+    def __init__(self, data, title='', readonly=False, caller_info=None, parent=None,
+                 minvalue=None, maxvalue=None):
+        AbstractEditorWindow.__init__(self, title=title, readonly=readonly, caller_info=caller_info,
+                                      parent=parent)
         self.setup_menu_bar()
 
-    def _setup_and_check(self, widget, data, title, readonly, minvalue=None, maxvalue=None):
-        """Setup ArrayEditor"""
-
+        widget = self.centralWidget()
         if np.isscalar(data):
             readonly = True
 
@@ -1233,6 +1233,7 @@ class ArrayEditorWindow(AbstractEditorWindow):
         self.arraywidget.model_data.dataChanged.connect(self.update_title)
         self.update_title()
         layout.addWidget(self.arraywidget)
+        self.set_window_size_and_geometry()
 
     def update_title(self):
         self._update_title(None, self.data, '')

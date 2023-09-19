@@ -7,6 +7,7 @@ from pathlib import Path
 from qtpy.QtWidgets import QApplication
 import larray as la
 
+from larray_editor.comparator import SessionComparatorWindow, ArrayComparatorWindow
 from larray_editor.editor import REOPEN_LAST_FILE, MappingEditorWindow, ArrayEditorWindow, AbstractEditorWindow
 from larray_editor.traceback_tools import extract_stack, extract_tb, StackSummary
 from larray_editor.utils import _allow_interrupt_qt
@@ -182,27 +183,21 @@ def create_edit_dialog(parent, obj=None, title='', minvalue=None, maxvalue=None,
         title = _get_title(obj, depth=depth + 1)
 
     if obj is REOPEN_LAST_FILE or isinstance(obj, (str, Path, la.Session)):
-        dlg = MappingEditorWindow(parent)
         assert minvalue is None and maxvalue is None
-        setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, caller_info=caller_info,
-                                       add_larray_functions=add_larray_functions)
+        return MappingEditorWindow(obj, title=title, readonly=readonly,
+                                   caller_info=caller_info,
+                                   add_larray_functions=add_larray_functions,
+                                   parent=parent)
     else:
-        dlg = ArrayEditorWindow(parent)
-        setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, caller_info=caller_info,
-                                       minvalue=minvalue, maxvalue=maxvalue)
-    if setup_ok:
-        return dlg
-    else:
-        return None
+        return ArrayEditorWindow(obj, title=title, readonly=readonly,
+                                 caller_info=caller_info,
+                                 minvalue=minvalue, maxvalue=maxvalue,
+                                 parent=parent)
 
 
-def create_debug_dialog(parent, stack_summary, stack_pos=None):
+def create_debug_dialog(parent, stack_summary, title='Debugger', stack_pos=None):
     assert isinstance(stack_summary, StackSummary)
-    dlg = MappingEditorWindow(parent)
-    if dlg.setup_and_check(stack_summary, stack_pos=stack_pos):
-        return dlg
-    else:
-        return None
+    return MappingEditorWindow(stack_summary, title=title, stack_pos=stack_pos, parent=parent)
 
 
 def create_compare_dialog(parent, *args, title='', names=None, depth=0, display_caller_info=True, **kwargs):
@@ -213,14 +208,7 @@ def create_compare_dialog(parent, *args, title='', names=None, depth=0, display_
         caller_info = None
 
     compare_sessions = any(isinstance(a, (la.Session, str, Path)) for a in args)
-    if compare_sessions:
-        from larray_editor.comparator import SessionComparatorWindow
-        dlg = SessionComparatorWindow(parent)
-        default_name = 'session'
-    else:
-        from larray_editor.comparator import ArrayComparatorWindow
-        dlg = ArrayComparatorWindow(parent)
-        default_name = 'array'
+    default_name = 'session' if compare_sessions else 'array'
 
     if names is None:
         def get_name(i, obj, depth=0):
@@ -239,10 +227,16 @@ def create_compare_dialog(parent, *args, title='', names=None, depth=0, display_
         args = [la.Session(a) if not isinstance(a, la.Session) else a
                 for a in args]
 
-    if dlg.setup_and_check(args, names=names, title=title, caller_info=caller_info, **kwargs):
-        return dlg
+    if compare_sessions:
+        from larray_editor.comparator import SessionComparatorWindow
+        return SessionComparatorWindow(args, names=names, title=title,
+                                       caller_info=caller_info, parent=parent,
+                                       **kwargs)
     else:
-        return None
+        from larray_editor.comparator import ArrayComparatorWindow
+        return ArrayComparatorWindow(args, names=names, title=title,
+                                     caller_info=caller_info, parent=parent,
+                                     **kwargs)
 
 
 _orig_except_hook = sys.excepthook
@@ -399,18 +393,21 @@ def view(obj=None, title='', depth=0):
     _show_dialog("Viewer", create_edit_dialog, obj=obj, title=title, readonly=True, depth=depth + 1)
 
 
-def debug(depth=0):
+def debug(title='Debugger', depth=0):
     r"""
     Open a new debug window.
 
     Parameters
     ----------
+    title : str, optional
+        Window title suffix. Defaults to 'Debugger'.
     depth : int, optional
-        Stack depth where to look for variables. Defaults to 0 (where this function was called).
+        Stack depth where to look for variables. Defaults to 0 (where this
+        function was called).
     """
     caller_frame = sys._getframe(depth + 1)
     stack_summary = extract_stack(caller_frame)
-    _show_dialog("Debugger", create_debug_dialog, stack_summary)
+    _show_dialog("Debugger", create_debug_dialog, stack_summary, title=title)
 
 
 def compare(*args, depth=0, **kwargs):
@@ -435,6 +432,18 @@ def compare(*args, depth=0, **kwargs):
         By default, an array containing NaN values is never equal to another array, even if that other array
         also contains NaN values at the same positions. The reason is that a NaN value is different from
         *anything*, including itself. Defaults to True.
+    align : str, optional
+        Method used to determine the labels to show when some (combination of) label is not present on all arrays.
+        For each axis common to several arrays:
+          - outer: will use a label if it is in any array (ordered like the first array).
+                   This is the default as it results in no information loss.
+          - inner: will use a label if it is in all arrays (ordered like the first array).
+          - left: will use the first array axis labels.
+          - right: will use the last array axis labels.
+          - exact: raise an error when axes are not equal.
+        Defaults to 'outer'.
+    fill_value : Scalar, optional
+        Fill value used when a label is not present in some array (see align argument). Defaults to nan.
     depth : int, optional
         Stack depth where to look for variables. Defaults to 0 (where this function was called).
 
