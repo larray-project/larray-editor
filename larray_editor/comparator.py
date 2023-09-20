@@ -1,10 +1,7 @@
-import ast
-
 import numpy as np
 import larray as la
 
 from qtpy.QtCore import Qt
-from qtpy.QtGui import QDoubleValidator
 from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QHBoxLayout,
                             QLabel, QCheckBox, QLineEdit, QComboBox, QMessageBox)
 
@@ -53,8 +50,10 @@ class ComparatorWidget(QWidget):
         tolerance_layout.addWidget(tolerance_combobox)
         self.tolerance_combobox = tolerance_combobox
 
+        # We do not use a QDoubleValidator because, by default, it uses the
+        # system locale (so we would need to parse the string using that
+        # locale too) and does not provide any feedback to users on failure
         tolerance_line_edit = QLineEdit()
-        tolerance_line_edit.setValidator(QDoubleValidator())
         tolerance_line_edit.setPlaceholderText("1e-8")
         tolerance_line_edit.setMaximumWidth(80)
         tolerance_line_edit.setToolTip("Press Enter to activate the new tolerance value")
@@ -118,8 +117,17 @@ class ComparatorWidget(QWidget):
 
         try:
             tol_str = self.tolerance_line_edit.text()
-            tol = ast.literal_eval(tol_str) if tol_str else 0
-            atol, rtol = (tol, 0) if self.tolerance_combobox.currentText() == "absolute" else (0, tol)
+            tol = float(tol_str) if tol_str else 0
+        except ValueError as e:
+            # this is necessary to avoid having the error message twice, because we
+            # first show it here, which makes the tolerance_line_edit lose focus,
+            # which triggers its editingFinished signal, which calls update_isequal,
+            # which ends up here again if tol_str did not change in-between.
+            self.tolerance_line_edit.setText('')
+            tol = 0
+            QMessageBox.critical(self, "Error", str(e))
+        atol, rtol = (tol, 0) if self.tolerance_combobox.currentText() == "absolute" else (0, tol)
+        try:
             self.isequal = self.array.eq(self.array0, rtol=rtol, atol=atol, nans_equal=self.nans_equal)
         except TypeError:
             self.isequal = self.array == self.array0
