@@ -7,7 +7,7 @@ from pathlib import Path
 from qtpy.QtWidgets import QApplication
 import larray as la
 
-from larray_editor.editor import REOPEN_LAST_FILE, MappingEditor, ArrayEditor
+from larray_editor.editor import REOPEN_LAST_FILE, MappingEditor, ArrayEditor, AbstractEditor
 from larray_editor.traceback_tools import extract_stack, extract_tb, StackSummary
 
 __all__ = ['view', 'edit', 'debug', 'compare', 'REOPEN_LAST_FILE', 'run_editor_on_exception']
@@ -35,10 +35,12 @@ def _show_dialog(app_name, create_dialog_func, *args, **kwargs):
         # activeWindow is defined only if the Window has keyboard focus,
         # so it could be None even if the app has a window open
         parent = qt_app.activeWindow()
-        if parent is None:
-            app_windows = qt_app.topLevelWindows()
-            if len(app_windows) > 0:
-                parent = app_windows[0]
+        if not isinstance(parent, AbstractEditor):
+            # We use topLevelWidgets and not topLevelWindows because the later
+            # returns QWindow instances whereas we actually need a QWidget
+            # instance (of which QMainWindow is a descendant) as parent.
+            app_windows = [widget for widget in qt_app.topLevelWidgets() if isinstance(widget, AbstractEditor)]
+            parent = app_windows[0] if len(app_windows) else None
 
     if 'depth' in kwargs:
         kwargs['depth'] += 1
@@ -49,14 +51,18 @@ def _show_dialog(app_name, create_dialog_func, *args, **kwargs):
 
     dlg.show()
 
-    # We used to test whether qt_app was None, but it failed when an instance existed with no
-    # event loop started such as when running code via PyCharm's "Run File in Python Console"
-    # feature. See https://github.com/larray-project/larray-editor/issues/253.
+    # We used to test whether qt_app was None, but it failed when an
+    # Application instance existed with no event loop running such as when
+    # running code via PyCharm's "Run File in Python Console" feature
+    # (see issue #253) or after showing matplotlib figures (see issue #261).
 
-    # We use whether any Qt window exists in the application as a proxy to test whether
-    # Qt main event loop runs. This is probably wrong for an application which uses Qt event
-    # system but not its GUI (i.e. using QtCoreApplication) but I haven't found any way
-    # to check explicitly whether the main event loop is already running.
+    # We have not found any way to explicitly check whether the main event loop
+    # is already running, so we now assume that if the parent window is not
+    # a descendant of our own MappingEditor, no event loop is running, as it is
+    # unlikely another Qt application calls the *api functions* instead of
+    # embedding the widget. Note that jupyter qtconsole works, because the
+    # Python kernel process is not the same as the process running the
+    # interface, so QApplication.instance() returns None in the kernel process.
     if parent is None:
         # We do not use install_except_hook/restore_except_hook so that we can restore the hook actually used when
         # this function is called instead of the one which was used when the module was loaded.
