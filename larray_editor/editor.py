@@ -382,6 +382,10 @@ class MappingEditor(AbstractEditor):
         self.arraywidget.model_data.dataChanged.connect(self.update_title)
 
         if qtconsole_available:
+            # silence a warning on Python 3.11 (see issue #263)
+            if "PYDEVD_DISABLE_FILE_VALIDATION" not in os.environ:
+                os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
+
             # Create an in-process kernel
             kernel_manager = QtInProcessKernelManager()
             kernel_manager.start_kernel(show_banner=False)
