@@ -100,6 +100,15 @@ def make_demo(width=20, ball_radius=5, path_radius=5, steps=30):
     return la.maximum(ball_radius - la.sqrt((x - ball_center_x) ** 2 + (y - ball_center_y) ** 2), 0).transpose(x, y)
 
 
+def test_matplotlib_show_interaction():
+    import matplotlib.pyplot as plt
+
+    arr = la.ndtest((3, 4))
+    arr.plot()
+    plt.show()
+    edit()
+
+
 demo = make_demo(9, 2.5, 1.5)
 sphere = make_sphere(9, 4)
 extreme_array = la.Array([-la.inf, -1, 0, la.nan, 1, la.inf])
@@ -208,3 +217,5 @@ def test_run_editor_on_exception(local_arr):
 # run_editor_on_exception(usercode_traceback=False, usercode_frame=False)
 
 # test_run_editor_on_exception(arr2)
+
+test_matplotlib_show_interaction()

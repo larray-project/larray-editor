@@ -57,12 +57,16 @@ def _show_dialog(app_name, create_dialog_func, *args, **kwargs):
     # (see issue #253) or after showing matplotlib figures (see issue #261).
 
     # We have not found any way to explicitly check whether the main event loop
-    # is already running, so we now assume that if the parent window is not
+    # is already running (*), so we now assume that if the parent window is not
     # a descendant of our own MappingEditor, no event loop is running, as it is
     # unlikely another Qt application calls the *api functions* instead of
     # embedding the widget. Note that jupyter qtconsole works, because the
     # Python kernel process is not the same as the process running the
     # interface, so QApplication.instance() returns None in the kernel process.
+
+    # (*) QEventLoop has an isRunning() method, but QCoreApplication *acts*
+    #     as an event loop but does not inherit from QEventLoop, and it lacks
+    #     the method.
     if parent is None:
         # We do not use install_except_hook/restore_except_hook so that we can restore the hook actually used when
         # this function is called instead of the one which was used when the module was loaded.
