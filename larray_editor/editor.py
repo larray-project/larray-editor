@@ -363,6 +363,28 @@ class EurostatBrowserDialog(QDialog):
             self.search_results_list.hide()
 
 
+    def handle_search_item_click(self, item):
+        # Extract all relevant text within last parentheses; BUT only need last parentheses, cf. "my country (Belgium) subject X (code)"
+        # Assumes the (code) is always contained in last parentheses
+        matches = re.findall(r'\(([^)]+)\)', item.text())
+        
+        if matches:
+            last_match = matches[-1]
+
+            # Use the code extracted text from the clicked item (this ought to be correct dataset code)
+            code = last_match
+            
+            # Use 'code' to load the dataset via eurostat_get
+            from larray_eurostat import eurostat_get
+            arr = eurostat_get(code, cache_dir='__array_cache__')
+
+            # Add loaded dataset to editor and shell 
+            editor = self.parent()
+            new_data = editor.data.copy()
+            new_data[code] = arr
+            editor.update_mapping(new_data)
+            editor.kernel.shell.user_ns[code] = arr
+
 
     def showAdvancedPopup(self):
         popup = AdvancedPopup(self)
