@@ -280,6 +280,13 @@ class EurostatBrowserDialog(QDialog):
              
                 arr = freq_eurostat(selected_frequencies, arr)
 
+                # Load the data into the editor
+                editor = self.parent()
+                new_data = editor.data.copy()
+                new_data[code] = arr
+                editor.update_mapping(new_data)
+                self.parent().kernel.shell.user_ns[code] = arr
+                self.accept()
             except Exception:
                 QMessageBox.critical(self, "Error", "Failed to load {}".format(code))
             self.parent().view_expr(arr, expr=code)
