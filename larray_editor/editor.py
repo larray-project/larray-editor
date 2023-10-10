@@ -118,6 +118,40 @@ def indented_df_to_treenode(df, indent=4, indented_col=0, colnames=None, header=
     return root
 
 
+class FrequencyFilterDialog(QDialog):
+    def __init__(self, available_labels, parent=None):
+        super().__init__(parent)
+        
+        self.setWindowTitle("Select frequency")
+        layout = QVBoxLayout(self)
+        hbox = QHBoxLayout()
+      
+        self.checkboxes = {}
+        label_map = {'M': 'Month', 'Q': 'Quarter', 'A': 'Year', 'W': 'Week', 'D': 'Day'}
+
+        # generate only relevant checkboxes, i.e. based on available_labels argument
+        for label in available_labels:
+            checkbox = QCheckBox(label_map[label], self)
+            checkbox.setChecked(True)
+            self.checkboxes[label] = checkbox
+            hbox.addWidget(checkbox)
+        
+        layout.addLayout(hbox)
+        
+        ok_button = QPushButton("Ok", self)
+        ok_button.clicked.connect(self.accept)
+        
+        layout.addWidget(ok_button)
+
+    # Function to pass back selected frequencies to parent dialog
+    def get_selected_frequencies(self):
+        freqs = []
+        for label, checkbox in self.checkboxes.items():
+            if checkbox.isChecked():
+                freqs.append(label)
+        return freqs
+    
+
 class EurostatBrowserDialog(QDialog):
     def __init__(self, index, parent=None):
         super(EurostatBrowserDialog, self).__init__(parent)
