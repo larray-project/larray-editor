@@ -268,6 +268,18 @@ class EurostatBrowserDialog(QDialog):
             last_change = max(last_update_of_data, last_table_structure_change)
             try:
                 arr = eurostat_get(code, maxage=last_change, cache_dir='__array_cache__')
+                current_dataset_labels = arr.freq.labels
+                # Present frequency popup only if there are multiple frequencies
+                if len(current_dataset_labels) > 1:
+                    dialog = FrequencyFilterDialog(current_dataset_labels, self) # first argument so that only relevant labels appear in popup
+                    result = dialog.exec_()
+                    if result == QDialog.Accepted:
+                        selected_frequencies = dialog.get_selected_frequencies() 
+                else:
+                    selected_frequencies = current_dataset_labels
+             
+                arr = freq_eurostat(selected_frequencies, arr)
+
             except Exception:
                 QMessageBox.critical(self, "Error", "Failed to load {}".format(code))
             self.parent().view_expr(arr, expr=code)
