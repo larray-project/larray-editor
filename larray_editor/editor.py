@@ -325,6 +325,45 @@ class EurostatBrowserDialog(QDialog):
                 QMessageBox.critical(self, "Error", "Failed to load {}".format(code))
 
 
+    def handle_search(self, text):
+
+        def search_term_filter_df(df, text):
+            terms = text.split()
+            mask = None
+
+            # First time loop generates a sequence of booleans (lenght = nrows of df)
+            # Second time it takes 'boolean intersection' with previous search result(s)
+            for term in terms:
+                term_mask = (df['Code'].str.contains(term, case=False, na=False)) | (df['Title'].str.contains(term, case=False, na=False))
+                if mask is None:
+                    mask = term_mask
+                else:
+                    mask &= term_mask
+            return df[mask]
+
+        if text:
+            # when text is entered, then hide the treeview and show (new) search results
+            self.tree.hide()
+            self.search_results_list.clear()
+
+            # filter dataframe based on search term(s)
+            filtered_df = search_term_filter_df(self.df, text)
+
+            # drop duplicates in search result (i.e. same code, originating from different locations tree)
+            filtered_df = filtered_df.drop_duplicates(subset='Code')
+
+            # reduce dataframe to list of strings (only retain 'title' and 'code')
+            results = [f"{row['Title']} ({row['Code']})" for _, row in filtered_df.iterrows()]
+
+            self.search_results_list.addItems(results)
+            self.search_results_list.show()
+
+        else: # if search field is empty
+            self.tree.show()
+            self.search_results_list.hide()
+
+
+
     def showAdvancedPopup(self):
         popup = AdvancedPopup(self)
         # Next Line takes into account 'finished signal' of the AdvancedPopup instance and links it to closeDialog. 
