@@ -188,20 +188,44 @@ class EurostatBrowserDialog(QDialog):
         #        Simple*Lazy*TreeModel, but it is fast enough for now. *If* it ever becomes a problem,
         #        we could make this lazy pretty easily (see treemodel.LazyDictTreeNode for an example).
         root = indented_df_to_treenode(index)
+        self.df = tree_to_dataframe(root)
+
+        # Create the tree view UI in Dialog
         model = SimpleLazyTreeModel(root)
         tree = QTreeView()
         tree.setModel(model)
         tree.setUniformRowHeights(True)
-        tree.selectionModel().currentChanged.connect(self.view_eurostat_indicator)
+        tree.doubleClicked.connect(self.view_eurostat_indicator)
         tree.setColumnWidth(0, 320)
+        tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        tree.customContextMenuRequested.connect(self.show_context_menu)
+        self.tree = tree
 
+        # Create the search results list (and hide as default)
+        self.search_results_list = QListWidget()
+        self.search_results_list.itemClicked.connect(self.handle_search_item_click)
+        self.search_results_list.hide()
+
+        # Create the search input field
+        self.search_input = QLineEdit(self)
+        self.search_input.setPlaceholderText("Search...")
+        self.search_input.textChanged.connect(self.handle_search)
+
+        # Create the "Advanced Import" button
+        self.advanced_button = QPushButton("Import from Configuration File", self)
+        self.advanced_button.setFocusPolicy(Qt.NoFocus) # turn off
+        self.advanced_button.clicked.connect(self.showAdvancedPopup)
+
+        # General settings: resize + title
         self.resize(450, 600)
         self.setWindowTitle("Select dataset")
 
-        # set the layout
+        # Add widgets to layout
         layout = QVBoxLayout()
-        # layout.addWidget(toolbar)
+        layout.addWidget(self.search_input) 
         layout.addWidget(tree)
+        layout.addWidget(self.search_results_list)
+        layout.addWidget(self.advanced_button)
         self.setLayout(layout)
 
     def view_eurostat_indicator(self, index):
