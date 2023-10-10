@@ -257,6 +257,40 @@ class EurostatBrowserDialog(QDialog):
         layout.addWidget(self.advanced_button)
         self.setLayout(layout)
 
+    def show_context_menu(self, position):
+        menu = QMenu(self)
+
+        # Only show the "Add to list" UI element if the current node does not have children
+        index = self.tree.currentIndex()
+        node = index.internalPointer()
+        if not node.children:
+            add_to_list_action = QAction("Add to list", self)
+            add_to_list_action.triggered.connect(self.add_to_list)
+            menu.addAction(add_to_list_action)
+
+        # Display the context menu at the position of the mouse click
+        global_position = self.tree.viewport().mapToGlobal(position)
+        menu.exec_(global_position)
+
+
+    def add_to_list(self):
+        from larray_eurostat import eurostat_get
+        index = self.tree.currentIndex()
+        node = index.internalPointer()
+
+        if not node.children:           # should only work on leaf nodes
+            # custom tree model where each node was represented by tuple (name, code,...) => data[1] = code
+            code = self.tree.currentIndex().internalPointer().data[1]
+            arr = eurostat_get(code, cache_dir='__array_cache__')
+
+            # Add indicator to the list 
+            editor = self.parent()
+            new_data = editor.data.copy()
+            new_data[code] = arr
+            editor.update_mapping(new_data)
+            editor.kernel.shell.user_ns[code] = arr
+  
+
     def view_eurostat_indicator(self, index):
         from larray_eurostat import eurostat_get
 
