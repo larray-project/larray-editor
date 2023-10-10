@@ -400,8 +400,83 @@ class EurostatBrowserDialog(QDialog):
         popup.finished.connect(self.closeDialog)
         popup.exec_()
 
+
     def closeDialog(self):
         self.close()
+
+
+
+class AdvancedPopup(QDialog):
+    def __init__(self, parent=None):  
+        # Self-commentary: an additional/extra parent argument with default value None is added. 
+        # This subtletly relates to following line of code elsewhere:
+        # >> popup = AdvancedPopup(self)
+        # The explicit 'self' argument here corresponds to the second 'parent' of AdvancedPopup (not the implicit first 'self' to be used inside the class)  
+        # Put differently, the 'self' written in the expression 'AdvancedPopup(self)' is *at the location of that expression* actually referring to EurostatBrowserDialog
+       
+        # Pass the parent to the base class constructor
+        super().__init__(parent)  
+        
+        # Inititalize the UI and set default values
+        self.initUI()
+        self.yaml_content = {}
+
+
+    def initUI(self):
+        self.resize(600, 600)
+        layout = QVBoxLayout(self)
+
+        # Button to load YAML
+        self.loadButton = QPushButton("Load YAML", self)
+        self.loadButton.clicked.connect(self.loadYAML)
+        layout.addWidget(self.loadButton)
+
+        # TextEdit for YAML content
+        self.yamlTextEdit = QTextEdit(self)
+
+        import textwrap
+        default_yaml = textwrap.dedent("""\
+            # First indicator with its specific settings.
+            indicator_name_1:
+                name: var1, var2, var3
+                var1:
+                    label1: renamed_label1
+                    label2: renamed_label2
+                var2:
+                    label1: renamed_label1
+                    label2: renamed_label2
+                ... 
+            #  You can continue adding more indicators and labels as per your requirements.
+        """)
+
+        # Set default YAML content (example)
+        self.yamlTextEdit.setPlainText(default_yaml)
+        layout.addWidget(self.yamlTextEdit)
+
+        # Checkbox for generating a copy
+        self.generateCopyCheckBox = QCheckBox("Generate additional copy", self)
+        layout.addWidget(self.generateCopyCheckBox)
+
+        # Horizontal layout for dropdown and path selection
+        copyLayout = QHBoxLayout()
+
+        # ComboBox (Drop-down) for file formats
+        self.fileFormatComboBox = QComboBox(self)
+        self.fileFormatComboBox.addItems(["xlsx", "IODE", "csv"])
+        copyLayout.addWidget(self.fileFormatComboBox)
+
+        # Button for path selection
+        self.pathSelectionButton = QPushButton("Select Path...", self)
+        self.pathSelectionButton.clicked.connect(self.selectPath)
+        copyLayout.addWidget(self.pathSelectionButton)
+        layout.addLayout(copyLayout)
+
+        # Final button to proceed with the main task and optionally generate a copy
+        self.proceedButton = QPushButton("Proceed", self)
+        self.proceedButton.clicked.connect(self.proceedWithTasks)
+        layout.addWidget(self.proceedButton)
+
+
 
 
 
