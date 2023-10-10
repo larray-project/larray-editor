@@ -323,7 +323,18 @@ class EurostatBrowserDialog(QDialog):
                 self.accept()
             except Exception:
                 QMessageBox.critical(self, "Error", "Failed to load {}".format(code))
-            self.parent().view_expr(arr, expr=code)
+
+
+    def showAdvancedPopup(self):
+        popup = AdvancedPopup(self)
+        # Next Line takes into account 'finished signal' of the AdvancedPopup instance and links it to closeDialog. 
+        # In other words: closing the advancedpopup dialog box shall also close the primary dialog box.
+        popup.finished.connect(self.closeDialog)
+        popup.exec_()
+
+    def closeDialog(self):
+        self.close()
+
 
 
 class AbstractEditor(QMainWindow):
