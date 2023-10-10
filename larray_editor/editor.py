@@ -1,6 +1,7 @@
 import io
 import os
 import re
+import yaml
 from datetime import datetime
 import sys
 from collections.abc import Sequence
@@ -41,9 +42,9 @@ from larray_editor.treemodel import SimpleTreeNode, SimpleLazyTreeModel
 from qtpy.QtCore import Qt, QUrl, QSettings
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
-                            QDialogButtonBox, QShortcut, QVBoxLayout, QGridLayout, QLineEdit,
+                            QDialogButtonBox, QShortcut, QVBoxLayout, QHBoxLayout, QGridLayout, QLineEdit,
                             QCheckBox, QComboBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton,
-                            QTreeView)
+                            QTreeView, QTextEdit, QMenu, QAction)
 
 try:
     from qtpy.QtWidgets import QUndoStack
@@ -473,7 +474,7 @@ class AdvancedPopup(QDialog):
 
         # Final button to proceed with the main task and optionally generate a copy
         self.proceedButton = QPushButton("Proceed", self)
-        self.proceedButton.clicked.connect(self.proceed_and_viewdata)
+        self.proceedButton.clicked.connect(self.proceedWithTasks)
         layout.addWidget(self.proceedButton)
 
 
@@ -508,6 +509,110 @@ class AdvancedPopup(QDialog):
             self.selectedPath, _ = QFileDialog.getSaveFileName(self, "Select Path", self.yaml_content['dbdir'], "All Files (*)", options=options)
         else:
             self.selectedPath, _ = QFileDialog.getSaveFileName(self, "Select Path", "", "All Files (*)", options=options)
+
+
+    def proceedWithTasks(self):
+        # Preliminary functions to extract the relevant data 
+        def intersect(a, b):
+            if isinstance(a, str):
+                a = a.split(',')
+            elif isinstance(a, dict):
+                a = a.keys()
+            return [val for val in a if val in b]
+
+        def extract_mat(mat, keys):
+            intersect_keys = {}
+            replace_keys = {}
+            name_keys = []
+            new_keys = []
+            none_keys = []
+
+            for k in keys:
+                # name: defines the order and the naming convention
+                if k == 'name':
+                    name_keys = keys[k].split(',')
+                    new_keys = [n for n in name_keys if n not in mat.axes.names]
+
+                # select common labels
+                else:
+                    intersect_keys[k] = intersect(keys[k], mat.axes[k].labels)
+                    # prepare dict for replacement
+                    if isinstance(keys[k], dict):
+                        replace_keys[k] = {key: keys[k][key] for key in intersect_keys[k]}
+                        for key, value in replace_keys[k].items():
+                            if value is None:
+                                replace_keys[k][key] = key
+                                none_keys.append(key)
+
+            mat = mat[intersect_keys]
+            # replace labels
+            if len(replace_keys) > 0:
+                mat = mat.set_labels(replace_keys)
+
+            if len(none_keys) > 0:
+                for nk in none_keys:
+                    mat = mat[nk]
+
+            # add missing dimensions
+            if len(new_keys) > 0:
+                for nk in new_keys:
+                    mat = la.stack({nk: mat}, nk)
+            # put in correct order
+            if len(name_keys) > 0:
+                mat = mat.transpose(name_keys)
+            return mat
+        
+        if self.generateCopyCheckBox.isChecked():
+            # Use UI choice as most recent info (instead of original YAML file stored in pm['dbdir'] etc.)
+            # Reasoning/philosophy: load YAML file, maybe later use dropdown to export other formats.
+            file_format = self.fileFormatComboBox.currentText() 
+            db_dir = self.yaml_content['dbdir']
+
+            # There might be multiple datasets in YAML config. Redundancy to load them *all* in viewer sequentially
+            # Cannot see them all. So, convert dictionary to list: easier to navigate to last one (only load this).
+            # Note: two different tasks: 1) add datasets to Editor as available larray objects, and b) view those 
+            # graphically in UI. Only makes sense to 'view' the last dataset if multiple indicators are in YAML, but
+            #  all of the datasets in the YAML needed to be added to session/editor regardless.
+     
+            # Prepare list for easy access
+            pm = self.yaml_content        
+            indicators_as_list = list(pm['indicators'])
+
+            # Prepare access to already existing datasets in editor 
+            editor = self.parent().parent()     # need to be *two* class-levels higher    
+            new_data = editor.data.copy()       # make a copy of dataset-dictionary before starting to add new datasets 
+            
+            from larray_eurostat import eurostat_get
+            for code in indicators_as_list:
+                # Adding datasets
+                arr = eurostat_get(code, cache_dir='__array_cache__')       # pulls dataset
+                arr = extract_mat(arr, pm['indicators'][code])              # relabels dataset via YAML configs
+
+                new_data[code] = arr                                        # add dataset for LArrayEditor update
+                editor.kernel.shell.user_ns[code] = arr                     # add dataset to console namespace
+
+                # Viewing datasets: only if last indicator in YAML config
+                if code == indicators_as_list[-1]:
+                    editor.view_expr(arr, expr=code)
+
+                # Export for different file format (...)
+                if self.generateCopyCheckBox.isChecked():
+                    if file_format == 'csv':
+                        arr.to_csv(f'{db_dir}/{code}.csv')
+                    elif file_format == 'ui':
+                        # la.view(s)
+                        pass
+                    elif file_format in ['var', 'iode']:
+                        # to_var(arr, db_dir)
+                        pass
+                    elif file_format[:3] == 'xls':
+                        arr.to_excel(f'{db_dir}/{code}.xlsx')
+                    else:
+                        arr.to_hdf(f'{db_dir}/{code}')
+
+            # Update mapping outside for loop -- i.e. no need to do this update multiple times
+            editor.update_mapping(new_data)
+            self.accept()
 
 
 
