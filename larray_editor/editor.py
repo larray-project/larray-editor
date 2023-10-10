@@ -257,6 +257,7 @@ class EurostatBrowserDialog(QDialog):
         layout.addWidget(self.advanced_button)
         self.setLayout(layout)
 
+
     def show_context_menu(self, position):
         menu = QMenu(self)
 
@@ -323,6 +324,12 @@ class EurostatBrowserDialog(QDialog):
                 self.accept()
             except Exception:
                 QMessageBox.critical(self, "Error", "Failed to load {}".format(code))
+
+
+    def keyPressEvent(self, event):
+        if event.key() in [Qt.Key_Return, Qt.Key_Enter] and self.tree.hasFocus():
+            self.view_eurostat_indicator(self.tree.currentIndex())
+        super(EurostatBrowserDialog, self).keyPressEvent(event)
 
 
     def handle_search(self, text):
