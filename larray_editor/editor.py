@@ -135,6 +135,35 @@ def tree_to_dataframe(root):
     return pd.DataFrame(rows, columns=root.data)
 
 
+# Extract frequencies from given dataset and subset accordingly
+def freq_eurostat(freqs, la_data):
+    # If "TIME_PERIOD" exists in la_data's axes names, rename it to "time"
+    if "TIME_PERIOD" in la_data.axes.names:
+        freq_data = la_data.rename(TIME_PERIOD='time')
+
+    a_time = []
+
+    for freq in freqs:
+        # str() because larray labels are not always strings, might also return ints
+        if freq == 'A':
+            a_time += [t for t in freq_data.time.labels if '-' not in str(t)]
+        elif freq == 'Q':
+            a_time += [t for t in freq_data.time.labels if 'Q' in str(t)]
+        elif freq == 'M':
+            a_time += [t for t in freq_data.time.labels if '-' in t and 'Q' not in str(t)]
+
+    # Maintain order and use set for non-duplicates
+    a_time = sorted(set(a_time))
+
+    if len(freqs) == 1 and freq[0] in ['A', 'Q', 'M']:
+        freq_value = str(freqs[0])
+    else:
+        freq_value = freqs
+
+    # Return with row and colum-wise subsetting
+    return freq_data[freq_value, a_time]
+
+
 
 class FrequencyFilterDialog(QDialog):
     def __init__(self, available_labels, parent=None):
