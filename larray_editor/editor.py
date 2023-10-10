@@ -118,6 +118,24 @@ def indented_df_to_treenode(df, indent=4, indented_col=0, colnames=None, header=
     return root
 
 
+# Recursively traverse tree and extract the data *only* of leaf nodes
+def traverse_tree(node, rows):
+    # If the node has no children, append its data to rows
+    if not node.children:
+        rows.append(node.data)
+    # If the node has children, recursively call the function for each child
+    for child in node.children:
+        traverse_tree(child, rows)
+
+
+# Put all the leaf nodes of tree into a dataframe structure
+def tree_to_dataframe(root):
+    rows = []
+    traverse_tree(root, rows)
+    return pd.DataFrame(rows, columns=root.data)
+
+
+
 class FrequencyFilterDialog(QDialog):
     def __init__(self, available_labels, parent=None):
         super().__init__(parent)
