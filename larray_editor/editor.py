@@ -473,10 +473,41 @@ class AdvancedPopup(QDialog):
 
         # Final button to proceed with the main task and optionally generate a copy
         self.proceedButton = QPushButton("Proceed", self)
-        self.proceedButton.clicked.connect(self.proceedWithTasks)
+        self.proceedButton.clicked.connect(self.proceed_and_viewdata)
         layout.addWidget(self.proceedButton)
 
 
+    def loadYAML(self):
+        options = QFileDialog.Options()
+        filePath, _ = QFileDialog.getOpenFileName(self, "Open YAML File", "", "YAML Files (*.yaml *.yml);;All Files (*)", options=options)
+        if filePath:
+            with open(filePath, 'r') as file:
+                self.yaml_content = yaml.safe_load(file)
+
+                # don't show dbdir and format in the textbox, they are already shown in the UI
+                self.yaml_content_subset = {k: v for k, v in self.yaml_content.items() if k not in ['dbdir', 'format']}
+                self.yamlTextEdit.setText(yaml.dump(self.yaml_content_subset, default_flow_style=False))
+
+                # Check for 'dbdir' and 'format' in the loaded content
+                if 'dbdir' in self.yaml_content and 'format' in self.yaml_content:
+                    format_val = self.yaml_content['format']
+                    self.setComboBoxValue(format_val)
+
+
+    def setComboBoxValue(self, value):
+        index = self.fileFormatComboBox.findText(value)
+        if index != -1:  # if the format from YAML exists in the ComboBox items
+            self.fileFormatComboBox.setCurrentIndex(index)
+
+
+    def selectPath(self):
+        options = QFileDialog.Options()
+        import os
+        if self.yaml_content is not None and 'dbdir' in self.yaml_content and self.yaml_content['dbdir'] is not None and os.path.exists(self.yaml_content['dbdir']) and os.path.isdir(self.yaml_content['dbdir']):
+            # if appropriate, then use the dbdir from the loaded YAML file as the default path in QFileDialog
+            self.selectedPath, _ = QFileDialog.getSaveFileName(self, "Select Path", self.yaml_content['dbdir'], "All Files (*)", options=options)
+        else:
+            self.selectedPath, _ = QFileDialog.getSaveFileName(self, "Select Path", "", "All Files (*)", options=options)
 
 
 
