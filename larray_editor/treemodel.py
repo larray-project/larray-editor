@@ -69,3 +69,42 @@ class SimpleLazyTreeModel(QAbstractItemModel):
 
         node = index.internalPointer() if index.isValid() else self.root
         return len(node.children)
+
+
+## Extra functions for AMECO tree
+class Ameco_SimpleTreeNode:
+    def __init__(self, data, parent=None):
+        self.data = data
+        self.parent = parent
+        self.children = []
+        if parent:
+            parent.children.append(self)
+
+def Ameco_parse_tree_structure(lines):
+    root = Ameco_SimpleTreeNode("Root")
+    prev_node = root
+    prev_level = -1
+    
+    for line in lines:
+        level = line.count('>')
+        name = line.strip('>').strip()
+        node = Ameco_SimpleTreeNode(name)
+        
+        if level > prev_level:
+            node.parent = prev_node
+            prev_node.children.append(node)
+        elif level == prev_level:
+            node.parent = prev_node.parent
+            prev_node.parent.children.append(node)
+        else:
+            diff = prev_level - level
+            higher_node = prev_node.parent
+            for _ in range(diff):
+                higher_node = higher_node.parent
+            node.parent = higher_node
+            higher_node.children.append(node)
+        
+        prev_node = node
+        prev_level = level
+    
+    return root

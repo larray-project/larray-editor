@@ -8,6 +8,8 @@ from collections.abc import Sequence
 from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Union
+from larray_eurostat import freq_eurostat_editor, eurostat_get
+from larray_ameco.get_ameco import reshape_and_dump_ameco_dataset
 
 
 # Python3.8 switched from a Selector to a Proactor based event loop for asyncio but they do not offer the same
@@ -37,14 +39,16 @@ from larray_editor.utils import (_, create_action, show_figure, ima, commonpath,
                                  get_versions, get_documentation_url, urls, RecentlyUsedList)
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayCommand
-from larray_editor.treemodel import SimpleTreeNode, SimpleLazyTreeModel
+from larray_editor.treemodel import SimpleTreeNode, SimpleLazyTreeModel, Ameco_parse_tree_structure
 
-from qtpy.QtCore import Qt, QUrl, QSettings
+
+from qtpy.QtCore import Qt, QUrl, QSettings, QFileInfo, QThread, Signal
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
                             QDialogButtonBox, QShortcut, QVBoxLayout, QHBoxLayout, QGridLayout, QLineEdit,
                             QCheckBox, QComboBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton,
-                            QTreeView, QTextEdit, QMenu, QAction)
+                            QTreeView, QTextEdit, QMenu, QAction, QTreeWidget, QTreeWidgetItem)
+
 
 try:
     from qtpy.QtWidgets import QUndoStack
@@ -88,6 +92,20 @@ history_vars_pattern = re.compile(r'_i?\d+')
 DISPLAY_IN_GRID = (la.Array, np.ndarray)
 
 
+def multi_search_df(df, text):
+    terms = text.split()
+    mask = None
+
+    # Takes 'boolean intersection' with previous search result(s)
+    for term in terms:
+        term_mask = (df['Code'].str.contains(term, case=False, na=False)) | (df['Title'].str.contains(term, case=False, na=False))
+        if mask is None:
+            mask = term_mask
+        else:
+            mask &= term_mask
+    return df[mask]
+
+
 def num_leading_spaces(s):
     i = 0
     while s[i] == ' ':
@@ -117,52 +135,6 @@ def indented_df_to_treenode(df, indent=4, indented_col=0, colnames=None, header=
         parent_node.children.append(node)
         parent_per_level[level + 1] = node
     return root
-
-
-# Recursively traverse tree and extract the data *only* of leaf nodes
-def traverse_tree(node, rows):
-    # If the node has no children, append its data to rows
-    if not node.children:
-        rows.append(node.data)
-    # If the node has children, recursively call the function for each child
-    for child in node.children:
-        traverse_tree(child, rows)
-
-
-# Put all the leaf nodes of tree into a dataframe structure
-def tree_to_dataframe(root):
-    rows = []
-    traverse_tree(root, rows)
-    return pd.DataFrame(rows, columns=root.data)
-
-
-# Extract frequencies from given dataset and subset accordingly
-def freq_eurostat(freqs, la_data):
-    # If "TIME_PERIOD" exists in la_data's axes names, rename it to "time"
-    if "TIME_PERIOD" in la_data.axes.names:
-        freq_data = la_data.rename(TIME_PERIOD='time')
-
-    a_time = []
-
-    for freq in freqs:
-        # str() because larray labels are not always strings, might also return ints
-        if freq == 'A':
-            a_time += [t for t in freq_data.time.labels if '-' not in str(t)]
-        elif freq == 'Q':
-            a_time += [t for t in freq_data.time.labels if 'Q' in str(t)]
-        elif freq == 'M':
-            a_time += [t for t in freq_data.time.labels if '-' in t and 'Q' not in str(t)]
-
-    # Maintain order and use set for non-duplicates
-    a_time = sorted(set(a_time))
-
-    if len(freqs) == 1 and freq[0] in ['A', 'Q', 'M']:
-        freq_value = str(freqs[0])
-    else:
-        freq_value = freqs
-
-    # Return with row and colum-wise subsetting
-    return freq_data[freq_value, a_time]
 
 
 
@@ -198,7 +170,425 @@ class FrequencyFilterDialog(QDialog):
             if checkbox.isChecked():
                 freqs.append(label)
         return freqs
-    
+
+
+
+class AmecoDownloadThread(QThread):
+    # Needs to run in Seperate Thread to avoid blocking the UI
+    finishedSignal = Signal()
+    errorSignal = Signal(str)
+
+    def run(self):
+        print("Inside the download thread...")
+        try: 
+            reshape_and_dump_ameco_dataset()
+            print("Finished downloading in the thread.")
+            self.finishedSignal.emit()
+        except Exception as e:
+            errorMsg = f"An unexpected error occurred: {str(e)}"
+            self.errorSignal.emit(errorMsg)
+
+
+
+class AmecoBrowserDialog(QDialog):
+    def __init__(self, ameco_table_of_contents, parent=None):
+        super(AmecoBrowserDialog, self).__init__(parent)
+        
+        # Basic UI properties
+        self.title = 'AMECO Database'
+        self.ameco_table_of_contents = ameco_table_of_contents
+        
+        # Initialize UI elements
+        self.init_ui()
+
+
+    def init_ui(self):
+        self.init_widgets()
+        self.set_properties()
+        self.connect_signals_slots()
+        self.configure_layout()
+        self.populate_tree(self.ameco_table_of_contents)
+        self.show()
+
+
+    def init_widgets(self):
+        self.tree = QTreeWidget()
+        self.search_input = QLineEdit(self)
+        self.search_results_list = QListWidget()
+        self.refresh_button = QPushButton("Last Updated: ", self)
+        self.update_text_for_last_updated_button()        # Means here: put initial text for 'Last Update' button
+        self.downloadThread = AmecoDownloadThread()
+
+
+    def set_properties(self):
+        self.resize(750, 600)
+        self.setWindowTitle(self.title)
+        self.tree.setHeaderHidden(True)
+        self.search_input.setPlaceholderText("Search...")
+        self.search_results_list.hide()
+
+
+    def connect_signals_slots(self):
+        # Connect for search functionalities
+        self.search_input.textChanged.connect(self.handle_search)
+        self.search_results_list.itemClicked.connect(self.handle_search_item_click)
+        
+        # Connect for refresh button and finished download
+        self.refresh_button.clicked.connect(self.start_download)
+        self.downloadThread.finishedSignal.connect(self.update_text_for_last_updated_button)
+        
+        # Connect for treeitem click
+        self.tree.itemDoubleClicked.connect(self.on_tree_item_clicked)
+
+
+    def configure_layout(self):
+        # Search layout configuration
+        search_layout = QHBoxLayout()
+        search_layout.addWidget(self.search_input)
+        search_layout.addWidget(self.refresh_button)
+        
+        # Main layout configuration
+        layout = QVBoxLayout()
+        layout.addLayout(search_layout)
+        layout.addWidget(self.search_results_list)
+        layout.addWidget(self.tree)
+        self.setLayout(layout)
+
+
+    def populate_tree(self, ameco_table_of_contents):
+        root_tree_node = Ameco_parse_tree_structure(ameco_table_of_contents.split('\n'))
+        for child in root_tree_node.children:
+            self.ameco_add_nodes(self.tree, child)
+
+
+    def start_download(self):
+        if not self.downloadThread.isRunning():            
+            # Show a popup box to inform the user that the download has started.
+            msgBox = QMessageBox()
+            msgBox.setText("Download started. AMECO datasets are published once per year.")
+            msgBox.setIcon(QMessageBox.Information)
+            msgBox.setStandardButtons(QMessageBox.Ok)
+            msgBox.exec_()
+            
+            self.downloadThread.start()
+            self.downloadThread.setPriority(QThread.HighPriority)
+
+
+    def update_text_for_last_updated_button(self):
+        print("Updating 'Last Updated' after download (or init)...")
+
+        # Get the last modified datetime
+        file_path = '__array_cache__/data.h5' 
+        info = QFileInfo(file_path)
+        last_modified = info.lastModified().toString("dd-MM-yyyy HH:mm:ss")
+
+        # Update the button's label
+        self.refresh_button.setText(f"Last Updated: {last_modified}")
+          
+        
+    def ameco_tree_to_dataframe(self, ameco_table_of_contents):
+        rows = []
+        lines = ameco_table_of_contents.split('\n')
+        for line in lines:
+            # Match title and code using regex
+            match = re.match(r'^(.*)\s+\(([^)]+)\)$', line)
+            if match:
+                title, code = match.groups()
+                # Remove prefixes >, >>, and >>>
+                title = title.replace('>', '').strip()
+                rows.append({'Title': title, 'Code': code.strip()})
+        
+        df = pd.DataFrame(rows)
+        return df
+
+
+    def ameco_add_nodes(self, qt_parent, tree_node):
+        qt_node = QTreeWidgetItem(qt_parent, [tree_node.data])
+        for child in tree_node.children:
+            self.ameco_add_nodes(qt_node, child)
+
+
+    def handle_search(self, text):
+        self.df = self.ameco_tree_to_dataframe(self.ameco_table_of_contents)
+
+        if text:
+            self.tree.hide()
+            self.search_results_list.clear()
+
+            filtered_df = multi_search_df(self.df, text)
+            filtered_df = filtered_df.drop_duplicates(subset='Code')
+            results = [f"{row['Title']} ({row['Code']})" for _, row in filtered_df.iterrows()]
+
+            self.search_results_list.addItems(results)
+            self.search_results_list.show()
+
+        else: # if search field is empty
+            self.tree.show()
+            self.search_results_list.hide()
+
+
+    def handle_search_item_click(self, item):
+        # Assume the substring '(code)' is always the last thing in parentheses
+        matches = re.findall(r'\(([^)]+)\)', item.text())
+        
+        if matches:
+            code = matches[-1]
+            popup = AmecoSettingsDialog(code, self)
+            popup.exec_()
+
+
+    def on_tree_item_clicked(self, item):
+        # Extracts the code of item clicked and opens next Popup dialog.
+        if item.childCount() == 0:
+            import re
+            match = re.findall(r'\(([^)]+)\)', item.text(0)) # search last substring '(code)'
+            if match:
+                var_name = match[-1] 
+            else:
+                var_name = ""
+
+            # print(f"the extracted code of clicked item is: {var_name}")
+            popup = AmecoSettingsDialog(var_name, self)
+            popup.exec_()
+
+
+    def keyPressEvent(self, event):
+        if event.key() in [Qt.Key_Return, Qt.Key_Enter] and self.tree.hasFocus():
+            item = self.tree.currentItem()
+            if item and item.childCount() == 0:
+                matches = re.findall(r'\(([^)]+)\)', item.text(0)) # search last substring '(code)'
+                if matches:
+                        code = matches[-1]
+                        popup = AmecoSettingsDialog(code, self)
+                        popup.exec_()
+
+
+
+class AmecoSettingsDialog(QDialog):
+    def __init__(self, var_name, parent=None):
+        super().__init__(parent)
+        self.resize(500, 150)
+        self.setWindowTitle("Settings")
+        self.load_data(var_name)
+        self.init_ui(var_name)
+
+
+    def load_data(self, var_name):
+        self.ameco = la.read_hdf("__array_cache__/data.h5", "ameco0")
+        all_numerical_codes = [str(self.ameco.axes[0][i]) for i in self.ameco.axes[0]]        # adding str() is necessary!
+
+        # Given a *particular* var name, most numerical codes deliver NaN arrays. Consider only relevant numerical codes. 
+        relevant_numerical_codes_for_var = []
+        for id in all_numerical_codes:
+            is_all_nan = la.isnan(self.ameco[id, var_name]).all()
+
+            if not is_all_nan:
+                relevant_numerical_codes_for_var.append([int(id_part) for id_part in id.split("-")])   # "1-2-3-4" [str] -> [1,2,3,4]
+
+        # Put only relevant codes in dropdowns (= i.e. only need subset of the total 27 combo possibilities)
+        self.choice_list = relevant_numerical_codes_for_var
+        print(f"All possible choices: {self.choice_list}") # temp use for debugging, in case some codes are not listed in official document
+        
+
+    def init_ui(self, var_name):
+        layout = QVBoxLayout()
+        self.initialize_content_dropdowns()
+
+        self.drop1, self.drop2, self.drop3, self.drop4 = QComboBox(), QComboBox(), QComboBox(), QComboBox()
+        self.populate_dropdowns()
+        self.setup_dropdown_grid(layout)
+        self.setup_action_elements(layout, var_name)
+        self.setLayout(layout)
+
+
+    def initialize_content_dropdowns(self):
+        # Mapping dictionaries for dropdowns (codes -> description). See AMECO documentation for more info.
+        self.drop1_options = {
+            1: 'Levels (and moving arithmetic mean for time periods)',
+            2: 'Levels (and moving geometric mean for time periods)',
+            3: 'Index numbers (and moving arithmetic mean for time periods)',
+            4: 'Index numbers (and moving geometric mean for time periods)',
+            5: 'Annual percentage changes (and moving arithmetic mean for time periods)',
+            6: 'Annual percentage changes (and moving geometric mean for time periods)',
+            7: 'Absolute value of annual percentage changes (and moving arithmetic mean for time periods)',
+            8: 'Moving percentage changes',
+            9: 'Annual changes (and moving arithmetic mean for time periods)',
+            10: 'Absolute value of annual changes (and moving arithmetic mean for time periods)',
+            11: 'Moving changes',
+        }
+
+        self.drop2_options = {
+            0: 'Standard aggregations (data converted to a common currency and summed)',
+            1: 'Weighted mean of t/t-1 national ratios, weights current prices in ECU/EUR',
+            2: 'Weighted mean of t/t-1 national ratios, weights current prices in PPS',
+        }
+
+        self.drop3_options = {
+            0: 'Original units (e.g. national currency, persons, etc.)',
+            99: 'ECU/EUR',
+            212: 'PPS (purchasing power standards)',
+            300: 'Final demand',
+            310: 'Gross domestic product at market prices',
+            311: 'Net domestic product at market prices',
+            312: 'Gross domestic product at current factor cost',
+            313: 'Net domestic product at current factor cost',
+            315: 'Trend gross domestic product at market prices',
+            316: 'Potential gross domestic product at market prices',
+            318: 'Total gross value added',
+            319: 'Gross domestic product at market prices (excessive deficit procedure)',
+            320: 'Gross national product at market prices',
+            321: 'National income at market prices',
+            322: 'Gross national disposable income at market prices',
+            323: 'National disposable income at market prices',
+            338: 'Gross value added at market prices; manufacturing industry',
+            380: 'Current revenue general government',
+            390: 'Total expenditure general government',
+            391: 'Current expenditure general government',
+            410: 'Total population, demographic statistics',
+            411: 'Population, 15 to 64 years',
+            412: 'Total labour Force',
+            413: 'Civilian labour force',
+            414: 'Population 15 to 74 years',
+            420: 'Total population (national accounts)',
+        }
+
+        self.drop4_options = {
+            0:   'value for the reporting country', # default
+            215: 'former EU-15',
+            315: 'former EU-15',
+            327: 'former EU-27',        # added extra: not in official docs? but sometimes used, cf. 'HVGDPR'
+            328: 'former EU-28',
+            415: 'former EU-15 (bis)',  # in documentation double code (315), but then issue with reverse dictionary map, so change text slightly
+            424: '24 industrial countries: former EU-15 & CH NR TR US CA MX JP AU NZ',
+            437: '37 industrial countries: EU-27 & CH NR TR UK US CA MX JP AU NZ',
+        }
+
+
+    def populate_dropdowns(self):
+        # Some sets to keep track of adding procedure (i.e. useful to avoid double adds)
+        added_drop1, added_drop2, added_drop3, added_drop4 = set(), set(), set(), set()
+
+        for item in self.choice_list:
+            # extract fourfold from iterator 'item' (which is a list of 4 values, e.g. [1,0,0,0])
+            drop1_val, drop2_val, drop3_val, drop4_val = item  
+            
+            if drop1_val in self.drop1_options and drop1_val not in added_drop1:
+                self.drop1.addItem(self.drop1_options[drop1_val])
+                added_drop1.add(drop1_val)
+            
+            if drop2_val in self.drop2_options and drop2_val not in added_drop2:
+                self.drop2.addItem(self.drop2_options[drop2_val])
+                added_drop2.add(drop2_val)
+            
+            if drop3_val in self.drop3_options and drop3_val not in added_drop3:
+                self.drop3.addItem(self.drop3_options[drop3_val])
+                added_drop3.add(drop3_val)
+            
+            if drop4_val in self.drop4_options and drop4_val not in added_drop4:
+                self.drop4.addItem(self.drop4_options[drop4_val])
+                added_drop4.add(drop4_val)
+
+
+    def setup_dropdown_grid(self, layout):
+        grid = QGridLayout()
+
+        labels = [
+            ("TRN: Transformations over time", self.drop1),
+            ("AGG: Aggregation modes", self.drop2),
+            ("UNIT: Unit codes", self.drop3),
+            ("REF: Codes for relative performance", self.drop4)
+        ]
+
+        # Create grid layout for labels and dropdowns
+        grid = QGridLayout()
+        for index, (label_text, dropdown) in enumerate(labels):
+            label = QLabel(label_text)
+            
+            # Setting a fixed width ensures all labels have the same width.
+            # Add some extra whitespaces at end -- for beter alignment.
+            label.setFixedWidth(label.fontMetrics().width("REF: Codes for relative performance     "))
+            
+            grid.addWidget(label, index, 0)
+            grid.addWidget(dropdown, index, 1)
+
+        layout.addLayout(grid)
+
+
+    def setup_action_elements(self, layout, var_name):
+        self.submit_button = QPushButton("Load Data", self)
+        self.submit_button.clicked.connect(lambda: self.ameco_final_submit_clicked(var_name)) 
+        # self.submit_button.clicked.connect(self.ameco_final_submit_clicked(var_name)) # check: why only lambda works??
+
+        # Invalid choice label
+        self.invalid_label = QLabel("Invalid selection. Please choose a valid combination from the dropdown menus.", self)
+        self.invalid_label.setStyleSheet("color: red;")
+        self.invalid_label.hide()  # Hide it initially
+
+        layout.addWidget(self.invalid_label)
+        layout.setAlignment(self.invalid_label, Qt.AlignCenter)
+        layout.addWidget(self.submit_button)
+
+        # Connect dropdowns to verification function
+        self.drop1.currentIndexChanged.connect(self.verification_check)
+        self.drop2.currentIndexChanged.connect(self.verification_check)
+        self.drop3.currentIndexChanged.connect(self.verification_check)
+        self.drop4.currentIndexChanged.connect(self.verification_check)
+
+        # Set layout
+        self.setLayout(layout)
+
+
+    def verification_check(self, silent=False):
+        # At this stage, we have a 'var_name' and 'dropdown selection' provided by user.
+        # Revert now back to numerical codes so we can subset/load correct larray data.
+
+        # Reverse mapping for dropdowns. Go back from text in dropdowns to numerical codes.
+        def create_reverse_mapping(original_mapping):
+            return {v: k for k, v in original_mapping.items()} 
+
+        # Apply reverse mappings
+        rev_drop1_options = create_reverse_mapping(self.drop1_options)
+        rev_drop2_options = create_reverse_mapping(self.drop2_options)
+        rev_drop3_options = create_reverse_mapping(self.drop3_options)
+        rev_drop4_options = create_reverse_mapping(self.drop4_options)
+        
+        # Get Selected Options
+        self.sel1 = rev_drop1_options[self.drop1.currentText()]
+        self.sel2 = rev_drop2_options[self.drop2.currentText()]
+        self.sel3 = rev_drop3_options[self.drop3.currentText()]
+        self.sel4 = rev_drop4_options[self.drop4.currentText()]
+
+        # Merge together 4 dropdown selections to single code (e.g. '1-1-0-0') for subsetting larray
+        self.numo_code = "-".join([str(self.sel1), str(self.sel2), str(self.sel3), str(self.sel4)])
+        
+        # Extra check if valid choice was made in dropdown combinations.
+        if [self.sel1, self.sel2, self.sel3, self.sel4] in self.choice_list:
+            print(f"valid choice: {self.numo_code}")
+            self.submit_button.show()
+            self.invalid_label.hide() 
+            return True
+        else:
+            print(f"invalid choice: {self.numo_code}")
+            self.submit_button.hide()
+            self.invalid_label.show() 
+            if not silent:
+                QMessageBox.information(self, f"{self.numo_code} is a bad combination.", f"Valid choices are: {self.choice_list}", QMessageBox.Ok)
+            return False
+
+    def ameco_final_submit_clicked(self, var_name):
+        if self.verification_check(silent=True):
+            ameco_subset = self.ameco[self.numo_code, var_name]
+
+            editor = self.parent().parent()
+            new_data = editor.data.copy()       # make a copy of dataset-dictionary before starting to add new datasets 
+            new_data[var_name] = ameco_subset                                     # add dataset for LArrayEditor update
+            editor.kernel.shell.user_ns[var_name] = ameco_subset                  # add dataset to console namespace
+            editor.view_expr(ameco_subset, expr=var_name)
+            editor.update_mapping(new_data)
+
+        self.accept()
+
+
 
 class EurostatBrowserDialog(QDialog):
     def __init__(self, index, parent=None):
@@ -218,7 +608,7 @@ class EurostatBrowserDialog(QDialog):
         #        Simple*Lazy*TreeModel, but it is fast enough for now. *If* it ever becomes a problem,
         #        we could make this lazy pretty easily (see treemodel.LazyDictTreeNode for an example).
         root = indented_df_to_treenode(index)
-        self.df = tree_to_dataframe(root)
+        self.df = self.eurostat_tree_to_dataframe(root)
 
         # Create the tree view UI in Dialog
         model = SimpleLazyTreeModel(root)
@@ -247,7 +637,7 @@ class EurostatBrowserDialog(QDialog):
         self.advanced_button.clicked.connect(self.showAdvancedPopup)
 
         # General settings: resize + title
-        self.resize(450, 600)
+        self.resize(950, 600)
         self.setWindowTitle("Select dataset")
 
         # Add widgets to layout
@@ -257,6 +647,18 @@ class EurostatBrowserDialog(QDialog):
         layout.addWidget(self.search_results_list)
         layout.addWidget(self.advanced_button)
         self.setLayout(layout)
+
+
+    def eurostat_tree_to_dataframe(self, root):
+        # Recursively traverse tree and extract data *only* of leaf nodes (into dataframe)
+        def traverse_tree(node, rows):
+            if not node.children:                   # If the node has no children, append its data to rows
+                rows.append(node.data)
+            for child in node.children:             # If the node has children, recursively call the function for each child
+                traverse_tree(child, rows)
+        rows = []
+        traverse_tree(root, rows)
+        return pd.DataFrame(rows, columns=root.data)
 
 
     def show_context_menu(self, position):
@@ -276,11 +678,10 @@ class EurostatBrowserDialog(QDialog):
 
 
     def add_to_list(self):
-        from larray_eurostat import eurostat_get
         index = self.tree.currentIndex()
         node = index.internalPointer()
 
-        if not node.children:           # should only work on leaf nodes
+        if not node.children:
             # custom tree model where each node was represented by tuple (name, code,...) => data[1] = code
             code = self.tree.currentIndex().internalPointer().data[1]
             arr = eurostat_get(code, cache_dir='__array_cache__')
@@ -294,8 +695,6 @@ class EurostatBrowserDialog(QDialog):
   
 
     def view_eurostat_indicator(self, index):
-        from larray_eurostat import eurostat_get
-
         node = index.internalPointer()
         title, code, last_update_of_data, last_table_structure_change, data_start, data_end = node.data
         if not node.children:
@@ -313,8 +712,8 @@ class EurostatBrowserDialog(QDialog):
                         selected_frequencies = dialog.get_selected_frequencies() 
                 else:
                     selected_frequencies = current_dataset_labels
-             
-                arr = freq_eurostat(selected_frequencies, arr)
+
+                arr = freq_eurostat_editor(selected_frequencies, arr)
 
                 # Load the data into the editor
                 editor = self.parent()
@@ -334,28 +733,13 @@ class EurostatBrowserDialog(QDialog):
 
 
     def handle_search(self, text):
-
-        def search_term_filter_df(df, text):
-            terms = text.split()
-            mask = None
-
-            # First time loop generates a sequence of booleans (lenght = nrows of df)
-            # Second time it takes 'boolean intersection' with previous search result(s)
-            for term in terms:
-                term_mask = (df['Code'].str.contains(term, case=False, na=False)) | (df['Title'].str.contains(term, case=False, na=False))
-                if mask is None:
-                    mask = term_mask
-                else:
-                    mask &= term_mask
-            return df[mask]
-
         if text:
             # when text is entered, then hide the treeview and show (new) search results
             self.tree.hide()
             self.search_results_list.clear()
 
             # filter dataframe based on search term(s)
-            filtered_df = search_term_filter_df(self.df, text)
+            filtered_df = multi_search_df(self.df, text)
 
             # drop duplicates in search result (i.e. same code, originating from different locations tree)
             filtered_df = filtered_df.drop_duplicates(subset='Code')
@@ -582,7 +966,6 @@ class AdvancedPopup(QDialog):
             editor = self.parent().parent()     # need to be *two* class-levels higher    
             new_data = editor.data.copy()       # make a copy of dataset-dictionary before starting to add new datasets 
             
-            from larray_eurostat import eurostat_get
             for code in indicators_as_list:
                 # Adding datasets
                 arr = eurostat_get(code, cache_dir='__array_cache__')       # pulls dataset
@@ -1087,6 +1470,8 @@ class MappingEditor(AbstractEditor):
         file_menu.addSeparator()
         file_menu.addAction(create_action(self, _('&Load Example Dataset'), triggered=self.load_example))
         file_menu.addAction(create_action(self, _('&Browse Eurostat Datasets'), triggered=self.browse_eurostat))
+        file_menu.addAction(create_action(self, _('&Browse AMECO Datasets'), triggered=self.browse_ameco))
+
         # ============= #
         #    SCRIPTS    #
         # ============= #
@@ -1695,6 +2080,13 @@ class MappingEditor(AbstractEditor):
             QMessageBox.critical(self, "Error", "Failed to fetch Eurostat dataset index")
             return
         dialog = EurostatBrowserDialog(df, parent=self)
+        dialog.show()
+
+    def browse_ameco(self):
+        with open('larray_editor/ameco_toc_tree.txt', 'r', encoding='utf-8') as file:
+            ameco_table_of_contents = file.read()
+    
+        dialog = AmecoBrowserDialog(ameco_table_of_contents, parent=self)
         dialog.show()
 
 

@@ -1,0 +1,539 @@
+> Population and employment
+>> Population
+>>> Total population   (NPTN)
+>>> Total population (National accounts)    (NPTD)
+>>> Population: 0 to 14 years    (NPCN)
+>>> Population: 15 to 64 years    (NPAN)
+>>> Population: 65 years and over    (NPON)
+>> Labour force
+>>> Total labour force (Labour force statistics)    (NLTN)
+>>> Civilian labour force (Labour force statistics)    (NLCN)
+>>> Civilian employment, persons (domestic)    (NECD)
+>>> Civilian employment, persons (national)    (NECN)
+>> Employment total economy, persons
+>>> Employment, persons-; total economy (National accounts)    (NETN)
+>>> Employment, persons-;all domestic industries (National accounts)    (NETD)
+>>> Number of self-employed-; total economy (National accounts)    (NSTD)
+>>> Employees, persons-; total economy (National accounts)    (NWTN)
+>>> Employees, persons-; all domestic industries (National accounts)    (NWTD)
+>> Employment total economy, full-time equivalents
+>>> Employees, full-time equivalents-; total economy (National accounts)    (FWTD)
+>>> Employment, full-time equivalents-; total economy (National accounts)    (FETD)
+>> Unemployment
+>>> Total unemployment; Member States: definition -Eurostat    (NUTN)
+>>> Unemployment rate, total (percentage of civilian labour force); Member States: definition Eurostat (ZUTN)
+> Consumption
+>> Actual individual final consumption of households
+>>> Actual individual final consumption of households at current prices    (UCTH)
+>>> Actual individual final consumption of households at constant prices    (OCTH)
+>>> Price deflator actual individual final consumption of households    (PCTH)
+>> Private final consumption expenditure
+>>> Private final consumption expenditure at current prices    (UCPH)
+>>> Private final consumption expenditure at constant prices    (OCPH)
+>>> Price deflator private final consumption expenditure    (PCPH)
+>> Total final consumption expenditure of general government
+>>> Final consumption expenditure of general government at current prices    (UCTG)
+>>> Final consumption expenditure of general government at constant prices    (OCTG)
+>>> Price deflator total final consumption expenditure of general government    (PCTG)
+>> Collective consumption expenditure of general government
+>>> Collective consumption of general government at current prices    (UCCG)
+>>> Collective consumption of general government at constant prices    (OCCG)
+>>> Price deflator collective consumption of general government    (PCCG)
+>> Individual consumption expenditure of general government
+>>> Individual consumption of general government at current prices    (UCIG)
+>>> Individual consumption of general government at constant prices    (OCIG)
+>>> Price deflator individual consumption of general government    (PCIG)
+>> Total consumption
+>>> Total consumption expenditure at current prices    (UCNT)
+>>> Total consumption expenditure at constant prices (OCNT)
+>>> Price deflator total consumption (PCNT)
+>> Consumer price index
+>>> Harmonised consumer price index (1996 = 100)    (ZCPIH)
+>>> National consumer price index    (ZCPIN)
+> Capital formation and saving, total economy and sectors
+>> Gross fixed capital formation
+>>> Gross fixed capital formation at constant prices; total economy    (OIGT)
+>>> Price deflator gross fixed capital formation; total economy    (PIGT)
+>>> Gross fixed capital formation at current prices; general government    (UIGG)
+>>> Gross fixed capital formation at current prices; private sector    (UIGP)
+>>> Gross fixed capital formation at current prices; total economy    (UIGT)
+>> Net fixed capital formation
+>>> Net fixed capital formation at constant prices; total economy    (OINT)
+>>> Net fixed capital formation at current prices; general government    (UING)
+>>> Net fixed capital formation at current prices; private sector    (UINP)
+>>> Net fixed capital formation at current prices; total economy    (UINT)
+>> Consumption of fixed capital
+>>> Consumption of fixed capital- at constant prices; total economy; Price deflator gross fixed capital formation    (OKCT)
+>>> Consumption of fixed capital at current prices; general government    (UKCG)
+>>> Consumption of fixed capital at current prices; total economy    (UKCT)
+>> Change in inventories
+>>> Changes in inventories and acquisitions less disposals of valuables at constant prices; total economy    (OIST)
+>>> Changes in inventories and acquisitions less disposals of valuables at current prices; total economy     (UIST)
+>> Gross capital formation
+>>> Gross capital formation at constant prices; total economy   (OITT)
+>>> Gross capital formation at current prices; total economy   (UITT)
+>> Gross saving
+>>> Gross national saving    (USGN)
+>>> Gross saving: private sector; EU-Member States: ESA 1995    (USGP)
+>>> Gross saving-; private sector; EU-Member States: former definition    (USGPF)
+>> Net saving
+>>> Net saving; general government ; EU-Member States: ESA 1995    (USNG)
+>>> Net saving: general government; EU-Member States: former definition    (USNGF)
+>>> Net national saving    (USNN)
+>>> Net saving-; private sector; EU-Member States: ESA 1995    (USNP)
+>>> Net saving; private sector; EU-Member States: former definition    (USNPF)
+> Gross fixed capital formation by type of goods
+>> Construction
+>>> Gross fixed capital formation at constant prices; construction    (OIGCO)
+>>> Price deflator gross fixed capital formation; construction    (PIGCO)
+>>> Gross fixed capital formation at current prices; construction    (UIGCO)
+>> Dwellings
+>>> Gross fixed capital formation at constant prices; dwellings    (OIGDW)
+>>> Price deflator gross fixed capital formation; dwellings    (PIGDW)
+>>> Gross fixed capital formation at current prices; dwellings    (UIGDW)
+>> Non-residential construction and civil engineering
+>>> Gross fixed capital formation at constant prices-; non-residential construction and civil engineering    (OIGNR)
+>>> Price deflator gross fixed capital formation-; non-residential construction and civil engineering    (PIGNR)
+>>> Gross fixed capital formation at current prices-; non-residential construction and civil engineering    (UIGNR)
+>> Equipment
+>>> Gross fixed capital formation at constant prices-; equipment    (OIGEQ)
+>>> Price deflator gross fixed capital formation-; equipment    (PIGEQ)
+>>> Gross fixed capital formation at current prices; equipment    (UIGEQ)
+>> Metal products and machinery
+>>> Gross fixed capital formation at constant prices; metal products and machinery    (OIGMA)
+>>> Price deflator gross fixed capital formation; metal products and machinery    (PIGMA)
+>>> Gross fixed capital formation at current prices; metal products and machinery    (UIGMA)
+>> Transport equipment
+>>> Gross fixed capital formation at constant prices transport equipment    (OIGTR)
+>>> Price deflator gross fixed capital formation; transport equipment    (PIGTR)
+>>> Gross fixed capital formation at current prices; transport equipment    (UIGTR)
+> Domestic and final demand
+>> Domestic demand excluding stocks
+>>> Domestic demand excluding stocks at constant prices    (OUNF)
+>>> Price deflator domestic demand excluding stocks    (PUNF)
+>>> Domestic demand excluding stocks at current prices    (UUNF)
+>> Domestic demand including stocks
+>>> Domestic demand including stocks at constant prices    (OUNT)
+>>> Price deflator domestic demand including stocks    (PUNT)
+>>> Domestic demand including stocks at current prices    (UUNT)
+>>> Domestic demand including stocks at constant prices ; Performance relative to the rest of 14 EU countries (EU-15 excl. L): double export weights    (OUNTQ)
+>>> Domestic demand including stocks at constant prices ; Performance relative to the rest of 22 industrial countries: double export weights : EU-14, CHE NOR USA CAN JAP AUS MEX and NZL   (OUNTQ)
+>> Final demand
+>>> Final demand at constant prices    (OUTT)
+>>> Price deflator final demand    (PUTT)
+>>> Final demand at current prices    (UUTT)
+>> Contributions to the change of the deflator of final demand
+>>> Contribution to the change of the final demand deflator of import prices    (YPUT0)
+>>> Contribution to the change of the final demand deflator of import prices excluding nominal effective exchange rates    (YPUT1)
+>>> Contribution to the change of the final demand deflator of nominal effective exchange rates    (YPUT2)
+>>> Contribution to the change of the final demand deflator of relative unit labour costs in national currency    (YPUT3)
+>>> Contribution to the change of the final demand deflator of domestic factors    (YPUT5)
+>>> Contribution to the change of the final demand deflator of the GDP price deflator    (YPUT6)
+>>> Contribution to the change of the final demand deflator of nominal unit labour costs    (YPUT7)
+>>> Contribution to the change of the final demand deflator of net indirect taxes    (YPUT8)
+>>> Contribution to the change of the final demand deflator of gross operating surplus; excluding imputed compensation of self-employed    (YPUT9)
+> National product and income
+>> Gross national income
+>>> Gross national -income at constant market prices, deflator GDP    (OVGN)
+>>> Gross national -income at current market prices    (UVGN)
+>> Gross national disposable income
+>>> Gross national disposable income    (UVGT)
+>> Net national income
+>>> National income at current market prices    (UVNN)
+>> Net national disposable income
+>>> National disposable income [net]   (UVNT)
+>> Domestic product and income, total economy
+>>> Gross domestic product (GDP)
+>>> Gross domestic product at constant market prices    (OVGD)
+>>> Price deflator gross domestic product at market prices    (PVGD)
+>>> Gross domestic product at current market prices    (UVGD)
+>>> Gross domestic product at current factor cost    (UYGD)
+>>> Gross domestic product at constant market prices ; Performance relative to the rest of 14 EU countries (EU-15 excl. L): double export weights    (OVGDQ)
+>>> Price deflator gross domestic product at market prices ; Performance relative to the rest of 14 EU countries (EU-15 excl. L): double export weights    (PVGDQ)
+>>> Gross domestic product at constant market prices ; Performance relative to the rest of 22 industrial countries: double export weights : EU-14, CHE NOR USA CAN JAP AUS MEX and NZL   (OVGDQ)
+>>> Price deflator gross domestic product at market prices ; Performance relative to the rest of 22 industrial countries: double export weights : EU-14, CHE NOR USA CAN JAP AUS MEX and NZL   (PVGDQ)
+>>> GDP (reference level for excessive deficit procedure)
+>>> Gross domestic product at current market prices ; Reference level for excessive deficit procedure    (UVGDH)
+>> GDP adjusted for the impact of terms of trade
+>>> Gross domestic product at constant market prices adjusted for the impact of terms of trade    (OVGDA)
+>> Trend GDP at constant market prices
+>>> Trend gross domestic product at constant market prices    (OVGDT)
+>>> Gap between actual and trend gross domestic product at constant market prices    (AVGDGT)
+>> Potential GDP at constant market prices
+>>> Potential gross domestic product at constant market prices    (OVGDP)
+>>> Gap between actual and potential gross domestic product at constant market prices    (AVGDGP)
+>> Contributions to the change of GDP
+>>> Contribution to the increase of GDP at constant market prices of private consumption    (CVGD0)
+>>> Contribution to the increase of GDP at constant market prices of public consumption    (CVGD1)
+>>> Contribution to the increase of GDP at constant market prices of total consumption    (CVGD10)
+>>> Contribution to the increase of GDP at constant market prices of gross fixed capital formation    (CVGD2)
+>>> Contribution to the increase of GDP at constant market prices of domestic demand excluding stocks    (CVGD3)
+>>> Contribution to the increase of GDP at constant market prices of net stockbuilding    (CVGD4)
+>>> Contribution to the increase of GDP at constant market prices of domestic demand including stocks    (CVGD5)
+>>> Contribution to the increase of GDP at constant market prices of exports of goods and services ; excluding intra-EU trade    (CVGD6A)
+>>> Contribution to the increase of GDP at constant market prices of final demand ; excluding intra-EU trade    (CVGD7A)
+>>> Contribution to the increase of GDP at constant market prices of imports of goods and services ; excluding intra-EU trade    (CVGD8A)
+>>> Contribution to the increase of GDP at constant market prices of the balance of goods and services    (CVGD9)
+>> Net domestic product
+>>> Domestic income at current market prices    (UVND)
+>>> Domestic income at current factor cost    (UYND)
+>> Gross value added excluding FISIM
+>>> Gross value added at constant basic prices excluding FISIM-; total economy    (OVGE)
+>>> Gross value added at current basic prices excluding FISIM-; total economy    (UVGE)
+>> Taxes linked to imports and production and subsidies
+>>> Taxes linked to imports and production minus subsidies-; total economy    (UTVN)
+>>> Taxes linked to imports and production-; total economy    (UTVT)
+>>> Subsidies-; total economy    (UYVT)
+>> Gross operating surplus
+>>> Gross operating surplus-; total economy    (UOGD)
+>>> Gross operating surplus-; total economy; adjusted for imputed compensation of self-employed    (UQGD)
+>> Net operating surplus
+>>> Net operating surplus-; total economy    (UOND)
+>>> Net operating surplus-; total economy-; adjusted for imputed compensation of self-employed    (UQND)
+> Gross domestic product per head
+>> GDP at current market prices per head of population
+>>> Gross domestic product at current market prices per head of population    (HVGDP)
+>>> Gross domestic product at current market prices per head of population    (HVGDPR)
+>> GDP at current market prices per person employed
+>>> Gross domestic product at current market prices per person employed    (HVGDE)
+>> GDP at constant market prices per head of population
+>>> Gross domestic product at constant market prices per head of population    (RVGDP)
+>> GDP at constant market prices per person employed
+>>> Gross domestic product at constant market prices per person employed    (RVGDE)
+>>> Gross domestic product at constant market prices per person employed ; Performance relative to the rest of 14 EU countries (EU-15 excl. L): double export weights    (RVGDEQ)
+>>> Gross domestic product at constant market prices per person employed ; Performance relative to the rest of 22 industrial countries: double export weights : EU-14, CHE NOR USA CAN JAP AUS MEX and NZL   (RVGDEQ)
+>> GDP at constant market prices (adjusted for the impact of terms of trade) per head of population
+>>> GDP at constant market prices adjusted for the impact of terms of trade per head of population    (RVGDAP)
+>> GDP at constant market prices (adjusted for the impact of terms of trade) per person employed
+>>> GDP at constant market prices adjusted for the impact of terms of trade per person employed    (RVGDAE)
+> Labour costs; total economy
+>> Compensation of employees
+>>> Compensation of employees; total economy    (UWCD)
+>> Nominal compensation per employee
+>>> Nominal compensation per employee: total economy    (HWCDW)
+>>> Nominal compensation per employee: total economy ; Performance relative to the rest of 14 EU countries (EU-15 excl. L): double export weights    (HWCDWQ)
+>>> Nominal compensation per employee: total economy ; Performance relative to the rest of 22 industrial countries: double export weights : EU-14, CHE NOR USA CAN JAP AUS MEX and NZL   (HWCDWQ)
+>> Real compensation per employee
+>>> Real compensation per employee, deflator private consumption; total economy    (RWCDC)
+>>> Real compensation per employee, deflator GDP; total economy    (RWCDV)
+>>> Real compensation per employee, deflator GDP: total economy ; Performance relative to the rest of 14 EU countries (EU-15 excl. L): double export weights    (RWCDVQ)
+>>> Real compensation per employee, deflator GDP: total economy ; Performance relative to the rest of 22 industrial countries: double export weights : EU-14, CHE NOR USA CAN JAP AUS MEX and NZL   (RWCDVQ)
+>> Adjusted wage share
+>>> Adjusted wage share total economy    (ALCD0)
+>>> Adjusted wage share; total economy    (ALCD2)
+>> Nominal unit labour costs
+>>> Nominal unit labour costs; total economy    (PLCD)
+>>> Nominal unit labour costs: total economy ; Performance relative to the rest of 14 EU countries (EU-15 excl. L): double export weights    (PLCDQ)
+>>> Nominal unit labour costs: total economy ; Performance relative to the rest of 22 industrial countries: double export weights : EU-14, CHE NOR USA CAN JAP AUS MEX and NZL   (PLCDQ)
+>> Real unit labour costs
+>>> Real unit labour costs total economy    (QLCD)
+>>> Real unit labour costs: total economy ; Performance relative to the rest of 14 EU countries (EU-15 excl. L): double export weights    (QLCDQ)
+>>> Real unit labour costs: total economy ; Performance relative to the rest of 22 industrial countries: double export weights : EU-14, CHE NOR USA CAN JAP AUS MEX and NZL   (QLCDQ)
+> Capital stock
+>> Net capital stock at constant prices; total economy
+>>> Net capital stock at constant prices; total economy   (OKND)
+>> Net capital stock at constant prices per person employed
+>>> Net capital stock at constant prices per person employed; total economy (Capital intensity)    (RKNDE)
+>> GDP at constant market prices per unit of net capital stock; total economy
+>>> Gross domestic product at constant market prices per unit of net capital stock (Capital productivity) (AVGDK )
+>>> Factor productivity (Total, labour share and capital share)
+>>> Labour share in total factor productivity: total economy    (ZVGDE)
+>>> Total factor productivity: total economy    (ZVGDF)
+>>> Capital share in total factor productivity: total economy    (ZVGDK)
+>> Labour-capital substitution
+>>> Labour-capital substitution: total economy    (ZKNDE)
+>> Capital-labour substitution
+>>> Capital-labour substitution: total economy    (ZEKND)
+>> Marginal efficiency of capital
+>>> Marginal efficiency of capital; total economy    (AKGDV)
+>> Net returns on net capital stock
+>>> Net returns on net capital stock; total economy    (APNDK)
+> Exports and imports of goods and services
+>> Exports of goods and services
+>>> Exports of goods and services at constant prices    (OXGS)
+>>> Price deflator exports of goods and services    (PXGS)
+>>> Exports of goods and services at current prices (National accounts)    (UXGS)
+>>> Export markets: Export weighted imports ; Goods and services at constant prices: 23 industrial markets (EU-14, CHE NOR USA CAN JAP AUS MEX NZL and TUR)   (VMGSW)
+>>> Market performance of exports of goods and services on export weighted imports of goods and services ; 23 industrial markets (EU-14, CHE NOR USA CAN JAP AUS MEX NZL and TUR)   (VXGSP)
+>>> Exports of goods and services at constant prices ; Performance relative to the rest of 14 EU countries (EU-15 excl. L): double export weights    (OXGSQ)
+>>> Price deflator exports of goods and services ; Performance relative to the rest of 14 EU countries (EU-15 excl. L): double export weights    (PXGSQ)
+>>> Exports of goods and services at constant prices ; Performance relative to the rest of 22 industrial countries: double export weights : EU-14, CHE NOR USA CAN JAP AUS MEX and NZL   (OXGSQ)
+>>> Price deflator exports of goods and services ; Performance relative to the rest of 22 industrial countries: double export weights : EU-14, CHE NOR USA CAN JAP AUS MEX and NZL   (PXGSQ)
+>> Imports of goods and services
+>>> Imports of goods and services at constant prices    (OMGS)
+>>> Price deflator imports of goods and services    (PMGS)
+>>> Imports of goods and services at current prices (National accounts)    (UMGS)
+>>> Terms of trade (goods and services)
+>>> Terms of trade goods and services (National accounts; 1995 = 100)    (APGS)
+>>> Impact of terms of trade goods and services on real income    (APTA)
+>> Exports of goods
+>>> Exports of goods at constant prices    (OXGN)
+>>> Price deflator exports of goods    (PXGN)
+>>> Exports of goods at current prices (National accounts)    (UXGN)
+>> Imports of goods
+>>> Imports of goods at constant prices    (OMGN)
+>>> Price deflator imports of goods    (PMGN)
+>>> Imports of goods at current prices (National accounts)    (UMGN)
+>>> Terms of trade (goods)
+>>> Terms of trade goods (National accounts)    (APGN)
+> Balances with the rest of the world
+>> Net exports of goods and services
+>>> Net exports of goods and services at current prices (National accounts)    (UBGS)
+>> Net exports of goods
+>>> Net exports of goods at current prices (National accounts)    (UBGN)
+>> Balance of primary income from the rest of the world
+>>> Net factor income from the Rest of the world (National accounts)    (UBRA)
+>> Balance of current transfers with the rest of the world
+>>> Net current transfers from the rest of the world (National accounts)    (UBTA)
+>> Balance on current transactions with the rest of the world
+>>> Balance on current transactions with the rest of the world (National accounts)    (UBCA)
+>> Balance of capital transfers with the rest of the world
+>>> Net capital transactions with the rest of the world (National accounts)    (UBKA)
+>> Net lending (+) or net borrowing (-) of the nation
+>>> Net lending (+) or net borrowing (-); total economy    (UBLA)
+> Foreign trade at current prices
+>> Exports goods (FOB) total
+>>> Total exports of goods (FOB); Foreign trade statistics    (DXGT)
+>>> Total exports of goods excluding energy products; Foreign trade statistics    (DXGT3)
+>> Exports goods (FOB) intra EU
+>>> Intra EU exports of goods; Foreign trade statistics    (DXGI)
+>>> Intra EU exports of goods excluding energy products; Foreign trade statistics    (DXGI3)
+>> Exports goods (FOB) extra EU
+>>> Extra EU exports of goods; Foreign trade statistics    (DXGE)
+>>> Extra EU exports of goods excluding energy products; Foreign trade statistics    (DXGE3)
+>> Imports goods (CIF) total
+>>> Total imports of goods (CIF) ; Foreign trade statistics    (DMGT)
+>>> Total imports of goods excluding energy products; Foreign trade statistics    (DMGT3)
+>> Imports goods (CIF) intra EU
+>>> Intra EU imports of goods (CIF); Foreign trade statistics    (DMGI)
+>>> Intra EU imports of goods excluding energy products; Foreign trade statistics    (DMGI3)
+>> Imports goods (CIF) extra EU
+>>> Extra EU imports of goods; Foreign trade statistics    (DMGE)
+>>> Extra EU imports of goods excluding energy products; Foreign trade statistics    (DMGE3)
+>> Foreign trade shares in world trade
+>>> Average share of imports and exports of goods in world trade excluding intra EU trade; Foreign trade statistics    (AAGE)
+>>> Average share of imports and exports of goods in world trade including intra EU trade; Foreign trade statistics    (AAGT)
+>>> Share of imports of goods in world imports excluding intra EU imports ; Foreign trade statistics    (AMGE)
+>>> Share of imports of goods in world imports including intra EU imports-; Foreign trade statistics    (AMGT)
+>>> Share of exports of goods in world exports excluding intra EU exports; Foreign trade statistics    (AXGE)
+>>> Share of exports of goods in world exports including intra EU exports; Foreign trade statistics    (AXGT)
+>>> National accounts by branch of activity (Part I)
+>> Occupied population
+>>> Employment, full-time equivalents agriculture, forestry and fishery products (National accounts)    (FET1)
+>>> Employment, full-time equivalents; industry excluding building and construction (National accounts)    (FET2)
+>>> Employment, full-time equivalents; building and construction (National accounts)    (FET4)
+>>> Employment, full-time equivalents; services (National accounts)    (FET5)
+>>> Employment, full-time equivalents; manufacturing industry (National accounts)    (FETM)
+>>> Employment, persons; agriculture, forestry and fishery products (National accounts)    (NET1)
+>>> Employment, persons; industry excluding building and construction (National accounts)    (NET2)
+>>> Employment, persons; building and construction (National accounts)    (NET4)
+>>> Employment, persons; services (National accounts)    (NET5)
+>>> Employment, persons; manufacturing industry (National accounts)    (NETM)
+>> Wage and salary earners
+>>> Employees, full-time equivalents; agriculture, forestry and fishery products (National accounts)    (FWT1)
+>>> Employees, full-time equivalents; industry excluding building and construction (National accounts)    (FWT2)
+>>> Employees, full-time equivalents; building and construction (National accounts)    (FWT4)
+>>> Employees, full-time equivalents; services (National accounts)    (FWT5)
+>>> Employees, full-time equivalents; manufacturing industry (National accounts)    (FWTM)
+>>> Employees, persons: agriculture, forestry and fishery products (National accounts)    (NWT1)
+>>> Employees, persons; industry excluding building and construction (National accounts)    (NWT2)
+>>> Employees, persons; building and construction (National accounts)    (NWT4)
+>>> Employees, persons; services (National accounts)    (NWT5)
+>>> Employees, persons; manufacturing industry (National accounts)    (NWTM)
+>> Gross value added at current prices
+>>> Gross value added at current prices; total of branches    (UVG0)
+>>> Gross value added at current prices; agriculture, forestry and fishery products    (UVG1)
+>>> Gross value added at current prices; industry excluding building and construction    (UVG2)
+>>> Gross value added at current prices; building and construction    (UVG4)
+>>> Gross value added at current prices; services    (UVG5)
+>>> Gross value added at current prices; manufacturing industry    (UVGM)
+>> Gross value added at current prices per person employed
+>>> Gross value added at current prices per person employed; agriculture, forestry and fishery products    (HVG1E)
+>>> Gross value added at current prices per person employed; industry excluding building and construction    (HVG2E)
+>>> Gross value added at current prices per person employed; building and construction    (HVG4E)
+>>> Gross value added at current prices per person employed; services    (HVG5E)
+>>> Gross value added at current prices per person employed; manufacturing industry    (HVGME)
+>> Gross value added at current prices per employee
+>>> Gross value added at current prices per employee; manufacturing industry    (HVGMW)
+>> Gross value added at constant prices
+>>> Gross value added at constant prices; total of branches    (OVG0)
+>>> Gross value added at constant prices; agriculture, forestry and fishery products    (OVG1)
+>>> Gross value added at constant prices industry excluding building and construction    (OVG2)
+>>> Gross value added at constant prices; building and construction    (OVG4)
+>>> Gross value added at constant prices; services    (OVG5)
+>>> Gross value added at constant prices; manufacturing industry    (OVGM)
+>>> National accounts by branch of activity (Part II)
+>> Gross value added at constant prices per person employed
+>>> Real unit labour costs; manufacturing industry    (QLCM)
+>>> Gross value added at constant prices per person employed; agriculture, forestry and fishery products    (RVG1E)
+>>> Gross value added at constant prices per person employed; industry excluding building and construction    (RVG2E)
+>>> Gross value added at constant prices per person employed; building and construction    (RVG4E)
+>>> Gross value added at constant prices per person employed; services    (RVG5E)
+>>> Gross value added at constant prices per person employed; manufacturing industry    (RVGME)
+>> Gross value added at constant prices per employee
+>>> Gross value added at constant prices per employee; manufacturing industry    (RVGMW)
+>> Price deflator gross value added
+>>> Price deflator gross value added; agriculture, forestry and fishery products    (PVG1)
+>>> Price deflator gross value added; industry excluding building and construction    (PVG2)
+>>> Price deflator gross value added; building and construction    (PVG4)
+>>> Price deflator gross value added; services    (PVG5)
+>>> Price deflator gross value added; manufacturing industry    (PVGM)
+>> Industrial production
+>>> Industrial production, construction excluded    (VPRI)
+>> Compensation of employees
+>>> Compensation of employees; agriculture, forestry and fishery products    (UWC1)
+>>> Compensation of employees; industry excluding building and construction    (UWC2)
+>>> Compensation of employees; building and construction    (UWC4)
+>>> Compensation of employees; services    (UWC5)
+>>> Compensation of employees; manufacturing industry    (UWCM)
+>> Nominal compensation per employee
+>>> Nominal compensation per employee; agriculture, forestry and fishery products    (HWC1W)
+>>> Nominal compensation per employee; industry excluding building and construction    (HWC2W)
+>>> Nominal compensation per employee; building and construction    (HWC4W)
+>>> Nominal compensation per employee; services    (HWC5W)
+>>> Nominal compensation per employee; manufacturing industry    (HWCMW)
+>>> Adjusted wage share (manufacturing)
+>>> Adjusted wage share; manufacturing industry    (ALCM)
+>> Unit labour and wage costs
+>>> Nominal unit wage costs; agriculture, forestry and fishery products (1995 = 100)   (PWC1)
+>>> Nominal unit wage costs; industry excluding building and construction (1995 = 100)   (PWC2)
+>>> Nominal unit wage costs; building and construction (1995 = 100)   (PWC4)
+>>> Nominal unit wage costs; services (1995 = 100)   (PWC5)
+>>> Nominal unit wage costs; manufacturing industry (1995 = 100)   (PWCM)
+>>> Nominal unit labour costs; manufacturing industry (1995)   (PLCM)
+> Monetary variables
+>> Nominal exchange rates
+>>> ECU-EUR exchange rates    (XNE)
+>> Nominal exchange rates
+>>> Conversion rates between euro and former euro-zone national currencies (XNEF)
+>> Nominal effective exchange rates
+>>> Nominal effective exchange rates; Performance relative to the rest of 35 industrial countries; double export weights    (XUNNQ)
+>> Effective exchange rates
+>>> Real effective exchange rates ; Performance relative to the rest of 14 EU countries (EU-15 excl. L): double export weights    (XUNRQ)
+>> GDP purchasing power parities
+>>> GDP purchasing power parities    (KNP)
+>> Interest rates
+>>> Nominal long-term interest rates    (ILN)
+>>> Real long-term interest rates, deflator private consumption    (ILRC)
+>>> Real long-term interest rates, deflator GDP    (ILRV)
+>>> Nominal short-term interest rates    (ISN)
+>>> Real short-term interest rates, deflator private consumption    (ISRC)
+>>> Real short-term interest rates, deflator GDP    (ISRV)
+>>> Yield curve    (IYN)
+> Non-financial and financial corporations (S11 + S12)
+>> Revenue
+>>> Other subsidies on production; corporations    (UYVC)
+>>> Net current transfers received; corporations    (UCTRC)
+>>> Net property income; corporations    (UYNC)
+>> Expenditure
+>>> Adjustment for the change in net equity of households in pension funds; corporations    (UEHC)
+>>> Gross capital formation; corporations    (UITC)
+>>> Other capital expenditure, net; corporations    (UKOC)
+>>> Other taxes on production; corporations    (UTVC)
+>>> Current taxes on income and wealth; corporations    (UTYC)
+>>> Compensation of employees-; corporations    (UWCC)
+>> Balances
+>>> Gross value added at basic prices; corporations    (UGVAC)
+>>> Net lending (+) or net borrowing (-); corporations    (UBLC)
+>>> Gross saving; corporations    (USGC)
+>>> Net saving; corporations    (USNC)
+>>> Gross disposable income; corporations    (UVGC)
+>>> Net disposable income; corporations    (UVNC)
+>>> Gross operating surplus; corporations    (UOGC)
+>>> Gross balance of primary income; corporations    (UBGC)
+>>> Net balance of primary income; corporations    (UBNC)
+> Households and NPISH (S14 + S15)
+>> Revenue
+>>> Compensation of employees; households and NPISH    (UWCH)
+>>> Gross wages and salaries; households and NPISH    (UWSH)
+>>> Non-labour income; households and NPISH    (UYOH)
+>>> Net property income; households and NPISH    (UYNH)
+>>> Current transfers received; households and NPISH    (UCTRH)
+>> Expenditure
+>>> Net lending (+) or net borrowing (-); households and NPISH    (UBLH)
+>>> Other capital expenditure, net; households and NPISH    (UKOH)
+>>> Gross saving; households and NPISH    (USGH)
+>>> Current taxes on income and wealth; households and NPISH    (UTYH)
+>>> Current transfers paid; households and NPISH    (UCTPH)
+>> Balances
+>>> Saving rate, gross; households and NPISH    (ASGH)
+>>> Real gross disposable income, deflator private consumption; households and NPISH    (OVGH)
+>>> Net saving; households    (USNH)
+>>> Gross operating surplus and mixed income; households and NPISH    (UOGH)
+>>> Gross disposable income; households and NPISH    (UVGH)
+>>> Final consumption expenditure; households and NPISH    (UCPH0)
+>>> Gross capital formation; households and NPISH    (UITH)
+> General government (S13)
+>> Revenue
+>>> Capital transfers received; general government; ESA 1995    (UKTTG)
+>>> Total revenue; general government; ESA 1995    (URTG)
+>>> Total tax burden excluding imputed social security contributions; total economy; ESA 1995    (UTAT)
+>>> Total tax burden including imputed social security contributions; total economy; ESA 1995    (UTTT)
+>>> Taxes linked to imports and production (indirect taxes); general government; ESA 1995    (UTVG)
+>> Taxes on production and imports comprise:
+>>> Current taxes on income and wealth (direct taxes); general government; ESA 1995    (UTYG)
+>>> Other current revenue; general government; ESA 1995    (UROG)
+>>> Actual social contributions received; general government; ESA 1995    (UTAG)
+>>> Imputed social contributions; general government; ESA 1995    (UTIG)
+>>> Current tax burden; total economy; ESA 1995    (UTCT)
+>>> Capital taxes; general government; ESA 1995    (UTKG)
+>>> Social contributions received; general government; ESA 1995    (UTSG)
+>>> Total current revenue; general government; ESA 1995    (URCG)
+>> Expenditure
+>>> Implicit interest rate; general government; -ESA 1995    (AYIGD)
+>>> Final consumption expenditure of general government; ESA 1995    (UCTG0)
+>>> Interest; general government; ESA 1995    (UYIG)
+>>> Interest- including flows on swaps and FRAs (Forward Rate Agreements); general government; Excessive deficit procedure    (UYIGE)
+>>> Social transfers other than in kind; general government-; ESA 1995    (UYTGH)
+>>> Subsidies; general government; ESA 1995    (UYVG)
+>>> Real total expenditure of general government, deflator GDP; ESA 1995    (OUTG)
+>>> Real total expenditure excluding interest of general government, deflator GDP; ESA 1995    (OUTGI)
+>>> Collective consumption expenditure; ESA 1995    (UCCG0)
+>>> Total current expenditure excluding interest; general government; ESA 1995    (UUCGI)
+>>> Total expenditure excluding interest; general government; ESA 1995    (UUTGI)
+>>> Social transfers in kind; ESA 1995    (UCIG0)
+>>> Compensation of employees; general government; ESA 1995    (UWCG)
+>>> Other current expenditure; general government; ESA 1995    (UUOG)
+>>> Total current expenditure; general government; ESA 1995    (UUCG)
+>>> Total current expenditure; general government; Excessive deficit procedure (UUCGE)
+>>> Capital transfers paid; general government; ESA 1995    (UKTGT)
+>>> Gross fixed capital formation; general government; ESA 1995    (UIGG0)
+>>> Total expenditure; general government; ESA 1995    (UUTG)
+>>> Total expenditure; general government; Excessive deficit procedure  (UUTGE)
+>>> Other capital expenditure, including capital transfers; general government; ESA 1995    (UKOG)
+>> Balances
+>>> Net lending (+) or net borrowing (-); general government; ESA 1995    (UBLG)
+>>> Net lending (+) or net borrowing (-); general government; Excessive deficit procedure    (UBLGE)
+>>> Net lending (+) or net borrowing (-) excluding interest; general government; ESA 1995    (UBLGI)
+>>> Net lending (+) or net borrowing (-) excluding interest: general government; Excessive deficit procedure (UBLGIE)
+>>> Gross saving; general government; ESA 1995    (USGG)
+>>> Gross saving; general government; Excessive deficit procedure (USGGE)
+>>> Gross disposable income; general government; ESA 1995    (UVGG)
+>>> Net disposable income; general government; ESA 1995    (UVNG)
+>>> Net lending (+) or net borrowing (-) excluding gross fixed capital formation; general government; ESA 1995    (UBLGG)
+>>> Public finance (other variables)
+>> Cyclical adjustment of public finance variables based on TREND GDP
+>>> Cyclically adjusted net lending (+) or net borrowing (-) of general government; ESA 1995    (UBLGA)
+>>> Net lending (+) or net borrowing (-) excluding interest of general government adjusted for the cyclical component; ESA 1995    (UBLGB)
+>>> Cyclical component of net lending (+) or net borrowing (-) of general government; ESA 1995    (UBLGC)
+>>> Cyclically adjusted total revenue of general government; ESA 1995    (URTGA)
+>>> Cyclical component of revenue of general government; ESA 1995    (UTCGC)
+>>> Cyclical component of expenditure of general government    (UUCGC)
+>>> Cyclically adjusted total expenditure of general government; ESA 1995    (UUTGA)
+>>> Total expenditure excluding interest of general government adjusted for the cyclical component; ESA 1995    (UUTGB)
+>> Cyclical adjustment of public finance variables based on POTENTIAL GDP
+>>> Cyclically adjusted net lending (+) or net borrowing (-) of general government; ESA 1995    (UBLGAP)
+>>> Net lending (+) or net borrowing (-) excluding interest of general government adjusted for the cyclical component; ESA 1995    (UBLGBP)
+>>> Cyclical component of net lending (+) or net borrowing (-) of general government; ESA 1995    (UBLGCP)
+>>> Cyclically adjusted total revenue of general government; ESA 1995    (URTGAP)
+>>> Cyclical component of revenue of general government; ESA 1995    (UTCGCP)
+>>> Cyclical component of expenditure of general government    (UUCGCP)
+>>> Cyclically adjusted total expenditure of general government; ESA 1995    (UUTGAP)
+>>> Total expenditure excluding interest of general government adjusted for the cyclical component; ESA 1995    (UUTGBP)
+>> Gross public debt
+>>> Snow ball effect on general government consolidated gross debt; ESA 1995    (ADGGI)
+>>> Impact of the nominal increase of GDP on general government consolidated gross debt; ESA 1995    (ADGGU)
+>>> Stock-flow adjustment on general government consolidated gross debt; ESA 1995    (UDGGS)
+>>> General government consolidated gross debt; ESA 1995    (UDGG)
+>>> General government consolidated gross debt ; EU-Member States: ESA 95 and former definition (linked series)    (UDGGL)
+>>> General government consolidated gross debt; ESA 1995    (UDGGR)
