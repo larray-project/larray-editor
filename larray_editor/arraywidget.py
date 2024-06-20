@@ -1136,14 +1136,14 @@ class ArrayEditorWidget(QWidget):
 
     def plot(self):
         from larray_editor.utils import show_figure
-        from larray_editor.editor import AbstractEditor, MappingEditor
+        from larray_editor.editor import AbstractEditorWindow, MappingEditorWindow
         raw_data, axes_names, vlabels, hlabels = self._selection_data()
         try:
             figure = self.data_adapter.plot(raw_data, axes_names, vlabels, hlabels)
             widget = self
-            while widget is not None and not isinstance(widget, AbstractEditor) and callable(widget.parent):
+            while widget is not None and not isinstance(widget, AbstractEditorWindow) and callable(widget.parent):
                 widget = widget.parent()
-            title = widget.current_expr_text if isinstance(widget, MappingEditor) else None
+            title = widget.current_expr_text if isinstance(widget, MappingEditorWindow) else None
             show_figure(self, figure, title)
         except ImportError:
             QMessageBox.critical(self, "Error", "plot() is not available because matplotlib is not installed")

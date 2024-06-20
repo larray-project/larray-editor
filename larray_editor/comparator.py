@@ -7,7 +7,7 @@ from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QHBoxL
 
 from larray_editor.utils import replace_inf, _
 from larray_editor.arraywidget import ArrayEditorWidget
-from larray_editor.editor import AbstractEditor, DISPLAY_IN_GRID
+from larray_editor.editor import AbstractEditorWindow, DISPLAY_IN_GRID
 
 
 class ComparatorWidget(QWidget):
@@ -173,13 +173,13 @@ class ComparatorWidget(QWidget):
         self.arraywidget.set_data(array, bg_value=bg_value)
 
 
-class ArrayComparator(AbstractEditor):
+class ArrayComparatorWindow(AbstractEditorWindow):
     """Array Comparator Dialog"""
 
     name = "Array Comparator"
 
     def __init__(self, parent=None):
-        AbstractEditor.__init__(self, parent, editable=False, file_menu=False, help_menu=True)
+        AbstractEditorWindow.__init__(self, parent, editable=False, file_menu=False, help_menu=True)
         self.setup_menu_bar()
 
     def _setup_and_check(self, widget, data, title, readonly, **kwargs):
@@ -215,13 +215,13 @@ class ArrayComparator(AbstractEditor):
         layout.addWidget(comparator_widget)
 
 
-class SessionComparator(AbstractEditor):
+class SessionComparatorWindow(AbstractEditorWindow):
     """Session Comparator Dialog"""
 
     name = "Session Comparator"
 
     def __init__(self, parent=None):
-        AbstractEditor.__init__(self, parent, editable=False, file_menu=False, help_menu=True)
+        AbstractEditorWindow.__init__(self, parent, editable=False, file_menu=False, help_menu=True)
         self.setup_menu_bar()
 
         self.sessions = None
@@ -294,4 +294,4 @@ class SessionComparator(AbstractEditor):
 
     def closeEvent(self, event):
         self.save_widgets_state_and_geometry()
-        AbstractEditor.closeEvent(self, event)
+        AbstractEditorWindow.closeEvent(self, event)

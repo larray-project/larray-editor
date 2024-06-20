@@ -89,7 +89,7 @@ HISTORY_VARS_PATTERN = re.compile(r'_i?\d+')
 DISPLAY_IN_GRID = (la.Array, np.ndarray)
 
 
-class AbstractEditor(QMainWindow):
+class AbstractEditorWindow(QMainWindow):
     """Abstract Editor Window"""
 
     name = "Editor"
@@ -343,13 +343,13 @@ class AbstractEditor(QMainWindow):
         raise NotImplementedError()
 
 
-class MappingEditor(AbstractEditor):
+class MappingEditorWindow(AbstractEditorWindow):
     """Session Editor Dialog"""
 
     name = "Session Editor"
 
     def __init__(self, parent=None):
-        AbstractEditor.__init__(self, parent, editable=True, file_menu=True, help_menu=True)
+        AbstractEditorWindow.__init__(self, parent, editable=True, file_menu=True, help_menu=True)
 
         # to handle recently opened data/script files
         self.recent_data_files = RecentlyUsedList("recentFileList", self, self.open_recent_file)
@@ -1209,13 +1209,13 @@ class MappingEditor(AbstractEditor):
                 self._open_file(filepath)
 
 
-class ArrayEditor(AbstractEditor):
+class ArrayEditorWindow(AbstractEditorWindow):
     """Array Editor Dialog"""
 
     name = "Array Editor"
 
     def __init__(self, parent=None):
-        AbstractEditor.__init__(self, parent, editable=True)
+        AbstractEditorWindow.__init__(self, parent, editable=True)
         self.setup_menu_bar()
 
     def _setup_and_check(self, widget, data, title, readonly, minvalue=None, maxvalue=None):

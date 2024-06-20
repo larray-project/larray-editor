@@ -7,7 +7,7 @@ from pathlib import Path
 from qtpy.QtWidgets import QApplication
 import larray as la
 
-from larray_editor.editor import REOPEN_LAST_FILE, MappingEditor, ArrayEditor, AbstractEditor
+from larray_editor.editor import REOPEN_LAST_FILE, MappingEditorWindow, ArrayEditorWindow, AbstractEditorWindow
 from larray_editor.traceback_tools import extract_stack, extract_tb, StackSummary
 from larray_editor.utils import _allow_interrupt_qt
 
@@ -36,11 +36,11 @@ def _show_dialog(app_name, create_dialog_func, *args, **kwargs):
         # activeWindow is defined only if the Window has keyboard focus,
         # so it could be None even if the app has a window open
         parent = qt_app.activeWindow()
-        if not isinstance(parent, AbstractEditor):
+        if not isinstance(parent, AbstractEditorWindow):
             # We use topLevelWidgets and not topLevelWindows because the later
             # returns QWindow instances whereas we actually need a QWidget
             # instance (of which QMainWindow is a descendant) as parent.
-            app_windows = [widget for widget in qt_app.topLevelWidgets() if isinstance(widget, AbstractEditor)]
+            app_windows = [widget for widget in qt_app.topLevelWidgets() if isinstance(widget, AbstractEditorWindow)]
             parent = app_windows[0] if len(app_windows) else None
 
     if 'depth' in kwargs:
@@ -182,12 +182,12 @@ def create_edit_dialog(parent, obj=None, title='', minvalue=None, maxvalue=None,
         title = _get_title(obj, depth=depth + 1)
 
     if obj is REOPEN_LAST_FILE or isinstance(obj, (str, Path, la.Session)):
-        dlg = MappingEditor(parent)
+        dlg = MappingEditorWindow(parent)
         assert minvalue is None and maxvalue is None
         setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, caller_info=caller_info,
                                        add_larray_functions=add_larray_functions)
     else:
-        dlg = ArrayEditor(parent)
+        dlg = ArrayEditorWindow(parent)
         setup_ok = dlg.setup_and_check(obj, title=title, readonly=readonly, caller_info=caller_info,
                                        minvalue=minvalue, maxvalue=maxvalue)
     if setup_ok:
@@ -198,7 +198,7 @@ def create_edit_dialog(parent, obj=None, title='', minvalue=None, maxvalue=None,
 
 def create_debug_dialog(parent, stack_summary, stack_pos=None):
     assert isinstance(stack_summary, StackSummary)
-    dlg = MappingEditor(parent)
+    dlg = MappingEditorWindow(parent)
     if dlg.setup_and_check(stack_summary, stack_pos=stack_pos):
         return dlg
     else:
@@ -214,12 +214,12 @@ def create_compare_dialog(parent, *args, title='', names=None, depth=0, display_
 
     compare_sessions = any(isinstance(a, (la.Session, str, Path)) for a in args)
     if compare_sessions:
-        from larray_editor.comparator import SessionComparator
-        dlg = SessionComparator(parent)
+        from larray_editor.comparator import SessionComparatorWindow
+        dlg = SessionComparatorWindow(parent)
         default_name = 'session'
     else:
-        from larray_editor.comparator import ArrayComparator
-        dlg = ArrayComparator(parent)
+        from larray_editor.comparator import ArrayComparatorWindow
+        dlg = ArrayComparatorWindow(parent)
         default_name = 'array'
 
     if names is None:
