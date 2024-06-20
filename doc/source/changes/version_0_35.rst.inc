@@ -54,4 +54,6 @@ Miscellaneous improvements
 Fixes
 ^^^^^
 
+* fixed :py:obj:`compare()` colors when the only difference is nans on either side.
+
 * fixed something (closes :editor_issue:`1`).

@@ -145,6 +145,10 @@ class ComparatorWidget(QWidget):
             if maxabsreldiff:
                 # scale reldiff to range 0-1 with 0.5 for reldiff = 0
                 self.bg_value = (reldiff / maxabsreldiff) / 2 + 0.5
+            # if the only differences are nans on either side
+            elif not self.isequal.all():
+                # use white (0.5) everywhere except where reldiff is nan, so that nans are grey
+                self.bg_value = reldiff + 0.5
             else:
                 # do NOT use full_like as we don't want to inherit array dtype
                 self.bg_value = la.full(self.array.axes, 0.5)
