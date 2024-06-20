@@ -75,7 +75,7 @@ except ImportError:
 REOPEN_LAST_FILE = object()
 
 assignment_pattern = re.compile(r'[^\[\]]+[^=]=[^=].+')
-setitem_pattern = re.compile(r'(.+)\[.+\][^=]=[^=].+')
+setitem_pattern = re.compile(r'(\w+)(\.i|\.iflat|\.points|\.ipoints)?\[.+\][^=]=[^=].+')
 history_vars_pattern = re.compile(r'_i?\d+')
 # XXX: add all scalars except strings (from numpy or plain Python)?
 # (long) strings are not handled correctly so should NOT be in this list
@@ -695,9 +695,9 @@ class MappingEditor(AbstractEditor):
         # 'In' and '_ih' point to the same object (but '_ih' is supposed to be the non-overridden one)
         cur_input_num = len(user_ns['_ih']) - 1
         last_input = user_ns['_ih'][-1]
-        if setitem_pattern.match(last_input):
-            m = setitem_pattern.match(last_input)
-            varname = m.group(1)
+        setitem_match = setitem_pattern.match(last_input)
+        if setitem_match:
+            varname = setitem_match.group(1)
             # otherwise it should have failed at this point, but let us be sure
             if varname in clean_ns:
                 if self._display_in_grid(varname, clean_ns[varname]):
