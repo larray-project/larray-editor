@@ -457,6 +457,8 @@ class _LazyNone(object):
 def replace_inf(value):
     """Replace -inf/+inf in array with respectively min(array_without_inf)/max(array_without_inf).
 
+    It leaves nans intact.
+
     Parameters
     ----------
     value : np.ndarray or any compatible type
@@ -469,8 +471,8 @@ def replace_inf(value):
 
     Examples
     --------
-    >>> replace_inf(np.array([-5, np.inf, 0, -np.inf, -4, 5]))
-    (array([-5.,  5.,  0., -5., -4.,  5.]), -5.0, 5.0)
+    >>> replace_inf(np.array([-5, np.inf, 0, -np.inf, -4, np.nan, 5]))
+    (array([ -5.,   5.,   0.,  -5.,  -4.,  nan,   5.]), -5.0, 5.0)
     """
     value = value.copy()
     # replace -inf by min(value)
