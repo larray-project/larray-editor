@@ -1055,10 +1055,18 @@ class ArrayEditorWidget(QWidget):
         row_min, row_max, col_min, col_max = bounds
         raw_data = self.model_data.get_values(row_min, col_min, row_max, col_max)
         if headers:
+            # FIXME: using data_adapter.ndim here and in the vlabels line below is
+            #        inherently buggy, because this does not take filter into account,
+            #        which should be the case for selection-related stuff which work
+            #        on visible data
             if not self.data_adapter.ndim:
                 return raw_data, None, None, None
             axes_names = self.model_axes.get_values()
-            hlabels = [label[0] for label in self.model_hlabels.get_values(top=col_min, bottom=col_max)]
+            if len(axes_names):
+                hlabels = [label[0]
+                           for label in self.model_hlabels.get_values(top=col_min, bottom=col_max)]
+            else:
+                hlabels = []
             vlabels = self.model_vlabels.get_values(left=row_min, right=row_max) if self.data_adapter.ndim > 1 else []
             return raw_data, axes_names, vlabels, hlabels
         else:

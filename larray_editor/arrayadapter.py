@@ -340,6 +340,10 @@ class AbstractAdapter:
         -------
         itertools.chain
         """
+        # FIXME: this function does not support None axes_names, vlabels and hlabels
+        #        which _selection_data() produces in some cases (notably when working
+        #        on a scalar array). Unsure if we should fix _selection_data or this
+        #        method though.
         from itertools import chain
         topheaders = [axes_names + hlabels]
         if self.ndim == 1:
