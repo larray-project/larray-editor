@@ -21,14 +21,6 @@ filterwarnings = [
 
 
 [tool.ruff]
-# Enable Pyflakes `E` and `F` codes by default.
-select = ["E", "F"]
-ignore = []
-
-# Allow autofix for all enabled rules (when `--fix`) is provided.
-# fixable = ["A", "B", "C", "D", "E", "F", "..."]
-# unfixable = []
-
 # Exclude a variety of commonly ignored directories.
 exclude = [
     ".eggs",
@@ -39,6 +31,15 @@ exclude = [
     "build",
     "dist",
 ]
-per-file-ignores = {}
-
 line-length = 120
+
+[tool.ruff.lint]
+# Enable Pyflakes `E` and `F` codes by default.
+select = ["E", "F"]
+ignore = []
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+# fixable = ["A", "B", "C", "D", "E", "F", "..."]
+# unfixable = []
+
+per-file-ignores = {}
