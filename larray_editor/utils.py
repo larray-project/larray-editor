@@ -467,7 +467,9 @@ def replace_inf(value):
     Returns
     -------
     (np.ndarray, float, float)
-        array with replaced values and minimum and maximum values excluding NaN and infinite
+        array with infinite values replaced by the min and maximum respectively
+        minimum finite value
+        maximum finite value
 
     Examples
     --------
@@ -476,13 +478,13 @@ def replace_inf(value):
     """
     value = value.copy()
     # replace -inf by min(value)
-    notneginf = value != -np.inf
-    minvalue = np.nanmin(value[notneginf])
-    value[~notneginf] = minvalue
+    isneginf = value == -np.inf
+    minvalue = np.nanmin(value[~isneginf])
+    value[isneginf] = minvalue
     # replace +inf by max(value)
-    notposinf = value != np.inf
-    maxvalue = np.nanmax(value[notposinf])
-    value[~notposinf] = maxvalue
+    isposinf = value == np.inf
+    maxvalue = np.nanmax(value[~isposinf])
+    value[isposinf] = maxvalue
     return value, minvalue, maxvalue
 
 
