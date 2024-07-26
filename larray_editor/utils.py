@@ -32,18 +32,18 @@ except ImportError:
 logger = logging.getLogger("editor")
 
 
-core_dependencies = ['numpy', 'pandas', 'matplotlib', 'pytables', 'xlwings', 'xlsxwriter', 'xlrd', 'openpyxl']
-editor_dependencies = ['larray', 'larray_eurostat', 'qt'] + core_dependencies
-eurostat_dependencies = ['larray']
-dependencies = {'editor': editor_dependencies, 'larray': core_dependencies, 'larray_eurostat': eurostat_dependencies}
+CORE_DEPENDENCIES = ['matplotlib', 'numpy', 'openpyxl', 'pandas', 'pytables', 'xlsxwriter', 'xlrd', 'xlwings']
+EDITOR_DEPENDENCIES = ['larray', 'larray_eurostat', 'qt'] + CORE_DEPENDENCIES
+EUROSTAT_DEPENDENCIES = ['larray']
+DEPENDENCIES = {'editor': EDITOR_DEPENDENCIES, 'larray': CORE_DEPENDENCIES, 'larray_eurostat': EUROSTAT_DEPENDENCIES}
 
 
-doc = "http://larray.readthedocs.io/en/{version}"
-urls = {"fpb": "http://www.plan.be/index.php?lang=en",
+DOC = "http://larray.readthedocs.io/en/{version}"
+URLS = {"fpb": "http://www.plan.be/index.php?lang=en",
         "GPL3": "https://www.gnu.org/licenses/gpl-3.0.html",
-        "doc_index": f"{doc}/index.html",
-        "doc_tutorial": f"{doc}/tutorial.html",
-        "doc_api": f"{doc}/api.html",
+        "doc_index": f"{DOC}/index.html",
+        "doc_tutorial": f"{DOC}/tutorial.html",
+        "doc_api": f"{DOC}/api.html",
         "new_issue_editor": "https://github.com/larray-project/larray-editor/issues/new",
         "new_issue_larray": "https://github.com/larray-project/larray/issues/new",
         "new_issue_larray_eurostat": "https://github.com/larray-project/larray_eurostat/issues/new",
@@ -74,9 +74,11 @@ def get_module_version(module_name):
 
 
 def get_versions(package):
-    """Get version information of dependencies of a package"""
+    """Get version information of dependencies of one of our packages
+    `package` can be one of 'editor', 'larray' or 'larray_eurostat'
+    """
     import platform
-    modules = {'editor': 'larray_editor', 'qt': 'qtpy.QtCore', 'pytables': 'tables'}
+    module_with_version = {'editor': 'larray_editor', 'qt': 'qtpy.QtCore', 'pytables': 'tables'}
 
     versions = {
         'system': platform.system() if sys.platform != 'darwin' else 'Darwin',
@@ -84,9 +86,9 @@ def get_versions(package):
         'bitness': 64 if sys.maxsize > 2**32 else 32,
     }
 
-    versions[package] = get_module_version(modules.get(package, package))
-    for dep in dependencies[package]:
-        versions[dep] = get_module_version(modules.get(dep, dep))
+    versions[package] = get_module_version(module_with_version.get(package, package))
+    for dep in DEPENDENCIES[package]:
+        versions[dep] = get_module_version(module_with_version.get(dep, dep))
 
     return versions
 
@@ -95,7 +97,7 @@ def get_documentation_url(key):
     version = get_module_version('larray')
     if version == 'N/A':
         version = 'stable'
-    return urls[key].format(version=version)
+    return URLS[key].format(version=version)
 
 
 # Note: string and unicode data types will be formatted with '%s' (see below)
