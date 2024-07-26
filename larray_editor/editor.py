@@ -32,8 +32,8 @@ import numpy as np
 import larray as la
 
 from larray_editor.traceback_tools import StackSummary
-from larray_editor.utils import (_, create_action, show_figure, ima, commonpath, dependencies,
-                                 get_versions, get_documentation_url, urls, RecentlyUsedList)
+from larray_editor.utils import (_, create_action, show_figure, ima, commonpath, DEPENDENCIES,
+                                 get_versions, get_documentation_url, URLS, RecentlyUsedList)
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayCommand
 
@@ -236,11 +236,11 @@ class AbstractEditor(QMainWindow):
 * Python {python} on {system} {bitness:d}bits
 """
             issue_template += f"* {package} {{{package}}}\n"
-            for dep in dependencies[package]:
+            for dep in DEPENDENCIES[package]:
                 issue_template += f"* {dep} {{{dep}}}\n"
             issue_template = issue_template.format(**versions)
 
-            url = QUrl(urls[f'new_issue_{package}'])
+            url = QUrl(URLS[f'new_issue_{package}'])
             from qtpy.QtCore import QUrlQuery
             query = QUrlQuery()
             query.addQueryItem("body", quote(issue_template))
@@ -250,15 +250,15 @@ class AbstractEditor(QMainWindow):
         return _report_issue
 
     def open_users_group(self):
-        QDesktopServices.openUrl(QUrl(urls['users_group']))
+        QDesktopServices.openUrl(QUrl(URLS['users_group']))
 
     def open_announce_group(self):
-        QDesktopServices.openUrl(QUrl(urls['announce_group']))
+        QDesktopServices.openUrl(QUrl(URLS['announce_group']))
 
     def about(self):
         """About Editor"""
         kwargs = get_versions('editor')
-        kwargs.update(urls)
+        kwargs.update(URLS)
         message = """\
 <p><b>LArray Editor</b> {editor}
 <br>The Graphical User Interface for LArray
@@ -269,7 +269,7 @@ class AbstractEditor(QMainWindow):
 <ul>
 <li>Python {python} on {system} {bitness:d}bits</li>
 """
-        for dep in dependencies['editor']:
+        for dep in DEPENDENCIES['editor']:
             message += f"<li>{dep} {kwargs[dep]}</li>\n"
         message += "</ul>"
         QMessageBox.about(self, _("About LArray Editor"), message.format(**kwargs))
