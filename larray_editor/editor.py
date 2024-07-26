@@ -77,7 +77,7 @@ except ImportError:
 REOPEN_LAST_FILE = object()
 
 assignment_pattern = re.compile(r'[^\[\]]+[^=]=[^=].+')
-setitem_pattern = re.compile(r'(\w+)(\.i|\.iflat|\.points|\.ipoints)?\[.+\][^=]=[^=].+')
+setitem_pattern = re.compile(r'(\w+)(\.i|\.iflat|\.points|\.ipoints)?\[.+\][^=]*=[^=].+')
 history_vars_pattern = re.compile(r'_i?\d+')
 # XXX: add all scalars except strings (from numpy or plain Python)?
 # (long) strings are not handled correctly so should NOT be in this list
@@ -699,9 +699,13 @@ class MappingEditor(AbstractEditor):
         setitem_match = setitem_pattern.match(last_input)
         if setitem_match:
             varname = setitem_match.group(1)
-            # otherwise it should have failed at this point, but let us be sure
+            # setitem to (i)python special variables do not concern us
             if varname in clean_ns:
                 if self._display_in_grid(varname, clean_ns[varname]):
+                    # For better or worse, _save_data() only saves "displayable data"
+                    # so changes to variables we cannot display do not concern us,
+                    # and this line should not be moved outside the if condition.
+                    self.unsaved_modifications = True
                     # XXX: this completely refreshes the array, including detecting scientific & ndigits, which might
                     # not be what we want in this case
                     self.select_list_item(varname)
