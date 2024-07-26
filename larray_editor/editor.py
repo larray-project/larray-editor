@@ -24,6 +24,8 @@ if sys.platform.startswith("win") and sys.version_info >= (3, 8):
             asyncio.set_event_loop_policy(WindowsSelectorEventLoopPolicy())
 
 import matplotlib
+# explicitly request Qt backend (fixes #278)
+matplotlib.use('QtAgg')
 import matplotlib.axes
 import numpy as np
 
