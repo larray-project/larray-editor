@@ -270,8 +270,7 @@ class AbstractEditor(QMainWindow):
 <li>Python {python} on {system} {bitness:d}bits</li>
 """
         for dep in dependencies['editor']:
-            if kwargs[dep] != 'N/A':
-                message += f"<li>{dep} {{{dep}}}</li>\n"
+            message += f"<li>{dep} {kwargs[dep]}</li>\n"
         message += "</ul>"
         QMessageBox.about(self, _("About LArray Editor"), message.format(**kwargs))
 
