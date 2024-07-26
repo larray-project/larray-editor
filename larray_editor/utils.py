@@ -62,9 +62,10 @@ def get_module_version(module_name):
             from qtpy import API_NAME, PYQT_VERSION  # API_NAME --> PyQt5 or PyQt4
             qt_version = module.__version__
             return f'{qt_version}, {API_NAME} {PYQT_VERSION}'
-        elif '__version__' in dir(module):
+        # at least for matplotlib, we cannot test this using '__version__' in dir(module)
+        elif hasattr(module, '__version__'):
             return module.__version__
-        elif '__VERSION__' in dir(module):
+        elif hasattr(module, '__VERSION__'):
             return module.__VERSION__
         else:
             return 'N/A'
