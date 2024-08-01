@@ -1,6 +1,14 @@
 Change log
 ##########
 
+Version 0.34.6
+==============
+
+In development.
+
+.. include:: ./changes/version_0_34_6.rst.inc
+
+
 Version 0.34.5
 ==============
 
