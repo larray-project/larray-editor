@@ -76,9 +76,13 @@ except ImportError:
 
 REOPEN_LAST_FILE = object()
 
-assignment_pattern = re.compile(r'[^\[\]]+[^=]=[^=].+')
-setitem_pattern = re.compile(r'(\w+)(\.i|\.iflat|\.points|\.ipoints)?\[.+\][^=]*=[^=].+')
-history_vars_pattern = re.compile(r'_i?\d+')
+ASSIGNMENT_PATTERN = re.compile(r'[^\[\]]+[^=]=[^=].+')
+SUBSET_UPDATE_PATTERN = re.compile(r'(\w+)'
+                                   r'(\.i|\.iflat|\.points|\.ipoints)?'
+                                   r'\[.+\]\s*'
+                                   r'([-+*/%&|^><]|//|\*\*|>>|<<)?'
+                                   r'=\s*[^=].*')
+HISTORY_VARS_PATTERN = re.compile(r'_i?\d+')
 # XXX: add all scalars except strings (from numpy or plain Python)?
 # (long) strings are not handled correctly so should NOT be in this list
 # tuple, list
@@ -668,7 +672,7 @@ class MappingEditor(AbstractEditor):
     def line_edit_update(self):
         import larray as la
         last_input = self.eval_box.text()
-        if assignment_pattern.match(last_input):
+        if ASSIGNMENT_PATTERN.match(last_input):
             context = self.data._objects.copy()
             exec(last_input, la.__dict__, context)
             varname = self.update_mapping(context)
@@ -690,13 +694,13 @@ class MappingEditor(AbstractEditor):
         ip_keys = {'In', 'Out', '_', '__', '___', '__builtin__', '_dh', '_ih', '_oh', '_sh', '_i', '_ii', '_iii',
                    'exit', 'get_ipython', 'quit'}
         # '__builtins__', '__doc__', '__loader__', '__name__', '__package__', '__spec__',
-        clean_ns = {k: v for k, v in user_ns.items() if k not in ip_keys and not history_vars_pattern.match(k)}
+        clean_ns = {k: v for k, v in user_ns.items() if k not in ip_keys and not HISTORY_VARS_PATTERN.match(k)}
 
         # user_ns['_i'] is not updated yet (refers to the -2 item)
         # 'In' and '_ih' point to the same object (but '_ih' is supposed to be the non-overridden one)
         cur_input_num = len(user_ns['_ih']) - 1
         last_input = user_ns['_ih'][-1]
-        setitem_match = setitem_pattern.match(last_input)
+        setitem_match = SUBSET_UPDATE_PATTERN.match(last_input)
         if setitem_match:
             varname = setitem_match.group(1)
             # setitem to (i)python special variables do not concern us
