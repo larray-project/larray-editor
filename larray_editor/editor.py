@@ -626,8 +626,8 @@ class MappingEditorWindow(AbstractEditorWindow):
         changed_keys = [k for k in keys_after if value[k] is not self.data.get(k)]
 
         # when a key is re-assigned, it can switch from being displayable to non-displayable or vice versa
-        displayable_keys_before = set(k for k in keys_before if self._display_in_varlist(k, self.data[k]))
-        displayable_keys_after = set(k for k in keys_after if self._display_in_varlist(k, value[k]))
+        displayable_keys_before = {k for k in keys_before if self._display_in_varlist(k, self.data[k])}
+        displayable_keys_after = {k for k in keys_after if self._display_in_varlist(k, value[k])}
         deleted_displayable_keys = displayable_keys_before - displayable_keys_after
         new_displayable_keys = displayable_keys_after - displayable_keys_before
         # this can contain more keys than new_displayble_keys (because of existing keys which changed value)
