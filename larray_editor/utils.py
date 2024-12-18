@@ -229,6 +229,7 @@ class IconManager:
 
 
 ima = IconManager()
+from_hsvf = np.frompyfunc(QColor.fromHsvF, 4, 1)
 
 
 class LinearGradient:
@@ -253,6 +254,8 @@ class LinearGradient:
         # check positions are unique and between 0 and 1
         assert len(np.unique(positions)) == len(positions)
         assert np.all((0 <= positions) & (positions <= 1))
+        assert positions[0] == 0
+        assert positions[-1] == 1
         self.positions = positions
         self.colors = np.array(colors)
         if nan_color is None:
@@ -269,25 +272,61 @@ class LinearGradient:
         """
         Parameters
         ----------
-        key : float
-            must be between 0 and 1 to return a color from the gradient. Otherwise, will return nan_color.
+        key : float or array-like of floats
+            must be between 0 and 1 to return a color from the gradient.
+            Otherwise, will return nan_color.
 
         Returns
         -------
         QColor
         """
-        if np.isnan(key) or key < 0 or key > 1:
-            return self.nan_color
-        pos_idx = np.searchsorted(self.positions, key, side='right') - 1
-        # if we are exactly on one of the bounds
-        if pos_idx > 0 and key in self.positions:
-            pos_idx -= 1
-        pos0, pos1 = self.positions[pos_idx:pos_idx + 2]
-        # col0 and col1 are ndarrays
-        col0, col1 = self.colors[pos_idx:pos_idx + 2]
-        assert pos1 > pos0
-        color = col0 + (col1 - col0) * (key - pos0) / (pos1 - pos0)
-        return QColor.fromHsvF(*color)
+        if np.isscalar(key):
+            # the scalar code path is only used if an adapter returns a single color
+            if np.isnan(key) or key < 0 or key > 1:
+                return self.nan_color
+            pos_idx = np.searchsorted(self.positions, key, side='right') - 1
+            # if we are exactly on the last bound
+            if key == 1:  # self.positions[-1] is always 1
+                # for other bounds, this is not a problem because if we use the
+                # "end" of the "previous" color or the "start" of the "next",
+                # this should be the same
+                assert pos_idx == len(self.positions) - 1
+                pos_idx -= 1
+            pos0, pos1 = self.positions[pos_idx:pos_idx + 2]
+            assert pos1 > pos0
+            # color0 and color1 are ndarrays
+            color0, color1 = self.colors[pos_idx:pos_idx + 2]
+            color = color0 + (color1 - color0) * (key - pos0) / (pos1 - pos0)
+            return QColor.fromHsvF(*color)
+        else:
+            key = np.asarray(key)
+
+            # this should never happen, but lets be robust to buggy code
+            key = np.where((key < 0) | (key > 1), np.nan, key)
+
+            # for positions [0, 0.5, 1], this will yield:
+            # key          | pos_idx | pos_idx + 1
+            # -------------|---------|------------
+            # < 0          |      -1 |           0
+            # >= 0 & < 0.5 |       0 |           1
+            # >= 0.5 & < 1 |       1 |           2
+            # >= 1         |       2 |           3
+            # nan          |       2 |           3
+            pos_idx = np.searchsorted(self.positions, key, side='right') - 1
+            pos0 = self.positions[pos_idx]
+            # if we are exactly on the last bound (key == 1) or key is nan,
+            # pos_idx + 1 will be out of bounds, but mode='clip' handles that for us
+            pos1 = self.positions.take(pos_idx + 1, mode='clip')
+            # color0 and color1 are ndarrays
+            color0 = self.colors[pos_idx]
+            color1 = self.colors.take(pos_idx + 1, axis=0, mode='clip')
+            div = np.where(pos1 != pos0, pos1 - pos0, 1)
+            normalized_value = (key - pos0) / div
+            # newaxis so that we can broadcast with the 4 color channels
+            key_isnan = np.isnan(key)[..., np.newaxis]
+            color = color0 + (color1 - color0) * normalized_value[..., np.newaxis]
+            color = np.where(key_isnan, self.nan_color.getHsvF(), color)
+            return from_hsvf(color[..., 0], color[..., 1], color[..., 2], color[..., 3])
 
 
 class PlotDialog(QDialog):
