@@ -10,7 +10,7 @@ import larray as la
 from larray_editor.comparator import SessionComparatorWindow, ArrayComparatorWindow
 from larray_editor.editor import REOPEN_LAST_FILE, MappingEditorWindow, ArrayEditorWindow, AbstractEditorWindow
 from larray_editor.traceback_tools import extract_stack, extract_tb, StackSummary
-from larray_editor.utils import _allow_interrupt_qt
+from larray_editor.utils import _allow_interrupt_qt, PY312
 
 __all__ = ['view', 'edit', 'debug', 'compare', 'REOPEN_LAST_FILE', 'run_editor_on_exception']
 
@@ -218,8 +218,10 @@ def create_compare_dialog(parent, *args, title='', names=None, depth=0, display_
                 obj_names = _find_names(obj, depth=depth + 1)
                 return obj_names[0] if obj_names else f'{default_name} {i:d}'
 
-        # depth + 2 because of the list comprehension
-        names = [get_name(i, a, depth=depth + 2) for i, a in enumerate(args)]
+        # list comprehension used to create their own frame but are now
+        # inlined in Python 3.12+
+        extra_frame_for_comprehension = 0 if PY312 else 1
+        names = [get_name(i, a, depth=depth + 1 + extra_frame_for_comprehension) for i, a in enumerate(args)]
     else:
         assert isinstance(names, list) and len(names) == len(args)
 

@@ -812,3 +812,6 @@ def _allow_interrupt_qt(qapp_or_eventloop):
         qapp_or_eventloop.quit()
 
     return _allow_interrupt(prepare_notifier, handle_sigint)
+
+
+PY312 = sys.version_info >= (3, 12)
