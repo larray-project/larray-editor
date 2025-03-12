@@ -89,6 +89,35 @@ HISTORY_VARS_PATTERN = re.compile(r'_i?\d+')
 DISPLAY_IN_GRID = (la.Array, np.ndarray)
 
 
+# TODO: remember its size
+#       like MappingEditor via self.set_window_size_and_geometry()
+class EditorWindow(QWidget):
+    default_width = 1000
+    default_height = 600
+    # This is more or less the minimum space required to display a 1D array
+    minimum_width = 300
+    minimum_height = 180
+    name = "Editor"
+
+    def __init__(self, data, title=None, readonly=False):
+        # for QWidget to act as a window, parent must be None
+        super().__init__(parent=None)
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        array_widget = ArrayEditorWidget(self, data=data, readonly=readonly)
+        layout.addWidget(array_widget)
+
+        icon = ima.icon('larray')
+        if icon is not None:
+            self.setWindowIcon(icon)
+
+        if title is None:
+            title = self.name
+        self.setWindowTitle(title)
+        # TODO: somehow determine better width
+        self.resize(self.default_width, self.default_height)
+
+
 class AbstractEditorWindow(QMainWindow):
     """Abstract Editor Window"""
 
@@ -371,6 +400,7 @@ class MappingEditorWindow(AbstractEditorWindow):
         self._listwidget = QListWidget(self)
         # this is a bit more reliable than currentItemChanged which is not emitted when no item was selected before
         self._listwidget.itemSelectionChanged.connect(self.on_selection_changed)
+        self._listwidget.itemDoubleClicked.connect(self.display_item_in_new_window)
         self._listwidget.setMinimumWidth(45)
 
         del_item_shortcut = QShortcut(QKeySequence(Qt.Key_Delete), self._listwidget)
@@ -489,6 +519,7 @@ class MappingEditorWindow(AbstractEditorWindow):
             self._push_data(data)
 
         self.set_window_size_and_geometry()
+        self.windows = []
 
     def _push_data(self, data):
         self.data = data if isinstance(data, la.Session) else la.Session(data)
@@ -604,6 +635,19 @@ class MappingEditorWindow(AbstractEditorWindow):
         if len(deleted_items) == 1:
             deleted_item_idx = self._listwidget.row(deleted_items[0])
             self._listwidget.takeItem(deleted_item_idx)
+
+    def display_item_in_new_window(self, list_item):
+        assert isinstance(list_item, QListWidgetItem)
+        varname = str(list_item.text())
+        value = self.data[varname]
+        self.new_editor_window(value, varname)
+
+    def new_editor_window(self, data, title: str, readonly: bool=False):
+        window = EditorWindow(data, title=title, readonly=readonly)
+        window.show()
+        # FIXME: add some mechanism to remove them from the list on close
+        # this is necessary so that the window does not disappear immediately
+        self.windows.append(window)
 
     def select_list_item(self, to_display):
         changed_items = self._listwidget.findItems(to_display, Qt.MatchExactly)

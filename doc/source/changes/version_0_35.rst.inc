@@ -28,7 +28,8 @@ New features
       - exact: raise an error when axes are not equal.
   Closes :editor_issue:`214` and :editor_issue:`251`.
 
-* added another feature in the editor (closes :editor_issue:`1`).
+* double-clicking on an array name in the list will open it in a new window
+  (closes :editor_issue:`143`).
 
   .. note::
 
