@@ -257,14 +257,16 @@ _orig_except_hook = sys.excepthook
 
 
 def _qt_except_hook(type_, value, tback):
-    # only print the exception and do *not* exit the program
-    traceback.print_exception(type_, value, tback)
-    # only catch simple Exception (avoid catching KeyboardInterrupt, ...)
-    if not isinstance(value, Exception):
-        # in a Qt app, the except hook is only called when the window gets the focus again,
-        # so e.g. if we try to stop an app from PyCharm, it stays alive until we switch
-        # back to the app window.
+    if isinstance(value, (KeyboardInterrupt, SystemExit)):
+        # For these errors, we stop our app (like the default except hook)
+        # but do not print the traceback which is usually not interesting
         sys.exit(1)
+    else:
+        # For other exceptions ("normal" exceptions based on "Exception",
+        # BaseExceptionGroup and GeneratorExit), we only print the exception
+        # and do *not* exit the program. For BaseExceptionGroup, this might
+        # not be 100% correct but I have yet to encounter such a case.
+        traceback.print_exception(type_, value, tback)
 
 
 def install_except_hook():
