@@ -32,6 +32,18 @@ def _show_dialog(app_name, create_dialog_func, *args, **kwargs):
         qt_app = QApplication(sys.argv)
         qt_app.setOrganizationName("LArray")
         qt_app.setApplicationName(app_name)
+
+        # Avoid Windows11 style, which is ugly and buggy at this point
+        # see https://github.com/larray-project/larray-editor/issues/287
+
+        # Available choices on Windows:
+        # windows11:     modern but ugly and buggy
+        # windowsvista:  dated but works. Closest to Qt5 style.
+        # Fusion:        dated but works. Feels alien though (platform-agnostic style)
+        # Windows:       old and ugly (Windows 95?)
+        if qt_app.style().objectName().lower() == 'windows11':
+            qt_app.setStyle('windowsvista')
+
         parent = None
     else:
         # activeWindow is defined only if the Window has keyboard focus,
