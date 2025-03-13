@@ -8,7 +8,8 @@ from qtpy.QtWidgets import QApplication
 import larray as la
 
 from larray_editor.comparator import SessionComparatorWindow, ArrayComparatorWindow
-from larray_editor.editor import REOPEN_LAST_FILE, MappingEditorWindow, ArrayEditorWindow, AbstractEditorWindow
+from larray_editor.editor import (REOPEN_LAST_FILE, MappingEditorWindow,
+                                  ArrayEditorWindow, AbstractEditorWindow)
 from larray_editor.traceback_tools import extract_stack, extract_tb, StackSummary
 from larray_editor.utils import _allow_interrupt_qt, PY312
 
@@ -152,22 +153,8 @@ def create_edit_dialog(parent, obj=None, title='', minvalue=None, maxvalue=None,
 
     Parameters
     ----------
-    obj : np.ndarray, Array, Session, dict, str, Path, REOPEN_LAST_FILE or None, optional
-        Object to visualize. If string or Path, array(s) will be loaded from the file given as argument.
-        Passing the constant REOPEN_LAST_FILE loads the last opened file.
-        Defaults to None, which gathers all variables (global and local) where the function was called.
-    title : str, optional
-        Title for the current object. Defaults to the name of the first object found in the caller namespace which
-        corresponds to `obj` (it will use a combination of the 3 first names if several names correspond to the same
-        object).
-    minvalue : scalar, optional
-        Minimum value allowed.
-    maxvalue : scalar, optional
-        Maximum value allowed.
-    readonly : bool, optional
-        Whether editing array values is forbidden. Defaults to False.
-    depth : int, optional
-        Stack depth where to look for variables. Defaults to 0 (where this function was called).
+    <see edit() documentation for other parameters>
+
     display_caller_info: bool, optional
         Whether to display the filename and line number where the Editor has been called.
         Defaults to True.
@@ -242,12 +229,10 @@ def create_compare_dialog(parent, *args, title='', names=None, depth=0, display_
                 for a in args]
 
     if compare_sessions:
-        from larray_editor.comparator import SessionComparatorWindow
         return SessionComparatorWindow(args, names=names, title=title,
                                        caller_info=caller_info, parent=parent,
                                        **kwargs)
     else:
-        from larray_editor.comparator import ArrayComparatorWindow
         return ArrayComparatorWindow(args, names=names, title=title,
                                      caller_info=caller_info, parent=parent,
                                      **kwargs)
