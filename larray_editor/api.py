@@ -29,8 +29,38 @@ def _show_dialog(app_name, create_dialog_func, *args, **kwargs):
         The function which creates the dialog.
     """
     qt_app = QApplication.instance()
-    if qt_app is None:
+    create_app_instance = qt_app is None
+    if create_app_instance:
         qt_app = QApplication(sys.argv)
+        parent = None
+    else:
+        # activeWindow is defined only if the Window has keyboard focus,
+        # so it could be None even if the app has a window open
+        parent = qt_app.activeWindow()
+        if not isinstance(parent, AbstractEditorWindow):
+            # We use topLevelWidgets and not topLevelWindows because the later
+            # returns QWindow instances whereas we actually need a QWidget
+            # instance (of which QMainWindow is a descendant) as parent.
+            app_windows = [widget for widget in qt_app.topLevelWidgets()
+                           if isinstance(widget, AbstractEditorWindow)]
+            parent = app_windows[0] if len(app_windows) else None
+
+    if parent is None:
+        # Install our own exception hook as soon as we know we should do so
+        # (so that we can more easily see exceptions raised from here on,
+        # including in create_dialog_func).
+
+        # We do not use install_except_hook/restore_except_hook so that we can
+        # restore the hook actually used when this function is called instead
+        # of the one which was used when the module was loaded.
+        orig_except_hook = sys.excepthook
+
+        # Note there is no point in changing the except hook when we have
+        # an existing QApplication given that in that case the function does not
+        # block
+        sys.excepthook = _qt_except_hook
+
+    if create_app_instance:
         qt_app.setOrganizationName("LArray")
         qt_app.setApplicationName(app_name)
 
@@ -44,18 +74,6 @@ def _show_dialog(app_name, create_dialog_func, *args, **kwargs):
         # Windows:       old and ugly (Windows 95?)
         if qt_app.style().objectName().lower() == 'windows11':
             qt_app.setStyle('windowsvista')
-
-        parent = None
-    else:
-        # activeWindow is defined only if the Window has keyboard focus,
-        # so it could be None even if the app has a window open
-        parent = qt_app.activeWindow()
-        if not isinstance(parent, AbstractEditorWindow):
-            # We use topLevelWidgets and not topLevelWindows because the later
-            # returns QWindow instances whereas we actually need a QWidget
-            # instance (of which QMainWindow is a descendant) as parent.
-            app_windows = [widget for widget in qt_app.topLevelWidgets() if isinstance(widget, AbstractEditorWindow)]
-            parent = app_windows[0] if len(app_windows) else None
 
     if 'depth' in kwargs:
         kwargs['depth'] += 1
@@ -83,14 +101,6 @@ def _show_dialog(app_name, create_dialog_func, *args, **kwargs):
     #     as an event loop but does not inherit from QEventLoop, and it lacks
     #     the method.
     if parent is None:
-        # We do not use install_except_hook/restore_except_hook so that we can restore the hook actually used when
-        # this function is called instead of the one which was used when the module was loaded.
-
-        # Note there is no point in changing the except hook when we have an existing QApplication given that
-        # in that case the function does not block
-        orig_except_hook = sys.excepthook
-        sys.excepthook = _qt_except_hook
-
         with _allow_interrupt_qt(qt_app):
             qt_app.exec_()
 
@@ -241,6 +251,46 @@ def create_compare_dialog(parent, *args, title='', names=None, depth=0, display_
 _orig_except_hook = sys.excepthook
 
 
+def limit_lines(s, max_lines=10):
+    assert max_lines % 2 == 0, f"max_lines is {max_lines} but must be pair"
+    lines = s.splitlines()
+    if len(lines) > max_lines:
+        # only keep {max_lines} first lines
+        lines = (
+            lines[:max_lines // 2] +
+            [
+                '',
+                f'... ({len(lines) - max_lines} lines of error message truncated) ...',
+                ''
+            ] +
+            lines[-max_lines // 2:]
+        )
+    return lines
+
+
+def qt_display_exception(exception, parent=None):
+    from qtpy.QtWidgets import QMessageBox
+
+    # when we drop support for Python3.9, we can just use:
+    # tb_lines = traceback.format_exception(exception)
+    type_ = type(exception)
+    tb_lines = traceback.format_exception(type_,
+                                          exception,
+                                          exception.__traceback__)
+    # title = type_.__name__
+    title = "Error !"
+    # in some rare cases (I have only seen Polars do this) the str itself
+    # (not the traceback) contains many lines
+    # exception_str = '\n'.join(limit_lines(str(exception)))
+    exception_str = '<br>'.join(limit_lines(str(exception)))
+    msg = f"<b>Oops, something went wrong</b><p>{exception_str}</p>"
+    detailed_text = ''.join(tb_lines)
+
+    msg_box = QMessageBox(QMessageBox.Critical, title, msg, parent=parent)
+    msg_box.setDetailedText(detailed_text)
+    msg_box.exec()
+
+
 def _qt_except_hook(type_, value, tback):
     if isinstance(value, (KeyboardInterrupt, SystemExit)):
         # For these errors, we stop our app (like the default except hook)
@@ -252,6 +302,13 @@ def _qt_except_hook(type_, value, tback):
         # and do *not* exit the program. For BaseExceptionGroup, this might
         # not be 100% correct but I have yet to encounter such a case.
         traceback.print_exception(type_, value, tback)
+        try:
+            qt_display_exception(value)
+        except Exception:
+            # when we drop support for Python3.9, we can just use:
+            # traceback.print_exception(value)
+            pass
+            # traceback.print_exception(type_, value, tback)
 
 
 def install_except_hook():
@@ -483,5 +540,6 @@ def run_editor_on_exception(root_path=None, usercode_traceback=True, usercode_fr
     -----
     sets sys.excepthook
     """
-    sys.excepthook = _get_debug_except_hook(root_path=root_path, usercode_traceback=usercode_traceback,
+    sys.excepthook = _get_debug_except_hook(root_path=root_path,
+                                            usercode_traceback=usercode_traceback,
                                             usercode_frame=usercode_frame)
