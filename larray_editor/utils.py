@@ -4,6 +4,7 @@ import socket
 import sys
 import math
 import logging
+import traceback
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Union
@@ -164,6 +165,17 @@ def is_float(dtype):
 def is_number(dtype):
     """Return True is datatype dtype is a number kind"""
     return is_float(dtype) or ('int' in dtype.name) or ('long' in dtype.name) or ('short' in dtype.name)
+
+
+# When we drop support for Python3.9, we can use traceback.print_exception
+def print_exception(exception):
+    type_ = type(exception)
+    traceback.print_exception(type_, exception, exception.__traceback__)
+
+
+def format_exception(exception):
+    type_ = type(exception)
+    return traceback.format_exception(type_, exception, exception.__traceback__)
 
 
 def get_default_font():

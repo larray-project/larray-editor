@@ -11,7 +11,9 @@ from larray_editor.comparator import SessionComparatorWindow, ArrayComparatorWin
 from larray_editor.editor import (REOPEN_LAST_FILE, MappingEditorWindow,
                                   ArrayEditorWindow, AbstractEditorWindow)
 from larray_editor.traceback_tools import extract_stack, extract_tb, StackSummary
-from larray_editor.utils import _allow_interrupt_qt, PY312
+from larray_editor.utils import (_allow_interrupt_qt, PY312,
+                                 print_exception, format_exception)
+
 
 __all__ = ['view', 'edit', 'debug', 'compare', 'REOPEN_LAST_FILE', 'run_editor_on_exception']
 
@@ -271,12 +273,8 @@ def limit_lines(s, max_lines=10):
 def qt_display_exception(exception, parent=None):
     from qtpy.QtWidgets import QMessageBox
 
-    # when we drop support for Python3.9, we can just use:
-    # tb_lines = traceback.format_exception(exception)
-    type_ = type(exception)
-    tb_lines = traceback.format_exception(type_,
-                                          exception,
-                                          exception.__traceback__)
+    # TODO: after we drop Python3.9 support, use traceback.format_exception
+    tb_lines = format_exception(exception)
     # title = type_.__name__
     title = "Error !"
     # in some rare cases (I have only seen Polars do this) the str itself
@@ -301,14 +299,12 @@ def _qt_except_hook(type_, value, tback):
         # BaseExceptionGroup and GeneratorExit), we only print the exception
         # and do *not* exit the program. For BaseExceptionGroup, this might
         # not be 100% correct but I have yet to encounter such a case.
-        traceback.print_exception(type_, value, tback)
+        # TODO: after we drop Python3.9 support, use traceback.print_exception
+        print_exception(value)
         try:
             qt_display_exception(value)
         except Exception:
-            # when we drop support for Python3.9, we can just use:
-            # traceback.print_exception(value)
             pass
-            # traceback.print_exception(type_, value, tback)
 
 
 def install_except_hook():
