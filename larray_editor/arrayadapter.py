@@ -798,15 +798,13 @@ class AbstractAdapter:
             logger.debug(f"AbstractAdapter.plot {vlabels=} {hlabels=}")
             logger.debug(f"{raw_data=}")
         if not isinstance(raw_data, np.ndarray):
-            # TODO: in the presence of a string, raw_data will be entirely converted to strings
-            #       which is not what we want. Maybe force object dtype? But that's problematic
-            #       for performance. Maybe, we should not rely on numpy arrays. But if
-            #       matplotlib converts to it internally anyway we don't gain anything.
-            raw_data = np.asarray(raw_data)
+            # Without dtype=object, in the presence of a string, raw_data will
+            # be entirely converted to strings which is not what we want.
+            raw_data = np.asarray(raw_data, dtype=object)
             raw_data = raw_data.reshape((raw_data.shape[0], -1))
         assert isinstance(raw_data, np.ndarray), f"got data of type {type(raw_data)}"
         assert raw_data.ndim == 2, f"ndim is {raw_data.ndim}"
-
+        finite_values = get_finite_numeric_values(raw_data)
         figure = Figure()
 
         # create an axis
@@ -819,21 +817,21 @@ class AbstractAdapter:
         xlabel = self.get_hname()
         ylabel = self.get_vname()
 
-        height, width = raw_data.shape
+        height, width = finite_values.shape
         if width == 1:
             # plot one column
             xlabels, ylabels = ylabels, xlabels
             xlabel, ylabel = ylabel, xlabel
             height, width = width, height
-            raw_data = raw_data.T
+            finite_values = finite_values.T
 
         # plot each row as a line
         xticklabels = ['\n'.join(str(label) for label in label_col)
                        for label_col in xlabels]
         xdata = np.arange(width)
-        for data_row, ylabels_row in zip(raw_data, ylabels):
-            print(f"{xdata=} {ylabels_row=} {data_row=}")
-            ax.plot(xdata, data_row, label=' '.join(str(label) for label in ylabels_row))
+        for data_row, ylabels_row in zip(finite_values, ylabels):
+            row_label = ' '.join(str(label) for label in ylabels_row)
+            ax.plot(xdata, data_row, label=row_label)
 
         # set x axis
         if xlabel:
