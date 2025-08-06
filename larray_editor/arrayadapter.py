@@ -781,7 +781,33 @@ class AbstractAdapter:
         #       unsure how we should fix this properly: in xlwings, or change get_combined_data() to return only
         #       standard Python types.
         array = np.array([list(r) for r in data])
-        xw.view(array)
+
+        # Create a new Excel instance. We cannot simply use xw.view(array)
+        # because it reuses the active Excel instance if any, and if that one
+        # is hidden, the user will not see anything
+        app = xw.App(visible=True)
+
+        # Activate XLA(M) addins. By default, they are not activated when an
+        # Excel Workbook is opened via COM
+        xl_app = app.api
+        for i in range(1, xl_app.AddIns.Count + 1):
+            addin = xl_app.AddIns(i)
+            addin_path = addin.FullName
+            if addin.Installed and '.xll' not in addin_path.lower():
+                xl_app.Workbooks.Open(addin_path)
+
+        # Dump array to first sheet
+        book = app.books[0]
+        sheet = book.sheets[0]
+        with app.properties(screen_updating=False):
+            sheet["A1"].value = array
+            # Unsure whether we should do this or not
+            # sheet.tables.add(sheet["A1"].expand())
+            sheet.autofit()
+
+        # Move Excel Window at the front. Without steal_focus it does not seem
+        # to do anything
+        app.activate(steal_focus=True)
 
     def plot(self, row_min, row_max, col_min, col_max):
         """Return a matplotlib.Figure object for selected subset.
