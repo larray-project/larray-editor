@@ -125,23 +125,30 @@ class FilterMenu(QtWidgets.QMenu):
         checked_indices = [i for i, item in enumerate(model[1:]) if item.checked]
         self.checkedItemsChanged.emit(checked_indices)
 
+    # function is called to implement wheel scrolling (select prev/next label)
     def select_offset(self, offset):
-        """offset: 1 for next, -1 for previous"""
-
+        """offset: -1 for previous, 1 for next"""
+        assert offset in {-1, 1}
         model = self._model
         model.blockSignals(True)
+        # Remember the "(select all)" label shifts all indices by one
         indices_checked = [i for i, item in enumerate(model) if item.checked]
-        first_checked = indices_checked[0]
+        if indices_checked:
+            first_checked = indices_checked[0]
+        else:
+            # if no label is checked, act like "(select all)" was checked
+            # (i.e. we will select the first real label)
+            first_checked = 0
         # check first_checked + offset, uncheck the rest
         to_check = first_checked + offset
 
-        # wrap around
+        # wrap around (index 0 is reserved for "(select all)")
         to_check = to_check if to_check < len(model) else 1
         to_check = to_check if to_check > 0 else len(model) - 1
 
-        is_checked = ["partial"] + [i == to_check for i in range(1, len(model))]
-        for checked, item in zip(is_checked, model):
-            item.checked = checked
+        model[0].checked = "partial"
+        for i, item in enumerate(model[1:], start=1):
+            item.checked = i == to_check
         model.blockSignals(False)
         self.checkedItemsChanged.emit([to_check - 1])
 
