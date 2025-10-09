@@ -104,7 +104,7 @@ opened_secondary_windows = []
 # TODO: remember its size
 #       like MappingEditor via self.set_window_size_and_geometry()
 class EditorWindow(QWidget):
-    default_width = 1000
+    default_width = 800
     default_height = 600
     # This is more or less the minimum space required to display a 1D array
     minimum_width = 300
@@ -664,36 +664,56 @@ class MappingEditorWindow(AbstractEditorWindow):
         # ============= #
         #      NEW      #
         # ============= #
-        file_menu.addAction(create_action(self, _('&New'), shortcut="Ctrl+N", triggered=self.new))
+        file_menu.addAction(create_action(self, _('&New'),
+                                          shortcut="Ctrl+N",
+                                          triggered=self.new))
         file_menu.addSeparator()
         # ============= #
         #     DATA      #
         # ============= #
         file_menu.addSeparator()
-        file_menu.addAction(create_action(self, _('&Open Data'), shortcut="Ctrl+O", triggered=self.open_data,
-                                          statustip=_('Load session from file')))
-        file_menu.addAction(create_action(self, _('&Save Data'), shortcut="Ctrl+S", triggered=self.save_data,
-                                          statustip=_('Save all arrays as a session in a file')))
-        file_menu.addAction(create_action(self, _('Save Data &As'), triggered=self.save_data_as,
-                                          statustip=_('Save all arrays as a session in a file')))
+        open_tip = _('Load session from file')
+        file_menu.addAction(create_action(self, _('&Open Data'),
+                                          shortcut="Ctrl+O",
+                                          triggered=self.open_data,
+                                          statustip=open_tip))
+        save_tip = _('Save all arrays as a session in a file')
+        file_menu.addAction(create_action(self, _('&Save Data'),
+                                          shortcut="Ctrl+S",
+                                          triggered=self.save_data,
+                                          statustip=save_tip))
+        file_menu.addAction(create_action(self, _('Save Data &As'),
+                                          triggered=self.save_data_as,
+                                          statustip=save_tip))
         recent_files_menu = file_menu.addMenu("Open &Recent Data")
         for action in self.recent_data_files.actions:
             recent_files_menu.addAction(action)
         recent_files_menu.addSeparator()
-        recent_files_menu.addAction(create_action(self, _('&Clear List'), triggered=self.recent_data_files.clear))
+        recent_files_menu.addAction(create_action(self, _('&Clear List'),
+                                                  triggered=self.recent_data_files.clear))
         # ============= #
         #    EXAMPLES   #
         # ============= #
         file_menu.addSeparator()
-        file_menu.addAction(create_action(self, _('&Load Example Dataset'), triggered=self.load_example))
+        file_menu.addAction(create_action(self, _('&Load Example Dataset'),
+                                          triggered=self.load_example))
+        # ============= #
+        #    EXPLORER   #
+        # ============= #
+        file_menu.addSeparator()
+        file_menu.addAction(create_action(self, _('Open File &Explorer'),
+                                          triggered=self.open_explorer))
         # ============= #
         #    SCRIPTS    #
         # ============= #
         if qtconsole_available:
             file_menu.addSeparator()
-            file_menu.addAction(create_action(self, _('&Load from Script'), shortcut="Ctrl+Shift+O",
-                                              triggered=self.load_script, statustip=_('Load script from file')))
-            file_menu.addAction(create_action(self, _('&Save Command History To Script'), shortcut="Ctrl+Shift+S",
+            file_menu.addAction(create_action(self, _('&Load from Script'),
+                                              shortcut="Ctrl+Shift+O",
+                                              triggered=self.load_script,
+                                              statustip=_('Load script from file')))
+            file_menu.addAction(create_action(self, _('&Save Command History To Script'),
+                                              shortcut="Ctrl+Shift+S",
                                               triggered=self.save_script,
                                               statustip=_('Save command history in a file')))
 
@@ -701,7 +721,9 @@ class MappingEditorWindow(AbstractEditorWindow):
         #     QUIT      #
         # ============= #
         file_menu.addSeparator()
-        file_menu.addAction(create_action(self, _('&Quit'), shortcut="Ctrl+Q", triggered=self.close))
+        file_menu.addAction(create_action(self, _('&Quit'),
+                                          shortcut="Ctrl+Q",
+                                          triggered=self.close))
 
     def push_changes(self, changes):
         self.edit_undo_stack.push(EditSessionArrayCommand(self, self.current_expr_text, changes))
@@ -1354,6 +1376,9 @@ class MappingEditorWindow(AbstractEditorWindow):
             if ok and dataset_name:
                 filepath = AVAILABLE_EXAMPLE_DATA[dataset_name]
                 self._open_file(filepath)
+
+    def open_explorer(self):
+        self.new_editor_window(Path('.'), title="File Explorer", readonly=True)
 
 
 class ArrayEditorWindow(AbstractEditorWindow):
