@@ -47,6 +47,8 @@ Miscellaneous improvements
   on the tolerance. To reflect that the tolerance widget moved to the top of the interface.
   Closes :editor_issue:`201`.
 
+* :py:obj:`compare()` max difference is colored red when the difference is not 0
+
 * typing the name of a variable holding a matplotlib figure (or axes) in the console shows it
   (previously, only expressions were displayed and *not* simple variables).
   For example: ::

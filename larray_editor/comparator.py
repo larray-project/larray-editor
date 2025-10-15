@@ -195,7 +195,10 @@ class ComparatorWidget(QWidget):
             # do NOT use full_like as we don't want to inherit array dtype
             self._bg_value = la.full(self._combined_array.axes, 0.5)
 
+        # using percents does not look good when the numbers are very small
         self.maxdiff_label.setText(str(maxabsreldiff))
+        color = 'red' if maxabsreldiff != 0.0 else 'black'
+        self.maxdiff_label.setStyleSheet(f"QLabel {{ color: {color}; }}")
         self._update_from_bg_value_and_diff_below_tol(self.diff_checkbox.isChecked())
 
     def _update_from_bg_value_and_diff_below_tol(self, diff_only):
