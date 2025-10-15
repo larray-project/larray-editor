@@ -117,4 +117,7 @@ Fixes
 * fixed :py:obj:`compare()` colors when the only difference is nans on either
   side.
 
+* fixed :py:obj:`compare()` colors and max difference label when the only
+  differences are for rows where the value is 0 in the first array.
+
 * fixed single column plot in viewer when ticks are not strings

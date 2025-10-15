@@ -274,14 +274,39 @@ del arr1, arr2, arr1bis, arr2bis
 # arr1['M'] = la.nan
 # compare(arr1, arr2, nans_equal=False, title='with nans on left side')
 # arr2['M'] = la.nan
-# compare(arr1, arr2, nans_equal=False, title='with nans on both sides')
+# compare(arr1, arr2, title='with nans on both sides (nans_equal=True)')
+# compare(arr1, arr2, nans_equal=False, title='with nans on both sides (nans_equal=False)')
 # arr1['M'] = arr1_m
 # compare(arr1, arr2, nans_equal=False, title='with nans on right side')
 #
 # arr1 = la.ndtest((3, 3))
 # arr2 = 2 * arr1
 # arr3 = la.where(arr1 % 2 == 0, arr1, -arr1)
-# compare(arr1, arr2, arr3, bg_gradient='blue-white-red')
+# compare(arr1, arr2, arr3, bg_gradient='blue-white-red', title='changed gradient')
+
+# arr1 = la.ndtest(3).astype(np.float64)
+# arr2 = arr1.copy()
+# arr2['a0'] = 42
+# arr3 = arr2.copy()
+# arr3['a1'] = 4
+# arr4 = arr1.copy()
+# arr4['a1'] = la.inf
+# arr5 = arr1.copy()
+# arr5['a1'] = -la.inf
+# arr6 = arr1.copy()
+# arr6['a1'] = 1.00000000001
+# compare(arr1, arr2)
+# compare(arr2, arr1)
+# compare(arr1, arr1)
+# compare(arr1, arr3)
+# compare(arr3, arr1)
+# compare(arr1, arr4)
+# compare(arr4, arr1)
+# compare(arr1, arr5)
+# compare(arr5, arr1)
+# compare(arr5, arr5)
+# compare(arr1, arr6)
+# compare(arr6, arr1)
 
 # test for arr.plot(show=True) which is the default
 # =================================================

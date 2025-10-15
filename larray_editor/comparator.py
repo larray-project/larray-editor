@@ -5,7 +5,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QHBoxLayout,
                             QLabel, QCheckBox, QLineEdit, QComboBox, QMessageBox)
 
-from larray_editor.utils import replace_inf, _
+from larray_editor.utils import _
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor.editor import AbstractEditorWindow, DISPLAY_IN_GRID
 
@@ -112,7 +112,8 @@ class ComparatorWidget(QWidget):
             self.tolerance_line_edit.setText('')
             tol = 0
             QMessageBox.critical(self, "Error", str(e))
-        return (tol, 0) if self.tolerance_combobox.currentText() == "absolute" else (0, tol)
+        is_absolute = self.tolerance_combobox.currentText() == "absolute"
+        return (tol, 0) if is_absolute else (0, tol)
 
     # override keyPressEvent to prevent pressing Enter after changing the tolerance value
     # in associated QLineEdit to close the parent dialog box
@@ -160,31 +161,69 @@ class ComparatorWidget(QWidget):
 
         atol, rtol = self._get_atol_rtol()
         try:
-            self._diff_below_tolerance = self._combined_array.eq(self._array0, rtol=rtol, atol=atol, nans_equal=self.nans_equal)
+            # eq does not take atol and rtol into account
+            eq = self._combined_array.eq(self._array0,
+                                         nans_equal=self.nans_equal)
+            isclose = self._combined_array.eq(self._array0,
+                                              rtol=rtol, atol=atol,
+                                              nans_equal=self.nans_equal)
         except TypeError:
-            self._diff_below_tolerance = self._combined_array == self._array0
+            # object arrays
+            eq = self._combined_array == self._array0
+            isclose = eq
+        self._diff_below_tolerance = isclose
 
         try:
             with np.errstate(divide='ignore', invalid='ignore'):
                 diff = self._combined_array - self._array0
                 reldiff = diff / self._array0
+            # make reldiff 0 where the values are the same than array0 even for
+            # special values (0, nan, inf, -inf)
+            # at this point reldiff can still contain nan and infs
+            reldiff = la.where(eq, 0, reldiff)
 
+            # 1) compute maxabsreldiff for the label
+            #    this should NOT exclude nans or infs
+            relmin = reldiff.min(skipna=False)
+            relmax = reldiff.max(skipna=False)
+            maxabsreldiff = max(abs(relmin), abs(relmax))
+
+            # 2) compute bg_value
             # replace -inf by min(reldiff), +inf by max(reldiff)
-            finite_reldiff, finite_relmin, finite_relmax = replace_inf(reldiff)
-            maxabsreldiff = max(abs(finite_relmin), abs(finite_relmax))
+            reldiff_for_bg = reldiff.copy()
+            isneginf = reldiff == -np.inf
+            isposinf = reldiff == np.inf
+            isinf = isneginf | isposinf
 
-            # We need a separate version for bg and the label, so that when we modify atol/rtol, the background
-            # color is updated but not the maxreldiff label
-            # this is necessary for nan, inf and -inf (because inf - inf = nan, not 0)
-            # this is more precise than divnot0, it only ignore 0 / 0, not x / 0
-            reldiff_for_bg = la.where(self._diff_below_tolerance, 0, finite_reldiff)
-            maxabsreldiff_for_bg = max(abs(np.nanmin(reldiff_for_bg)), abs(np.nanmax(reldiff_for_bg)))
+            # given the way reldiff is constructed, it cannot contain only infs
+            # (because inf/inf is nan) it can contain only infs and nans though,
+            # in which case finite_relXXX will be nan, so unless the array
+            # is empty, finite_relXXX should never be inf
+            finite_relmin = np.nanmin(reldiff, where=~isinf, initial=np.inf)
+            finite_relmax = np.nanmax(reldiff, where=~isinf, initial=-np.inf)
+            # special case when reldiff contains only 0 and infs (to avoid
+            # coloring the inf cells white in that case)
+            if finite_relmin == 0 and finite_relmax == 0 and isinf.any():
+                finite_relmin = -1
+                finite_relmax = 1
+            reldiff_for_bg[isneginf] = finite_relmin
+            reldiff_for_bg[isposinf] = finite_relmax
+
+            # make sure that "acceptable" differences show as white
+            reldiff_for_bg = la.where(isclose, 0, reldiff_for_bg)
+
+            # We need a separate version for bg and the label, so that when we
+            # modify atol/rtol, the background color is updated but not the
+            # maxreldiff label
+            maxabsreldiff_for_bg = max(abs(np.nanmin(reldiff_for_bg)),
+                                       abs(np.nanmax(reldiff_for_bg)))
             if maxabsreldiff_for_bg:
                 # scale reldiff to range 0-1 with 0.5 for reldiff = 0
                 self._bg_value = (reldiff_for_bg / maxabsreldiff_for_bg) / 2 + 0.5
             # if the only differences are nans on either side
-            elif not self._diff_below_tolerance.all():
-                # use white (0.5) everywhere except where reldiff is nan, so that nans are grey
+            elif not isclose.all():
+                # use white (0.5) everywhere except where reldiff is nan, so
+                # that nans are grey
                 self._bg_value = reldiff_for_bg + 0.5
             else:
                 # do NOT use full_like as we don't want to inherit array dtype

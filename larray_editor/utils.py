@@ -382,40 +382,6 @@ def show_figure(figure, title=None, parent=None):
     window.show()
 
 
-def replace_inf(value):
-    """Replace -inf/+inf in array with respectively min(array_without_inf)/max(array_without_inf).
-
-    It leaves nans intact.
-
-    Parameters
-    ----------
-    value : np.ndarray or any compatible type
-        Input array.
-
-    Returns
-    -------
-    (np.ndarray, float, float)
-        array with infinite values replaced by the min and maximum respectively
-        minimum finite value
-        maximum finite value
-
-    Examples
-    --------
-    >>> replace_inf(np.array([-5, np.inf, 0, -np.inf, -4, np.nan, 5]))
-    (array([ -5.,   5.,   0.,  -5.,  -4.,  nan,   5.]), -5.0, 5.0)
-    """
-    value = value.copy()
-    # replace -inf by min(value)
-    isneginf = value == -np.inf
-    minvalue = np.nanmin(value[~isneginf])
-    value[isneginf] = minvalue
-    # replace +inf by max(value)
-    isposinf = value == np.inf
-    maxvalue = np.nanmax(value[~isposinf])
-    value[isposinf] = maxvalue
-    return value, minvalue, maxvalue
-
-
 def scale_to_01range(value, vmin, vmax):
     """Scale value to 0-1 range based on vmin and vmax.
 
