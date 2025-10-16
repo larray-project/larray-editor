@@ -89,7 +89,8 @@ from larray_editor.combo import FilterComboBox
 # XXX: define Enum instead ?
 TOP, BOTTOM = 0, 1
 LEFT, RIGHT = 0, 1
-
+DEFAULT_COLUMN_WIDTH = 64
+DEFAULT_ROW_HEIGHT = 20
 
 class AbstractView(QTableView):
     """Abstract view class"""
@@ -135,8 +136,8 @@ class AbstractView(QTableView):
 
     def set_default_size(self):
         # make the grid a bit more compact
-        self.horizontalHeader().setDefaultSectionSize(64)
-        self.verticalHeader().setDefaultSectionSize(20)
+        self.horizontalHeader().setDefaultSectionSize(DEFAULT_COLUMN_WIDTH)
+        self.verticalHeader().setDefaultSectionSize(DEFAULT_ROW_HEIGHT)
         if self.vpos == TOP:
             self.horizontalHeader().setFixedHeight(10)
         if self.hpos == LEFT:
@@ -424,6 +425,8 @@ class DataView(AbstractView):
         return row_min, row_max + 1, col_min, col_max + 1
 
 
+MAX_INT_DIGITS = 308
+
 def num_int_digits(value):
     """
     Number of integer digits. Completely ignores the fractional part. Does not take sign into account.
@@ -438,7 +441,7 @@ def num_int_digits(value):
     value = abs(value)
     log10 = math.log10(value) if value > 0 else 0
     if log10 == np.inf:
-        return 308
+        return MAX_INT_DIGITS
     else:
         # max(1, ...) because there is at least one integer digit.
         # explicit conversion to int for Python2.x
