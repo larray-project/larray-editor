@@ -12,6 +12,26 @@ from larray_editor.utils import (get_default_font,
                                  format_exception, log_caller)
 
 # TODO before using the widget in other projects:
+# * cleanup adapter filters API:
+#   - get_filter_options works for either larray-style filters and
+#     hlabel filters but cannot work for both at the same time (what the given
+#     index means).
+#   - How does axis filters enter the picture?
+#   - I think we should go towards get_hlabel_actions(row_idx, col_idx) ->
+#     some kind of Form definition. On any update of the form values,
+#     the method corresponding to the part of the form that changed is called.
+
+#     The simplest form would be:
+#     {'filters': (self.change_filters, [label_values]),
+#      'sort': (self.change_sort, ...,
+#      'group_by: ...}.
+#     this would also help support custom actions:
+#     {'Label in menu': callable_to_perform_action | dict for submenu | }
+#     apply auto gui on it:
+#     def add_op_from_label(self, sort: ascending|descending|unsorted,
+#                           filter: list_of_labels) -> QuickBarOp:
+#       ...
+#
 # * move ndigits/format detection to adapter
 #   but the trick is to avoid using current column width and just
 #   target a "reasonable number" of digits
@@ -78,7 +98,6 @@ from larray_editor.utils import (get_default_font,
 #   superclass or one of their subclasses)
 
 # TODO post release (move to issues):
-# * take decoration (sort arrow) into account to compute column widths
 # * mouse selection on "edges" should move the buffer
 #   (it scrolls the internal viewport but does not change the offset)
 
