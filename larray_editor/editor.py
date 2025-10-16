@@ -88,6 +88,7 @@ HISTORY_VARS_PATTERN = re.compile(r'_i?\d+')
 # tuple, list
 DISPLAY_IN_GRID = (la.Array, np.ndarray)
 
+opened_secondary_windows = []
 
 # TODO: remember its size
 #       like MappingEditor via self.set_window_size_and_geometry()
@@ -116,6 +117,11 @@ class EditorWindow(QWidget):
         self.setWindowTitle(title)
         # TODO: somehow determine better width
         self.resize(self.default_width, self.default_height)
+
+    def closeEvent(self, event):
+        if self in opened_secondary_windows:
+            opened_secondary_windows.remove(self)
+        super().closeEvent(event)
 
 
 class AbstractEditorWindow(QMainWindow):
@@ -519,7 +525,6 @@ class MappingEditorWindow(AbstractEditorWindow):
             self._push_data(data)
 
         self.set_window_size_and_geometry()
-        self.windows = []
 
     def _push_data(self, data):
         self.data = data if isinstance(data, la.Session) else la.Session(data)
@@ -645,9 +650,8 @@ class MappingEditorWindow(AbstractEditorWindow):
     def new_editor_window(self, data, title: str, readonly: bool=False):
         window = EditorWindow(data, title=title, readonly=readonly)
         window.show()
-        # FIXME: add some mechanism to remove them from the list on close
         # this is necessary so that the window does not disappear immediately
-        self.windows.append(window)
+        opened_secondary_windows.append(window)
 
     def select_list_item(self, to_display):
         changed_items = self._listwidget.findItems(to_display, Qt.MatchExactly)
