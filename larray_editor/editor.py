@@ -311,14 +311,19 @@ class AbstractEditorWindow(QMainWindow):
         if array is not None:
             dtype = array.dtype.name
             # current file (if not None)
+            def format_int(value: int):
+                if value >= 10_000:
+                    return f'{value:_}'
+                else:
+                    return str(value)
             if isinstance(array, la.Array):
                 # array info
-                shape = [f'{display_name} ({len(axis)})'
+                shape = [f'{display_name} ({format_int(len(axis))})'
                          for display_name, axis in zip(array.axes.display_names, array.axes)]
             else:
                 # if it's not an Array, it must be a Numpy ndarray
                 assert isinstance(array, np.ndarray)
-                shape = [str(length) for length in array.shape]
+                shape = [format_int(length) for length in array.shape]
             # name + shape + dtype
             array_info = ' x '.join(shape) + f' [{dtype}]'
             if name:
