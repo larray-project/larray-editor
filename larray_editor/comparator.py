@@ -214,12 +214,13 @@ class ComparatorWidget(QWidget):
             row_filter = (~self._diff_below_tolerance).any(self.stack_axis)
             array = array[row_filter]
             bg_value = bg_value[row_filter]
-        self.arraywidget.set_data(array, bg_value=bg_value)
+        self.arraywidget.set_data(array, attributes={'bg_value': bg_value})
 
 
 def align_all(arrays, join='outer', fill_value=la.nan):
+    return arrays
     if len(arrays) > 2:
-        raise NotImplementedError("not yet implemented")
+        raise NotImplementedError("aligning more than two arrays is not yet implemented")
     first_array = arrays[0]
     def is_raw(array):
         return all(axis.iswildcard and axis.name is None

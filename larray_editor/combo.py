@@ -1,6 +1,8 @@
 from qtpy import QtGui, QtCore, QtWidgets
 from qtpy.QtCore import QPoint, Qt
 
+from larray_editor.utils import create_action, _
+
 
 class StandardItemModelIterator:
     def __init__(self, model):
@@ -62,14 +64,38 @@ class StandardItem(QtGui.QStandardItem):
     checked = property(get_checked, set_checked)
 
 
-class FilterMenu(QtWidgets.QMenu):
+class CombinedSortFilterMenu(QtWidgets.QMenu):
     activate = QtCore.Signal(int)
-    checkedItemsChanged = QtCore.Signal(list)
+    checked_items_changed = QtCore.Signal(list)
+    sort_signal = QtCore.Signal(bool)  # bool argument is for ascending
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, sortable: bool = False, sort_direction='unsorted', filters=False):
         super().__init__(parent)
 
-        self._list_view = QtWidgets.QListView(parent)
+        self._model, self._list_view = None, None
+
+        if sortable:
+            self.addAction(create_action(self, _('Sort A-Z'),
+                                         triggered=lambda: self.sort_signal.emit(True),
+                                         checkable=True, checked=sort_direction == 'ascending'))
+            self.addAction(create_action(self, _('Sort Z-A'),
+                                         triggered=lambda: self.sort_signal.emit(False),
+                                         checkable=True, checked=sort_direction == 'descending'))
+            if filters:
+                self.addSeparator()
+
+        if filters:
+            self.setup_list_view()
+
+        self.installEventFilter(self)
+        self.activate.connect(self.on_activate)
+
+    def setup_list_view(self):
+        # search_widget = QtWidgets.QLineEdit()
+        # search_widget.setPlaceholderText('Search')
+        # self.add_action_widget(search_widget)
+
+        self._list_view = QtWidgets.QListView(self)
         self._list_view.setFrameStyle(0)
         model = SequenceStandardItemModel()
         self._list_view.setModel(model)
@@ -80,17 +106,25 @@ class FilterMenu(QtWidgets.QMenu):
         except AttributeError:
             # this is the new name for qt6+
             model[0].setUserTristate(True)
-
-        action = QtWidgets.QWidgetAction(self)
-        action.setDefaultWidget(self._list_view)
-        self.addAction(action)
-        self.installEventFilter(self)
         self._list_view.installEventFilter(self)
         self._list_view.window().installEventFilter(self)
-
         model.itemChanged.connect(self.on_model_item_changed)
         self._list_view.pressed.connect(self.on_list_view_pressed)
-        self.activate.connect(self.on_activate)
+
+        # filters_layout = QtWidgets.QVBoxLayout(parent)
+        # filters_layout.addWidget(QtWidgets.QLabel("Filters"))
+        # filters_layout.addWidget(self._list_view)
+        self.add_action_widget(self._list_view)
+
+    def add_action_widget(self, action_widget):
+        if isinstance(action_widget, QtWidgets.QLayout):
+            # you cant add a layout directly in an action, so we have to wrap it in a widget
+            widget = QtWidgets.QWidget()
+            widget.setLayout(action_widget)
+            action_widget = widget
+        widget_action = QtWidgets.QWidgetAction(self)
+        widget_action.setDefaultWidget(action_widget)
+        self.addAction(widget_action)
 
     def on_list_view_pressed(self, index):
         item = self._model.itemFromIndex(index)
@@ -123,7 +157,7 @@ class FilterMenu(QtWidgets.QMenu):
             model[0].checked = 'partial'
         model.blockSignals(False)
         checked_indices = [i for i, item in enumerate(model[1:]) if item.checked]
-        self.checkedItemsChanged.emit(checked_indices)
+        self.checked_items_changed.emit(checked_indices)
 
     # function is called to implement wheel scrolling (select prev/next label)
     def select_offset(self, offset):
@@ -150,12 +184,12 @@ class FilterMenu(QtWidgets.QMenu):
         for i, item in enumerate(model[1:], start=1):
             item.checked = i == to_check
         model.blockSignals(False)
-        self.checkedItemsChanged.emit([to_check - 1])
+        self.checked_items_changed.emit([to_check - 1])
 
     def addItem(self, text):
         item = StandardItem(text)
         # not editable
-        item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+        item.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled)
         item.checked = True
         self._model.appendRow(item)
 
@@ -170,13 +204,14 @@ class FilterMenu(QtWidgets.QMenu):
             key = event.key()
 
             # tab key closes the popup
-            if obj == self._list_view.window() and key == Qt.Key_Tab:
+            if obj == self._list_view.window() and key == QtCore.Qt.Key_Tab:
                 self.hide()
 
             # return key activates *one* item and closes the popup
             # first time the key is sent to the menu, afterwards to
             # list_view
-            elif obj == self._list_view and key in (Qt.Key_Enter, Qt.Key_Return):
+            elif (obj == self._list_view and
+                          key in (QtCore.Qt.Key_Enter, QtCore.Qt.Key_Return)):
                 self.activate.emit(self._list_view.currentIndex().row())
                 self.hide()
                 return True
@@ -185,7 +220,7 @@ class FilterMenu(QtWidgets.QMenu):
 
 
 class FilterComboBox(QtWidgets.QToolButton):
-    checkedItemsChanged = QtCore.Signal(list)
+    checked_items_changed = QtCore.Signal(list)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -195,10 +230,10 @@ class FilterComboBox(QtWidgets.QToolButton):
         # uglier
         self.setPopupMode(QtWidgets.QToolButton.MenuButtonPopup)
 
-        menu = FilterMenu(self)
+        menu = CombinedSortFilterMenu(self, filters=True)
         self.setMenu(menu)
         self._menu = menu
-        menu.checkedItemsChanged.connect(self.on_checked_items_changed)
+        menu.checked_items_changed.connect(self.on_checked_items_changed)
         self.installEventFilter(self)
 
     def on_checked_items_changed(self, indices_checked):
@@ -210,7 +245,7 @@ class FilterComboBox(QtWidgets.QToolButton):
             self.setText(model[indices_checked[0] + 1].text())
         else:
             self.setText("multi")
-        self.checkedItemsChanged.emit(indices_checked)
+        self.checked_items_changed.emit(indices_checked)
 
     def addItem(self, text):
         self._menu.addItem(text)
@@ -240,10 +275,19 @@ class FilterComboBox(QtWidgets.QToolButton):
 
             # return key activates *one* item and closes the popup
             # first time the key is sent to self, afterwards to list_view
-            elif obj == self and key in (Qt.Key_Enter, Qt.Key_Return):
-                self._menu.activate.emit(self._list_view.currentIndex().row())
-                self._menu.hide()
-                return True
+            # elif obj == self and key in (Qt.Key_Enter, Qt.Key_Return):
+            #     print(f'FilterComboBox.eventFilter')
+            #     # this cannot work (there is no _list_view attribute)
+            #     # probably meant as self._menu._list_view BUT
+            #     # this case currently does not seem to happen anyway
+            #     # I am not removing this code entirely because the
+            #     # combo does not seem to get focus which could explain
+            #     # why this is never reached
+            #     current_index = self._list_view.currentIndex().row()
+            #     print(f'current_index={current_index}')
+            #     self._menu.activate.emit(current_index)
+            #     self._menu.hide()
+            #     return True
 
         if event_type == QtCore.QEvent.MouseButtonRelease:
             # clicking anywhere (not just arrow) on the button shows the popup

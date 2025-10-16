@@ -1,4 +1,7 @@
+import inspect
+import os.path
 import os
+import re
 import signal
 import socket
 import sys
@@ -8,8 +11,6 @@ import traceback
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Union
-
-from larray.util.misc import Product
 
 import numpy as np
 try:
@@ -33,6 +34,11 @@ except ImportError:
     # fall back to explicit qt5 backend (for matplotlib < 3.5)
     from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
     from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+
+from larray.util.misc import Product
+
+# field is field_name + conversion if any
+M_SPECIFIER_PATTERN = re.compile(r'\{(?P<field>[^:}]*):(?P<format_spec>[^m}]*)m\}')
 
 logger = logging.getLogger("editor")
 
@@ -157,14 +163,14 @@ def _get_font(family, size, bold=False, italic=False):
     return font
 
 
-def is_float(dtype):
+def is_float_dtype(dtype):
     """Return True if datatype dtype is a float kind"""
     return ('float' in dtype.name) or dtype.name in ['single', 'double']
 
 
-def is_number(dtype):
+def is_number_dtype(dtype):
     """Return True is datatype dtype is a number kind"""
-    return is_float(dtype) or ('int' in dtype.name) or ('long' in dtype.name) or ('short' in dtype.name)
+    return is_float_dtype(dtype) or ('int' in dtype.name) or ('long' in dtype.name) or ('short' in dtype.name)
 
 
 # When we drop support for Python3.9, we can use traceback.print_exception
@@ -192,17 +198,24 @@ def keybinding(attr):
     return QKeySequence.keyBindings(ks)[0]
 
 
-def create_action(parent, text, icon=None, triggered=None, shortcut=None, statustip=None):
+def create_action(parent, text, icon=None, triggered=None, shortcut=None, statustip=None,
+                  checkable=False, checked=False):
     """Create a QAction"""
     action = QAction(text, parent)
     if triggered is not None:
         action.triggered.connect(triggered)
     if icon is not None:
-        action.setIcon(icon)
+        action.setIcon(ima.icon(icon))
     if shortcut is not None:
         action.setShortcut(shortcut)
     if statustip is not None:
         action.setStatusTip(statustip)
+    if checked:
+        assert checkable
+    if checkable:
+        action.setCheckable(True)
+        if checked:
+            action.setChecked(True)
     # action.setShortcutContext(Qt.WidgetShortcut)
     return action
 
@@ -253,8 +266,8 @@ class LinearGradient:
     Parameters
     ----------
     stop_points: list/tuple, optional
-        List containing pairs (stop_position, colors_HsvF).
-        `colors` is a 4 elements list containing `hue`, `saturation`, `value` and `alpha-channel`
+        List of (stop_position, color) pairs.
+        `color` is a 4 elements list containing `hue`, `saturation`, `value` and `alpha-channel`
     """
     def __init__(self, stop_points=None, nan_color=None):
         if stop_points is None:
@@ -355,7 +368,7 @@ class PlotDialog(QDialog):
         canvas.draw()
 
 
-def show_figure(parent, figure, title=None):
+def show_figure(figure, title=None, parent=None):
     if (figure.canvas is not None and figure.canvas.manager is not None and
             figure.canvas.manager.window is not None):
         figure.canvas.draw()
@@ -367,142 +380,6 @@ def show_figure(parent, figure, title=None):
     if title is not None:
         window.setWindowTitle(title)
     window.show()
-
-
-class Axis:
-    """
-    Represents an Axis.
-
-    Parameters
-    ----------
-    id : str or int
-        Id of axis.
-    name : str
-        Name of the axis. Can be None.
-    labels : list or tuple or 1D array
-        List of labels
-    """
-    def __init__(self, id, name, labels):
-        self.id = id
-        self.name = name
-        self.labels = labels
-
-    @property
-    def id(self):
-        return self._id
-
-    @id.setter
-    def id(self, id):
-        if not isinstance(id, (str, int)):
-            raise TypeError("id must a string or a integer")
-        self._id = id
-
-    @property
-    def name(self):
-        return self._name
-
-    @name.setter
-    def name(self, name):
-        if not isinstance(name, str):
-            raise TypeError("name must be a string")
-        self._name = name
-
-    @property
-    def labels(self):
-        return self._labels
-
-    @labels.setter
-    def labels(self, labels):
-        if not (hasattr(labels, '__len__') and hasattr(labels, '__getitem__')):
-            raise TypeError("labels must be a list or tuple or any 1D array-like")
-        self._labels = labels
-
-    def __len__(self):
-        return len(self.labels)
-
-    def __str__(self):
-        return f'Axis({self.id}, {self.name}, {self.labels})'
-
-
-class _LazyLabels(object):
-    def __init__(self, arrays):
-        self.prod = Product(arrays)
-
-    def __getitem__(self, key):
-        return ' '.join(self.prod[key])
-
-    def __len__(self):
-        return len(self.prod)
-
-
-class _LazyDimLabels(object):
-    """
-    Examples
-    --------
-    >>> p = Product([['a', 'b', 'c'], [1, 2]])
-    >>> list(p)
-    [('a', 1), ('a', 2), ('b', 1), ('b', 2), ('c', 1), ('c', 2)]
-    >>> l0 = _LazyDimLabels(p, 0)
-    >>> l1 = _LazyDimLabels(p, 1)
-    >>> for i in range(len(p)):
-    ...     print(l0[i], l1[i])
-    a 1
-    a 2
-    b 1
-    b 2
-    c 1
-    c 2
-    >>> l0[1:4]
-    ['a', 'b', 'b']
-    >>> l1[1:4]
-    [2, 1, 2]
-    >>> list(l0)
-    ['a', 'a', 'b', 'b', 'c', 'c']
-    >>> list(l1)
-    [1, 2, 1, 2, 1, 2]
-    """
-    def __init__(self, prod, i):
-        self.prod = prod
-        self.i = i
-
-    def __iter__(self):
-        return iter(self.prod[i][self.i] for i in range(len(self.prod)))
-
-    def __getitem__(self, key):
-        key_prod = self.prod[key]
-        if isinstance(key, slice):
-            return [p[self.i] for p in key_prod]
-        else:
-            return key_prod[self.i]
-
-    def __len__(self):
-        return len(self.prod)
-
-
-class _LazyRange(object):
-    def __init__(self, length, offset):
-        self.length = length
-        self.offset = offset
-
-    def __getitem__(self, key):
-        if key >= self.offset:
-            return key - self.offset
-        else:
-            return ''
-
-    def __len__(self):
-        return self.length + self.offset
-
-
-class _LazyNone(object):
-    def __init__(self, length):
-        self.length = length
-
-    def __getitem__(self, key):
-        return ' '
-
-    def __len__(self):
-        return self.length
 
 
 def replace_inf(value):
@@ -577,15 +454,13 @@ def scale_to_01range(value, vmin, vmax):
     array([ 0. ,  1. ,  0.5,  0. ,  0.1,  1. ])
     """
     if hasattr(value, 'shape') and value.shape:
-        if np.isnan(vmin) or np.isnan(vmax) or (vmin == vmax):
-            return np.where(np.isnan(value), np.nan, 0)
-        else:
-            assert vmin < vmax, f"vmin ({vmin}) < vmax ({vmax})"
-            with np.errstate(divide='ignore', invalid='ignore'):
-                res = (value - vmin) / (vmax - vmin)
-                res[value == -np.inf] = 0
-                res[value == +np.inf] = 1
-            return res
+        with np.errstate(divide='ignore', invalid='ignore'):
+            res = np.where(np.isnan(vmin) | np.isnan(vmax) | (vmin == vmax),
+                           np.where(np.isnan(value), np.nan, 0),
+                           (value - vmin) / (vmax - vmin))
+            res[value == -np.inf] = 0
+            res[value == +np.inf] = 1
+        return res
     else:
         if np.isnan(value):
             return np.nan
@@ -600,7 +475,11 @@ def scale_to_01range(value, vmin, vmax):
             return (value - vmin) / (vmax - vmin)
 
 
-is_number_value = np.vectorize(lambda x: isinstance(x, (int, float, np.number)))
+def is_number_value(v):
+    return isinstance(v, (int, float, np.number))
+
+
+is_number_value_vectorized = np.vectorize(is_number_value, otypes=[bool])
 
 
 def get_sample_step(data, maxsize):
@@ -620,7 +499,7 @@ def get_sample(data, maxsize):
 
     Parameters
     ----------
-    data
+    data : array-like
     maxsize
 
     Returns
@@ -719,6 +598,37 @@ def cached_property(must_invalidate_cache_method):
                 return value
         return property(caching_getter)
     return getter_decorator
+
+
+def broadcast_get(seq, row, col):
+    # allow "broadcasting" (length one sequences are valid) in either direction
+    if isinstance(seq, (tuple, list, np.ndarray, Product)):
+        # FIXME: does not handle len(seq) == 0 nicely but I am unsure this should be fixed here
+        if len(seq) == 0:
+            print("pouet")
+            return None
+        elif len(seq) == 1:
+            row_data = seq[0]
+        else:
+            row_data = seq[row]
+
+        if isinstance(row_data, (tuple, list, np.ndarray, Product)):
+            # FIXME: does not handle len(row_data) == 0 nicely but I am unsure this should be fixed here
+            if len(row_data) == 0:
+                print("yada")
+                return None
+            elif len(row_data) == 1:
+                return row_data[0]
+            else:
+                return row_data[col]
+            # try:
+            #     return row_data[0] if len(row_data) == 1 else row_data[col]
+            # except IndexError:
+            #     raise IndexError(f"list index {col} if out of range for list of length {len(row_data)}")
+        else:
+            return row_data
+    else:
+        return seq
 
 
 # The following two functions (_allow_interrupt and _allow_interrupt_qt) are
@@ -827,3 +737,106 @@ def _allow_interrupt_qt(qapp_or_eventloop):
 
 
 PY312 = sys.version_info >= (3, 12)
+
+
+def data_frac_digits(data: np.ndarray, max_frac_digits: int = 99):
+    """
+    Determine the minimum number of fractional digits needed to represent the
+    data array accurately.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Input array of numeric values.
+    max_frac_digits : int
+        Maximum number of fractional digits to consider. Must be >= 0.
+
+    Returns
+    -------
+    int
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> data_frac_digits(np.array([1, 2, 3]))
+    0
+    >>> data_frac_digits(np.array([1.0, 2.0, 3.0]))
+    0
+    >>> data_frac_digits(np.array([1.5, 2.7, 3.1]))
+    1
+    >>> data_frac_digits(np.array([1.2, 2.751, 3.1]))
+    3
+    >>> data_frac_digits(np.array([1.1234567]))
+    7
+    >>> data_frac_digits(np.array([]))
+    0
+    >>> data_frac_digits(np.array([1.0000001]))
+    7
+    """
+    assert isinstance(data, np.ndarray)
+    assert isinstance(max_frac_digits, int) and max_frac_digits >= 0
+    if not data.size:
+        return 0
+    if np.issubdtype(data.dtype, np.integer):
+        return 0
+    threshold = 10 ** -(max_frac_digits + 1)
+    for frac_digits in range(max_frac_digits):
+        maxdiff = np.max(np.abs(data - np.round(data, frac_digits)))
+        if maxdiff < threshold:
+            return frac_digits
+    return max_frac_digits
+
+
+MAX_INT_DIGITS = 308
+
+
+def num_int_digits(value):
+    """
+    Number of integer digits. Completely ignores the fractional part.
+    Does not take sign into account.
+
+    Examples
+    --------
+    >>> num_int_digits(1)
+    1
+    >>> num_int_digits(99)
+    2
+    >>> num_int_digits(-99.1)
+    2
+    >>> num_int_digits(np.array([1, 99, -99.1]))
+    array([1, 2, 2])
+    """
+    value = abs(value)
+    log10 = np.where(value > 0, np.log10(value), 0)
+    res = np.where(np.isinf(log10), MAX_INT_DIGITS,
+                   # maximum(..., 1) because there must be at least one
+                   # integer digit (the 0 in 0.00..X)
+                   np.maximum(np.floor(log10).astype(int) + 1, 1))
+    # use normal Python scalar instead of 0D arrays
+    return res if res.ndim > 0 else res.item()
+
+
+def log_caller(logger=logger, level=logging.DEBUG):
+    if logger.isEnabledFor(level):
+        # We start from our caller (f_back).
+        # The real current frame (this function's code) has zero interest for us
+        current_frame = inspect.currentframe().f_back
+        caller_frame = current_frame.f_back
+        caller_info = inspect.getframeinfo(caller_frame)
+        caller_module = os.path.basename(caller_info.filename)
+        logger.debug(
+            f"{get_func_name(current_frame)}() "
+            f"called by {get_func_name(caller_frame)}() "
+            f"from module {caller_module} at line {caller_info.lineno}")
+
+
+def get_func_name(frame):
+    # assume that if we have 'self' in the frame, it is a method, otherwise
+    # it is a function.
+    func_name = frame.f_code.co_name
+    if 'self' in frame.f_locals:
+        # We do not use Python 3.11+ frame.f_code.co_qualname because
+        # because it returns the (super) class where the method is
+        # defined, not the instance class which is usually much more useful
+        func_name = f"{frame.f_locals['self'].__class__.__name__}.{func_name}"
+    return func_name

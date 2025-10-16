@@ -1,4 +1,5 @@
 import io
+import logging
 import os
 import re
 import sys
@@ -7,10 +8,9 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Union
 
-
 # Python3.8 switched from a Selector to a Proactor based event loop for asyncio but they do not offer the same
 # features, which breaks Tornado and all projects depending on it, including Jupyter consoles
-# refs: https://github.com/larray-project/larray-editor/issues/208
+# ref: https://github.com/larray-project/larray-editor/issues/208
 if sys.platform.startswith("win") and sys.version_info >= (3, 8):
     import asyncio
 
@@ -28,14 +28,9 @@ import matplotlib
 matplotlib.use('QtAgg')
 import matplotlib.axes
 import numpy as np
+import pandas as pd
 
 import larray as la
-
-from larray_editor.traceback_tools import StackSummary
-from larray_editor.utils import (_, create_action, show_figure, ima, commonpath, DEPENDENCIES,
-                                 get_versions, get_documentation_url, URLS, RecentlyUsedList)
-from larray_editor.arraywidget import ArrayEditorWidget
-from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayCommand
 
 from qtpy.QtCore import Qt, QUrl, QSettings
 from qtpy.QtGui import QDesktopServices, QKeySequence
@@ -49,6 +44,22 @@ except ImportError:
     # PySide6 provides QUndoStack in QtGui
     # unsure qtpy has been fixed yet (see https://github.com/spyder-ide/qtpy/pull/366 for the fix for QUndoCommand)
     from qtpy.QtGui import QUndoStack
+
+from larray_editor.traceback_tools import StackSummary
+from larray_editor.utils import (_,
+                                 create_action,
+                                 show_figure,
+                                 ima,
+                                 commonpath,
+                                 DEPENDENCIES,
+                                 get_versions,
+                                 get_documentation_url,
+                                 URLS,
+                                 RecentlyUsedList,
+                                 logger)
+from larray_editor.arraywidget import ArrayEditorWidget
+from larray_editor import arrayadapter
+from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayCommand
 
 try:
     from qtconsole.rich_jupyter_widget import RichJupyterWidget
@@ -86,7 +97,7 @@ HISTORY_VARS_PATTERN = re.compile(r'_i?\d+')
 # XXX: add all scalars except strings (from numpy or plain Python)?
 # (long) strings are not handled correctly so should NOT be in this list
 # tuple, list
-DISPLAY_IN_GRID = (la.Array, np.ndarray)
+DISPLAY_IN_GRID = (la.Array, np.ndarray, pd.DataFrame)
 
 opened_secondary_windows = []
 
@@ -304,35 +315,51 @@ class AbstractEditorWindow(QMainWindow):
         message += "</ul>"
         QMessageBox.about(self, _("About LArray Editor"), message.format(**kwargs))
 
-    def _update_title(self, title, array, name):
+    def _update_title(self, title, value, name):
         if title is None:
             title = []
 
-        if array is not None:
-            dtype = array.dtype.name
-            # current file (if not None)
-            def format_int(value: int):
-                if value >= 10_000:
-                    return f'{value:_}'
+        if value is not None:
+            # TODO: the type-specific information added to the title should be computed by a method on the adapter
+            #       (self.arraywidget.data_adapter)
+            if hasattr(value, 'dtype'):
+                try:
+                    dtype_str = f' [{value.dtype.name}]'
+                except Exception:
+                    dtype_str = ''
+            else:
+                dtype_str = ''
+
+            if hasattr(value, 'shape'):
+                def format_int(value: int):
+                    if value >= 10_000:
+                        return f'{value:_}'
+                    else:
+                        return str(value)
+
+                if isinstance(value, la.Array):
+                    shape = [f'{display_name} ({format_int(len(axis))})'
+                             for display_name, axis in zip(value.axes.display_names, value.axes)]
                 else:
-                    return str(value)
-            if isinstance(array, la.Array):
-                # array info
-                shape = [f'{display_name} ({format_int(len(axis))})'
-                         for display_name, axis in zip(array.axes.display_names, array.axes)]
+                    try:
+                        shape = [format_int(length) for length in value.shape]
+                    except Exception:
+                        shape = []
+                shape_str = ' x '.join(shape)
             else:
-                # if it's not an Array, it must be a Numpy ndarray
-                assert isinstance(array, np.ndarray)
-                shape = [format_int(length) for length in array.shape]
+                shape_str = ''
+
             # name + shape + dtype
-            array_info = ' x '.join(shape) + f' [{dtype}]'
-            if name:
-                title += [name + ': ' + array_info]
-            else:
-                title += [array_info]
+            value_info = shape_str + dtype_str
+            if name and value_info:
+                title.append(name + ': ' + value_info)
+            elif name:
+                title.append(name)
+            elif value_info:
+                title.append(value_info)
 
         # extra info
-        title += [self._title]
+        title.append(self._title)
         # set title
         self.setWindowTitle(' - '.join(title))
 
@@ -374,6 +401,23 @@ class AbstractEditorWindow(QMainWindow):
 
     def update_title(self):
         raise NotImplementedError()
+
+
+def void_formatter(obj, p, cycle):
+    """
+    p: PrettyPrinter
+        has a .text() method to output text.
+    cycle: bool
+        Indicates whether the object is part of a reference cycle.
+    """
+    if arrayadapter.get_adapter_creator(obj) is not None:
+        # do nothing
+        return
+    else:
+        # we can get in this case if we registered a void_formatter for a type
+        # (such as Sequence) for which we handle some instances of the type
+        # but not all
+        p.text(repr(obj))
 
 
 class MappingEditorWindow(AbstractEditorWindow):
@@ -420,7 +464,10 @@ class MappingEditorWindow(AbstractEditorWindow):
         self.data = la.Session()
         self.arraywidget = ArrayEditorWidget(self, readonly=readonly)
         self.arraywidget.dataChanged.connect(self.push_changes)
-        self.arraywidget.model_data.dataChanged.connect(self.update_title)
+        # FIXME: this is currently broken as it fires for each scroll
+        #        we either need to fix model_data.dataChanged (but that might be needed for display)
+        #        or find another way to add a star to the window title *only* when the user actually changed something
+        # self.arraywidget.model_data.dataChanged.connect(self.update_title)
 
         if qtconsole_available:
             # silence a warning on Python 3.11 (see issue #263)
@@ -439,11 +486,7 @@ class MappingEditorWindow(AbstractEditorWindow):
             })
 
             text_formatter = kernel.shell.display_formatter.formatters['text/plain']
-
-            def void_formatter(array, *args, **kwargs):
-                return ''
-
-            for type_ in DISPLAY_IN_GRID:
+            for type_ in arrayadapter.REGISTERED_ADAPTERS:
                 text_formatter.for_type(type_, void_formatter)
 
             self.kernel = kernel
@@ -534,6 +577,49 @@ class MappingEditorWindow(AbstractEditorWindow):
     def _push_data(self, data):
         self.data = data if isinstance(data, la.Session) else la.Session(data)
         if qtconsole_available:
+            # Avoid displaying objects we handle in IPython console.
+
+            # Sadly, we cannot do this for all objects we support without
+            # trying to import all the modules we support (which is clearly not
+            # desirable), because IPython has 3 limitations.
+            # 1) Its support for "string types" requires
+            #    specifying the exact submodule a type is at (for example:
+            #    pandas.core.frame.DataFrame instead of pandas.DataFrame).
+            #    I do not think this is a maintainable approach for us (that is
+            #    why the registering adapters using "string types" does not
+            #    require that) so we use real/concrete types instead.
+
+            # 2) It only supports *exact* types, not subclasses, so we cannot
+            #    just register a custom formatter for "object" and be done
+            #    with it.
+
+            # 3) We cannot do this "just in time" by doing it in response
+            #    to either ipython_widget executed or executing signals which
+            #    both happen too late (the value is already displayed by the
+            #    time those signals are fired)
+
+            # The combination of the above limitations mean that types
+            # imported via the console will NOT use the void_formatter :(.
+            text_formatter = self.kernel.shell.display_formatter.formatters['text/plain']
+            unique_types = {type(v) for v in self.data.values()}
+            for obj_type in unique_types:
+                adapter_creator = arrayadapter.get_adapter_creator_for_type(obj_type)
+                if adapter_creator is None:
+                    # if None, it means we do not handle that type at all
+                    # => do not touch its ipython formatter
+                    continue
+
+                # Otherwise, we know the type is at least partially handled
+                # (at least some instances are displayed) so we register our
+                # void formatter and rely on it to fallback to repr() if
+                # a particular instance of a type is not handled.
+                try:
+                    current_formatter = text_formatter.for_type(obj_type)
+                except KeyError:
+                    current_formatter = None
+                if current_formatter is not void_formatter:
+                    logger.debug(f"applying void_formatter for {obj_type}")
+                    text_formatter.for_type(obj_type, void_formatter)
             self.kernel.shell.push(dict(self.data.items()))
         var_names = [k for k, v in self.data.items() if self._display_in_varlist(k, v)]
         self.add_list_items(var_names)
@@ -660,7 +746,8 @@ class MappingEditorWindow(AbstractEditorWindow):
 
     def select_list_item(self, to_display):
         changed_items = self._listwidget.findItems(to_display, Qt.MatchExactly)
-        assert len(changed_items) == 1
+        assert len(changed_items) == 1, \
+            f"len(changed_items) should be 1 but is {len(changed_items)}:\n{changed_items!r}"
         prev_selected = self._listwidget.selectedItems()
         assert len(prev_selected) <= 1
         # if the currently selected item (value) need to be refreshed (e.g it was modified)
@@ -738,7 +825,7 @@ class MappingEditorWindow(AbstractEditorWindow):
         return self._display_in_grid(v) and not k.startswith('__')
 
     def _display_in_grid(self, v):
-        return isinstance(v, DISPLAY_IN_GRID)
+        return arrayadapter.get_adapter_creator(v) is not None
 
     def ipython_cell_executed(self):
         user_ns = self.kernel.shell.user_ns
@@ -819,7 +906,7 @@ class MappingEditorWindow(AbstractEditorWindow):
             if 'inline' not in matplotlib.get_backend():
                 figure = self._get_figure(cur_output)
                 if figure is not None:
-                    show_figure(self, figure, title=last_input_last_line)
+                    show_figure(figure, title=last_input_last_line, parent=self)
 
     def _get_figure(self, cur_output):
         if isinstance(cur_output, matplotlib.figure.Figure):
@@ -878,8 +965,18 @@ class MappingEditorWindow(AbstractEditorWindow):
         self._update_title(title, array, name)
 
     def set_current_array(self, array, expr_text):
-        # we should NOT check that "array is not self.current_array" because this method is also called to
-        # refresh the widget value because of an inplace setitem
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("")
+            clsname = self.__class__.__name__
+            msg = f"{clsname}.set_current_array(<...>, {expr_text!r})"
+            logger.debug(msg)
+            logger.debug('=' * len(msg))
+
+        # we should NOT check that "array is not self.current_array" because
+        # this method is also called to refresh the widget value because of an
+        # inplace setitem
+
+        # FIXME: we should never store the current_array but current_adapter instead
         self.current_array = array
         self.arraywidget.set_data(array)
         self.current_expr_text = expr_text

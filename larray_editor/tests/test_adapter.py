@@ -1,5 +1,4 @@
 import pytest
-
 import larray as la
 
 
