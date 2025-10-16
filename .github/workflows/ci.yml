@@ -9,19 +9,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
-      - name: Install Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - name: Install & run Ruff
+        uses: astral-sh/ruff-action@v3
         with:
-            python-version: "3.11"
-
-      # Pin ruff version to make sure we do not break our builds at the worst times
-      - name: Install Ruff 0.5.1
-        run: pip install ruff==0.5.1
-
-      # Include `--output-format=github` to enable automatic inline annotations.
-      - name: Run Ruff
-        run: ruff check --output-format=github .
+          # Pin ruff version to make sure we do not break our builds at the
+          # worst times
+          version: "0.14.0"
 
   test:
     # name: Test (${{ matrix.python-version }}, ${{ matrix.os }})
@@ -33,16 +27,16 @@ jobs:
       fail-fast: false
       matrix:
         # os: ["ubuntu-latest", "macos-latest", "windows-latest"]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
 
     defaults:
       run:
         shell: bash -l {0}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: conda-incubator/setup-miniconda@v2
+      uses: conda-incubator/setup-miniconda@v3
       with:
         auto-update-conda: true
         environment-file: environment.yml
