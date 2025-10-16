@@ -1,96 +1,117 @@
 """Array editor test"""
 
+import array
 import logging
-# from pathlib import Path
+import sys
+import zipfile
+from collections import OrderedDict, namedtuple
+import sqlite3
+from pathlib import Path
 
 import numpy as np
+import qtpy
 import larray as la
+import pandas as pd
+import polars as pl
 
-# from larray_editor.api import edit
-from larray_editor.api import view, edit, debug, compare
+from larray_editor.api import edit
+# from larray_editor.api import view, edit, debug, compare
 from larray_editor.utils import logger
 
-import qtpy
-
-print(f"Using {qtpy.API_NAME} as Qt API")
-
+# Configure logging to output messages to the console
+logging.basicConfig(
+    # Show warnings and above for all loggers
+    level=logging.WARNING,
+    format="%(levelname)s:%(name)s:%(message)s",
+    stream=sys.stdout
+)
+# Set our own logger to DEBUG
 logger.setLevel(logging.DEBUG)
+logger.info(f"Using {qtpy.API_NAME} as Qt API")
 
-lipro = la.Axis('lipro=P01..P15')
-age = la.Axis('age=0..115')
-sex = la.Axis('sex=M,F')
+# array objects
+array_double = array.array('d', [1.0, 2.0, 3.14])
+array_signed_int = array.array('l', [1, 2, 3, 4, 5])
+array_signed_int_empty = array.array('l')
+# should show as hello alpha and omega
+array_unicode = array.array('u', 'hello \u03B1 and \u03C9')
 
-vla = 'A11,A12,A13,A23,A24,A31,A32,A33,A34,A35,A36,A37,A38,A41,A42,A43,A44,A45,A46,A71,A72,A73'
-wal = 'A25,A51,A52,A53,A54,A55,A56,A57,A61,A62,A63,A64,A65,A81,A82,A83,A84,A85,A91,A92,A93'
-bru = 'A21'
-# list of strings
-belgium = la.union(vla, wal, bru)
+# list
+list_empty = []
+list_int = [2, 5, 7, 3]
+list_mixed = ['abc', 1.1, True, 1.0, 42, [1, 2]]
+list_seq_mixed = [[1], [2, 3, 4], [5, 6]]
+list_seq_regular = [[1, 2], [3, 4], [5, 6]]
+list_unicode = ["\N{grinning face}", "\N{winking face}"]
+list_mixed_tuples = [
+    ("C", 1972),
+    ("Fortran", 1957),
+    ("Python", 1991),
+    ("Go", 2009),
+]
 
-geo = la.Axis(belgium, 'geo')
+# tuple
+tuple_empty = ()
+tuple_int = (2, 5, 7, 3)
+tuple_mixed = ('abc', 1.1, True, 1.0, 42, (1, 2))
+tuple_seq_mixed = ((1,), (2, 3, 4), (5, 6))
+tuple_seq_regular = ((1, 2), (3, 4), (5, 6))
 
-# arr1 = la.ndtest((sex, lipro))
-# edit(arr1)
+# named tuple
+PersonNamedTuple = namedtuple('Person', ['name', 'age', 'male', 'height'])
+namedtuple1 = PersonNamedTuple("name1", age=42, male=True, height=1.80)
+namedtuple2 = PersonNamedTuple("name2", age=41, male=False, height=1.76)
 
-# data2 = np.arange(116 * 44 * 2 * 15).reshape(116, 44, 2, 15) \
-#           .astype(float)
-# data2 = np.random.random(116 * 44 * 2 * 15).reshape(116, 44, 2, 15) \
-#           .astype(float)
-# data2 = (np.random.randint(10, size=(116, 44, 2, 15)) - 5) / 17
-# data2 = np.random.randint(10, size=(116, 44, 2, 15)) / 100 + 1567
-# data2 = np.random.normal(51000000, 10000000, size=(116, 44, 2, 15))
-arr2 = la.random.normal(axes=(age, geo, sex, lipro))
-# arr2 = la.ndrange([100, 100, 100, 100, 5])
-# arr2 = arr2['F', 'A11', 1]
+# set
+set_int = {2, 4, 7, 3}
+set_int_big = set(range(10 ** 7))
+set_mixed = {2, "hello", 7.0, True}
+set_str = {"a", "b", "c", "d"}
 
-# view(arr2[0, 'A11', 'F', 'P01'])
-# view(arr1)
-# view(arr2[0, 'A11'])
-# edit(arr1)
-# print(arr2[0, 'A11', :, 'P01'])
-# edit(arr2.astype(int), minvalue=-99, maxvalue=55.123456)
-# edit(arr2.astype(int), minvalue=-99)
-# arr2.i[0, 0, 0, 0] = np.inf
-# arr2.i[0, 0, 1, 1] = -np.inf
-# arr2 = [0.0000111, 0.0000222]
-# arr2 = [0.00001, 0.00002]
-# edit(arr2, minvalue=-99, maxvalue=25.123456)
-# print(arr2[0, 'A11', :, 'P01'])
+# dict
+dict_str_int = {"a": 2, "b": 5, "c": 7, "d": 3}
+dict_int_int = {0: 2, 2: 4, 5: 7, 1: 3}
+dict_int_str = {0: "a", 2: "b", 5: "c", 1: "d"}
+dict_str_mixed = {"a": 2, "b": "hello", "c": 7.0, "d": True}
 
-# arr2 = la.random.normal(0, 10, axes="d0=0..4999;d1=0..19")
-# edit(arr2)
+# dict views
+dictview_keys = dict_str_mixed.keys()
+dictview_items = dict_str_mixed.items()
+dictview_values = dict_str_mixed.values()
 
-# view(['a', 'bb', 5599])
-# view(np.arange(12).reshape(2, 3, 2))
-# view([])
+# OrderedDict
+odict_int_int = OrderedDict(dict_int_int)
+odict_int_str = OrderedDict(dict_int_str)
+odict_str_int = OrderedDict(dict_str_int)
+odict_str_mixed = OrderedDict(dict_str_mixed)
 
-data3 = np.random.normal(0, 1, size=(2, 15))
-# FIXME: the new align code makes this fail
-# arr3 = la.ndtest((30, sex))
-arr3 = la.ndtest((age, sex))
-# data4 = np.random.normal(0, 1, size=(2, 15))
-# arr4 = la.Array(data4, axes=(sex, lipro))
+# numpy arrays
+np_arr0d = np.full((), 42, dtype=float)
+np_arr1d = np.random.normal(0, 1, size=100)
+np_arr1d_empty = np.random.normal(0, 1, size=0)
+np_arr2d = np.random.normal(0, 1, size=(100, 100))
+np_arr2d_0col = np.random.normal(0, 1, size=(10, 0))
+np_arr2d_0row = np.random.normal(0, 1, size=(0, 10))
+np_arr3d = np.random.normal(0, 1, size=(10, 10, 10))
+np_big1d = np.arange(1000 * 1000 * 500)
+np_big3d = np_big1d.reshape((1000, 1000, 500))
+np_dtype = np.dtype([('name', '<U11'), ('age', int), ('male', bool), ('height', float)])
+np_struct_arr = np.array([('name1', 42,  True, 1.80),
+                          ('name2', 41, False, 1.76),
+                          ('name3', 43, False, 1.78),
+                          ('name4', 44,  True, 1.77)], dtype=np_dtype)
+np_struct_arr_2d = np.array([[('name1', 41,  True, 1.80),
+                              ('name2', 42, False, 1.79)],
+                             [('name3', 43, False, 1.78),
+                              ('name4', 44,  True, 1.77)]], dtype=np_dtype)
+mv_arr1d = memoryview(np_arr1d)
+mv_arr2d = memoryview(np_arr2d)
+mv_arr3d = memoryview(np_arr3d)
+mv_big3d = memoryview(np_big3d)
 
-# arr4 = arr3.copy()
-# arr4['F'] /= 2
-arr4 = arr3.min(sex)
-arr5 = arr3.max(sex)
-arr6 = arr3.mean(sex)
-
-# test isssue #35
-arr7 = la.from_lists([['a',                   1,                    2,                    3],
-                      [ '', 1664780726569649730, -9196963249083393206, -7664327348053294350]])
-
-
-def make_circle(width=20, radius=9):
-    x, y = la.Axis(width, 'x'), la.Axis(width, 'y')
-    center = (width - 1) / 2
-    return la.maximum(radius - la.sqrt((x - center) ** 2 + (y - center) ** 2), 0)
-
-
-def make_sphere(width=20, radius=9):
-    x, y, z = la.Axis(width, 'x'), la.Axis(width, 'y'), la.Axis(width, 'z')
-    center = (width - 1) / 2
-    return la.maximum(radius - la.sqrt((x - center) ** 2 + (y - center) ** 2 + (z - center) ** 2), 0)
+# these are not supported
+# mv_struct_arr = memoryview(np_struct_arr)
+# mv_struct_arr_2d = memoryview(np_struct_arr_2d)
 
 
 def make_demo(width=20, ball_radius=5, path_radius=5, steps=30):
@@ -122,29 +143,62 @@ def test_plot_returning_ax_and_using_show():
     return ax
 
 
-demo = make_demo(9, 2.5, 1.5)
-sphere = make_sphere(9, 4)
-extreme_array = la.Array([-la.inf, -1, 0, la.nan, 1, la.inf])
-array_scalar = la.Array(0)
-arr_all_nan = la.Array([la.nan, la.nan])
-# this is crafted so that the entire 500 points sample is all nan but
+lipro = la.Axis('lipro=P01..P15')
+age = la.Axis('age=0..29')
+sex = la.Axis('sex=M,F')
+geo = la.Axis(['A11', 'A25', 'A51', 'A21'], 'geo')
+
+la_float_4d_many_digits = la.random.normal(axes=(age, geo, sex, lipro))
+la_float_4d_many_digits['P01', 'A11', 0] = la.nan
+la_int_1d = la.ndtest(age)
+# FIXME: the new align code makes this fail
+# la_int2d = la.ndtest((30, sex))
+la_int_2d = la.ndtest((age, sex))
+la_float_round_values = la_int_2d.mean(sex)
+
+# test isssue #35
+la_very_large_ints = la.from_lists([
+    ['a',                   1,                    2,                    3],
+    [ '', 1664780726569649730, -9196963249083393206, -7664327348053294350]
+])
+
+la_demo = make_demo(9, 2.5, 1.5)
+la_extreme_array = la.Array([-la.inf, -1, 0, la.nan, 1, la.inf])
+la_scalar = la.Array(0)
+la_all_nan = la.Array([la.nan, la.nan])
+
+# this is crafted so that the entire byffer is all nan but
 # other values need coloring
-arr_full_buffer_nan_should_not_be_all_white = la.ndtest(1000, dtype=float)
-arr_full_buffer_nan_should_not_be_all_white['a0'::2] = la.nan
-arr_empty = la.Array([])
-arr_empty_2d = la.Array([[], []])
-arr_obj = la.ndtest((2, 3)).astype(object)
-arr_str = la.ndtest((2, 3)).astype(str)
-big = la.ndtest((1000, 1000, 500))
-big1d = la.ndtest(1000000)
+la_full_buffer_nan_should_not_be_all_white = la.ndtest((100, 100), dtype=float)
+la_full_buffer_nan_should_not_be_all_white[:'a50',:'b50'] = la.nan
+la_empty = la.Array([])
+la_empty_2d = la.Array([[], []])
+la_obj_numeric = la.ndtest((2, 3)).astype(object)
+la_boolean = (la_int_2d % 3) == 0
+la_obj_mixed = la.ndtest((2, 3)).astype(object)
+la_obj_mixed['a0', 'b1'] = 'Hello, this is a string !'
+la_obj_mixed['a0', 'b2'] = 1.95
+la_obj_mixed['a1', 'b0'] = True
+la_str = la.ndtest((2, 3)).astype(str)
+
+la_big1d = la.Array(np_big1d[:1000_000], 'a=a0..a999999')
+la_big3d = la.Array(np_big3d, 'a=a0..a999;b=b0..b999;c=c0..c499')
 # force big1d.axes[0]._mapping to be created so that we do not measure that delay in the editor
-big1d[{}]
+# _ = la_big1d[{}]
+# del _
 
-# test autoresizing
-long_labels = la.zeros('a=a_long_label,another_long_label; b=this_is_a_label,this_is_another_one')
-long_axes_names = la.zeros('first_axis=a0,a1; second_axis=b0,b1')
+# test auto-resizing
+la_long_labels = la.zeros('a=a_long_label,another_long_label; b=this_is_a_label,this_is_another_one')
+la_long_axes_names = la.zeros('first_axis=a0,a1; second_axis=b0,b1')
 
-# compare(arr3, arr4, arr5, arr6)
+la_wb = la.open_excel('test.xlsx')
+
+# FIXME: the number of digits shown is 0 by default but should be 1,
+#        because la_arr6 contains some ".5" values.
+#        this is due to LArrayArrayAdapter.get_sample which returns 200 values
+#        but not any from la_arr6.
+
+# compare(la_arr3, la_arr4, la_arr5, la_arr6)
 
 # view(stack((arr3, arr4), la.Axis('arrays=arr3,arr4')))
 # ses = la.Session(arr2=arr2, arr3=arr3, arr4=arr4, arr5=arr5, arr6=arr6, arr7=arr7, long_labels=long_labels,
@@ -168,18 +222,18 @@ long_axes_names = la.zeros('first_axis=a0,a1; second_axis=b0,b1')
 # edit(arr2)
 
 # test issue #247 (same names)
-# compare(arr3, arr3)
-# compare(arr3, arr3 + 1.0)
-compare(arr3, arr3 + 1.0, names=['arr3', 'arr3 + 1.0'])
-compare(np.random.normal(0, 1, size=(10, 2)), np.random.normal(0, 1, size=(10, 2)))
+# compare(la_arr3, la_arr3)
+# compare(la_arr3, la_arr3 + 1.0)
+# compare(la_arr3, la_arr3 + 1.0, names=['arr3', 'arr3 + 1.0'])
+# compare(np.random.normal(0, 1, size=(10, 2)), np.random.normal(0, 1, size=(10, 2)))
 
-# sess1 = la.Session(arr4=arr4, arr3=arr3, data=data3)
+# sess1 = la.Session(arr4=arr4, arr3=la_arr3, data=data3)
 # sess1.save('sess1.h5')
-# sess2 = la.Session(arr4=arr4 + 1.0, arr3=arr3 * 2.0, data=data3 * 1.05)
+# sess2 = la.Session(arr4=arr4 + 1.0, arr3=la_arr3 * 2.0, data=data3 * 1.05)
 # compare('sess1.h5', sess2)   # sess1.h5/data is nan because np arrays are not saved to H5
 # compare(Path('sess1.h5'), sess2)
-# compare(la.Session(arr2=arr2, arr3=arr3),
-#         la.Session(arr2=arr2 + 1.0, arr3=arr3 * 2.0))
+# compare(la.Session(arr2=arr2, arr3=la_arr3),
+#         la.Session(arr2=arr2 + 1.0, arr3=la_arr3 * 2.0))
 arr1 = la.ndtest((2, 3))
 arr2 = la.ndtest((3, 4))
 arr1bis = arr1.copy()
@@ -196,15 +250,12 @@ arr2bis['a1', 'b1'] = 42
 s1 = la.Session(arr1=arr1, arr2=arr2)
 s2 = la.Session(arr1=arr1bis, arr2=arr2bis)
 del arr1, arr2, arr1bis, arr2bis
-compare(s1, s2, align="outer", rtol=10)
+# compare(s1, s2, align="outer", rtol=10)
 
 # s = la.local_arrays()
 # view(s)
-# print('HDF')
 # s.save('x.h5')
-# print('\nEXCEL')
 # s.save('x.xlsx')
-# print('\nCSV')
 # s.save('x_csv')
 # print('\n open HDF')
 # edit('x.h5')
@@ -247,5 +298,90 @@ def test_run_editor_on_exception(local_arr):
 # run_editor_on_exception(usercode_traceback=False, usercode_frame=False)
 
 # test_run_editor_on_exception(arr2)
+
+pd_df_mixed = pd.DataFrame(np_struct_arr)
+pd_df1 = la_int_2d.df
+pd_df2 = la_float_4d_many_digits.df
+pd_df3 = pd_df2.T
+pd_df4 = pd_df2.unstack()
+pd_df_str = pd_df2.astype(str)
+pd_series = pd_df2.stack()
+
+pd_df_big = la_big3d.df
+# _big_no_idx = pd_df_big.reset_index()
+# _big_no_idx.to_parquet('big.parquet')
+# _big_no_idx.to_feather('big.feather')
+
+pl_df1 = pl.from_pandas(pd_df1)
+pl_df2 = pl.from_pandas(pd_df2)
+# test with a datetime column and another column
+# the Arrow table has the same problem (e.g. pl_df3.to_arrow())
+pl_df3 = pl_df1.select(pl.from_epoch(pl.col('M')).alias('Datetime Column'), 'M').limit(5)
+pl_df_big = pl.from_pandas(pd_df_big, include_index=True)
+pl_lf1 = pl.scan_parquet('big.parquet')
+pl_lf2 = pl.scan_ipc('big.feather')
+
+path_dir = Path('.')
+path_py = Path('test_adapter.py')
+path_csv = Path('be.csv')
+
+try:
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    pyarrow_int_array = pa.array([2, 4, 5, 42])
+    pyarrow_str_array = pa.array(["Hello", "from", "Arrow", "!"])
+    pyarrow_table = pa.Table.from_arrays([pyarrow_int_array, pyarrow_str_array],
+                                         names=["int_col", "str_col"])
+
+    pyarrow_parquet_file = pq.ParquetFile('c:/tmp/exiobase/full/L.parquet')
+
+    # to generate a big feather/arrow test file, use something like (just add more columns):
+    # BATCH_SIZE = 10000
+    # NUM_BATCHES = 1000
+    # schema = pa.schema([pa.field('nums', pa.int32())])
+    # with pa.OSFile('bigfile.arrow', 'wb') as sink:
+    #    with pa.ipc.new_file(sink, schema) as writer:
+    #       for row in range(NUM_BATCHES):
+    #             batch = pa.record_batch([pa.array(range(BATCH_SIZE), type=pa.int32())], schema)
+    #             writer.write(batch)
+    # from pyarrow.dataset import dataset
+
+    # d = dataset('OIN/data.feather', format='ipc')
+except ImportError:
+    pass
+
+# import cProfile as profile
+# profile.runctx('edit(la.Session(arr2=arr2))', vars(), {},
+#                'c:/tmp/edit.profile')
+# import pstats
+# pstats_stats = pstats.Stats('c:\\tmp\\edit.profile')
+
+sqlite_con = sqlite3.connect(":memory:")
+cur = sqlite_con.cursor()
+cur.execute("create table lang (name, first_appeared)")
+cur.executemany("insert into lang values (?, ?)", list_mixed_tuples)
+cur.close()
+
+try:
+    import duckdb
+except ImportError:
+    duckdb = None
+
+if duckdb is not None:
+    duckdb_con = duckdb.connect(":memory:")
+    duckdb_con.execute("create table lang (name VARCHAR, first_appeared INTEGER)")
+    duckdb_con.executemany("insert into lang values (?, ?)", list_mixed_tuples)
+    duckdb_table = duckdb_con.table('lang')
+
+
+zipf = zipfile.ZipFile('c:/Users/gdm/Downloads/active_directory-0.6.7.zip')
+
+# from pandasgui.datasets import pokemon, titanic, mi_manufacturing, trump_tweets, all_datasets
+# from pandasgui import show
+# gui = show(pokemon, titanic, mi_manufacturing)
+
+edit()
+# debug()
 
 # test_edit_after_matplotlib_show()

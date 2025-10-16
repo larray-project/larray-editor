@@ -14,6 +14,7 @@ DESCRIPTION = "Graphical User Interface for LArray library"
 LONG_DESCRIPTION = readlocal("README.rst")
 LONG_DESCRIPTION_CONTENT_TYPE = "text/x-rst"
 SETUP_REQUIRES = []
+# FIXME: add numpy and matplotlib dependencies
 # pyqt cannot be installed via pypi. Dependencies (pyqt, qtpy and matplotlib) moved to conda recipe
 # requires larray >= 0.32 because of the LArray -> Array rename
 # TODO: add qtpy as dependency and mention pyqt or pyside
