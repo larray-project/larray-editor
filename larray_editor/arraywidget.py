@@ -498,11 +498,7 @@ class FontMetrics:
 
     @cached_property(font_changed)
     def str_width(self):
-        # font_metrics = QFontMetrics(self._used_font)
-        # def str_width(c):
-        #     return font_metrics.size(Qt.TextSingleLine, c).width()
-        # return str_width
-        return QFontMetrics(self._used_font).width
+        return QFontMetrics(self._used_font).horizontalAdvance
 
     @cached_property(font_changed)
     def digit_width(self):

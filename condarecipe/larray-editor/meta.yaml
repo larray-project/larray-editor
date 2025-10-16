@@ -28,6 +28,7 @@ requirements:
     - matplotlib
     - pyqt >=5
     - qtpy >=2  # for Qt6 support
+    - qt >=5.11
     # jedi >=0.18 to workaround incompatibility between jedi <0.18 and parso >=0.8 (see #220)
     - jedi >=0.18
     - qtconsole !=5.4.2
