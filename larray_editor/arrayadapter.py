@@ -2603,33 +2603,6 @@ def index_line_ends(s, index=None, offset=0, c='\n'):
     return index
 
 
-def chunks_to_lines(chunks, num_lines_required=None, encoding=None):
-    r"""
-    Parameters
-    ----------
-    chunks : list
-        List of chunks. str and bytes are both supported but should not be mixed (all chunks must
-        have the same type than the first chunk).
-
-    Examples
-    --------
-    >>> chunks = ['a\nb\nc ', 'c\n', 'd ', 'd', '\n', 'e']
-    >>> chunks_to_lines(chunks)
-    ['a', 'b', 'c c', 'd d', 'e']
-    >>> # it should have the same result than join then splitlines (just do it more efficiently)
-    ... ''.join(chunks).splitlines()
-    ['a', 'b', 'c c', 'd d', 'e']
-    """
-    if not chunks:
-        return []
-    if encoding is not None:
-        assert isinstance(chunks[0], bytes)
-        chunks = [chunk.decode(encoding) for chunk in chunks]
-    sep = b'' if isinstance(chunks[0], bytes) else ''
-    lines = sep.join(chunks).splitlines()
-    return lines[:num_lines_required]
-
-
 @adapter_for('_io.TextIOWrapper')
 class TextFileAdapter(AbstractAdapter):
     def __init__(self, data, attributes):
@@ -2702,13 +2675,7 @@ class TextFileAdapter(AbstractAdapter):
                 #       (once for indexing then again for getting the data)
                 chunk = f.read(chunk_size)
                 if self._encoding is None:
-                    try:
-                        import charset_normalizer
-                        chartset_match = charset_normalizer.from_bytes(chunk).best()
-                        self._encoding = chartset_match.encoding
-                        logger.debug(f"encoding detected as {self._encoding}")
-                    except ImportError:
-                        logger.debug("could not import 'charset_normalizer' => cannot detect encoding")
+                    self._detect_encoding(chunk)
 
                 line_end_char = b'\n'
                 index_line_ends(chunk, self._lines_end_index, offset=chunk_start, c=line_end_char)
@@ -2726,6 +2693,15 @@ class TextFileAdapter(AbstractAdapter):
                     if not self._lines_end_index or self._lines_end_index[-1] != file_last_char_pos:
                         self._lines_end_index.append(file_length)
                 chunk_start += length_read
+
+    def _detect_encoding(self, chunk):
+        try:
+            import charset_normalizer
+            chartset_match = charset_normalizer.from_bytes(chunk).best()
+            self._encoding = chartset_match.encoding
+            logger.debug(f"encoding detected as {self._encoding}")
+        except ImportError:
+            logger.debug("could not import 'charset_normalizer' => cannot detect encoding")
 
     def get_vlabels_values(self, start, stop):
         # we need to trigger indexing too (because get_vlabels happens before get_data) so that lines_indexed is correct
@@ -2755,9 +2731,9 @@ class TextFileAdapter(AbstractAdapter):
                 stop_pos = self._lines_end_index[stop - 1]
                 f.seek(start_pos)
                 chunk = f.read(stop_pos - start_pos)
-                lines = chunks_to_lines([chunk], stop - start, self._encoding)
+                lines = self._decode_chunks_to_lines([chunk], stop - start)
                 # lines = chunk.split(b'\n')
-                # assert len(lines) == stop - start
+                # assert len(lines) == num_required_lines
                 return lines
             else:
                 pos_last_end = self._lines_end_index[-1]
@@ -2794,12 +2770,45 @@ class TextFileAdapter(AbstractAdapter):
 
                 if approx_start:
                     # +1 and [1:] to remove first line so that we are sure the first line is complete
-                    lines = chunks_to_lines(chunks, num_lines_required + 1,
-                                            self._encoding)[1:]
+                    n_req_lines = num_lines_required + 1
+                    lines = self._decode_chunks_to_lines(chunks, n_req_lines)[1:]
                 else:
-                    lines = chunks_to_lines(chunks, num_lines_required,
-                                            self._encoding)
+                    lines = self._decode_chunks_to_lines(chunks, num_lines_required)
                 return lines
+
+    def _decode_chunk(self, chunk: bytes):
+        try:
+            return chunk.decode(self._encoding)
+        except UnicodeDecodeError:
+            old_encoding = self._encoding
+            # try to find another encoding
+            self._detect_encoding(chunk)
+            logger.debug(f"Could not decode chunk using {old_encoding}")
+            logger.debug(f"Trying again using {self._encoding} and ignoring "
+                         f"errors")
+            return chunk.decode(self._encoding, errors='replace')
+
+    def _decode_chunks_to_lines(self, chunks: list, num_required_lines: int):
+        r"""
+        Parameters
+        ----------
+        chunks : list
+            List of chunks. str and bytes are both supported but should not be mixed (all chunks must
+            have the same type than the first chunk).
+        """
+        if not chunks:
+            return []
+
+        # TODO: we could have more efficient code:
+        #  * only decode as many chunks as necessary to get num_required_lines
+        #  * only join as many chunks as necessary to get num_required_lines
+        if self._encoding is not None:
+            assert isinstance(chunks[0], bytes)
+            chunks = [self._decode_chunk(chunk) for chunk in chunks]
+
+        sep = b'' if isinstance(chunks[0], bytes) else ''
+        lines = sep.join(chunks).splitlines()
+        return lines[:num_required_lines]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
         """*_stop are exclusive"""
