@@ -1528,6 +1528,12 @@ class ArrayEditorWidget(QWidget):
         self.user_defined_axes_column_widths = {}
         self.user_defined_vlabels_row_heights = {}
         self.user_defined_axes_row_heights = {}
+        self.detected_hlabels_column_widths = {}
+        self.detected_axes_column_widths = {}
+        # TODO: find some more efficient structure to store them. 99.9%
+        #       of rows will use the default height
+        self.detected_vlabels_row_heights = {}
+        self.detected_axes_row_heights = {}
         self._updating_hlabels_column_widths = False
         self._updating_axes_column_widths = False
         self._updating_vlabels_row_heights = False
@@ -1848,11 +1854,15 @@ class ArrayEditorWidget(QWidget):
         self.view_hlabels.reset_to_defaults()
         self.view_data.reset_to_defaults()
 
-        # clear user defined column widths & row heights
+        # clear user defined & detected column widths & row heights
         self.user_defined_axes_column_widths = {}
         self.user_defined_axes_row_heights = {}
         self.user_defined_hlabels_column_widths = {}
         self.user_defined_vlabels_row_heights = {}
+        self.detected_hlabels_column_widths = {}
+        self.detected_axes_column_widths = {}
+        self.detected_vlabels_row_heights = {}
+        self.detected_axes_row_heights = {}
 
     def set_frac_digits_or_scientific(self, frac_digits=None, scientific=None):
         """Set format.
@@ -2138,8 +2148,8 @@ class ArrayEditorWidget(QWidget):
         user_widths = self.user_defined_axes_column_widths
         for local_col_idx in range(self.model_axes.columnCount()):
             # Since there is no h_offset for axes, the column width never
-            # actually changes unless the user explictly changes it, so just
-            # preventing the autosizing code from running is enough
+            # actually changes unless the user explicitly changes it, so just
+            # preventing the auto-sizing code from running is enough
             if local_col_idx not in user_widths:
                 self.resize_axes_column_to_contents(local_col_idx)
         self._updating_axes_column_widths = False
@@ -2149,8 +2159,8 @@ class ArrayEditorWidget(QWidget):
         user_def_row_heights = self.user_defined_axes_row_heights
         for local_row_idx in range(self.model_axes.rowCount()):
             # Since there is no v_offset for axes, the row height never
-            # actually changes unless the user explictly changes it, so just
-            # preventing the autosizing code from running is enough
+            # actually changes unless the user explicitly changes it, so just
+            # preventing the auto-sizing code from running is enough
             if local_row_idx not in user_def_row_heights:
                 self.resize_axes_row_to_contents(local_row_idx)
         self._updating_axes_row_heights = False
@@ -2173,14 +2183,18 @@ class ArrayEditorWidget(QWidget):
         #    work
         #  * reimplementing sizeHintForColumn on AxesView would be cleaner
         #    but that would require making it know of the view_vlabels instance
+        prev_width = self.detected_axes_column_widths.get(col_idx, 0)
         width = max(self.view_axes.sizeHintForColumn(col_idx),
-                    self.view_vlabels.sizeHintForColumn(col_idx))
+                    self.view_vlabels.sizeHintForColumn(col_idx),
+                    prev_width)
         # view_vlabels column width will be synchronized automatically
         self.view_axes.horizontalHeader().resizeSection(col_idx, width)
 
         # set that column's width back to "automatic width"
         if col_idx in self.user_defined_axes_column_widths:
             del self.user_defined_axes_column_widths[col_idx]
+        if width > prev_width:
+            self.detected_axes_column_widths[col_idx] = width
 
     # must be connected to signal:
     # view_hlabels.horizontalHeader().sectionHandleDoubleClicked
@@ -2188,8 +2202,11 @@ class ArrayEditorWidget(QWidget):
                                           min_width=None, max_width=None):
         # clsname = self.__class__.__name__
         # print(f"{clsname}.resize_hlabels_column_to_contents({local_col_idx})")
+        global_col_idx = self.model_data.h_offset + local_col_idx
+        prev_width = self.detected_hlabels_column_widths.get(global_col_idx, 0)
         width = max(self.view_hlabels.sizeHintForColumn(local_col_idx),
-                    self.view_data.sizeHintForColumn(local_col_idx))
+                    self.view_data.sizeHintForColumn(local_col_idx),
+                    prev_width)
         if min_width is not None:
             width = max(width, min_width)
         if max_width is not None:
@@ -2198,29 +2215,45 @@ class ArrayEditorWidget(QWidget):
         self.view_hlabels.horizontalHeader().resizeSection(local_col_idx, width)
 
         # set that column's width back to "automatic width"
-        global_col_idx = self.model_data.h_offset + local_col_idx
         if global_col_idx in self.user_defined_hlabels_column_widths:
             del self.user_defined_hlabels_column_widths[global_col_idx]
+        if width > prev_width:
+            self.detected_hlabels_column_widths[global_col_idx] = width
 
     # must be connected to signal:
     # view_axes.verticalHeader().sectionHandleDoubleClicked
-    def resize_axes_row_to_contents(self, row):
+    def resize_axes_row_to_contents(self, row_idx):
         # clsname = self.__class__.__name__
         # print(f"{clsname}.resize_axes_row_to_contents({row})")
-        height = max(self.view_axes.sizeHintForRow(row),
-                     self.view_hlabels.sizeHintForRow(row))
+        prev_height = self.detected_axes_row_heights.get(row_idx, 0)
+        height = max(self.view_axes.sizeHintForRow(row_idx),
+                     self.view_hlabels.sizeHintForRow(row_idx),
+                     prev_height)
         # view_hlabels row height will be synchronized automatically
-        self.view_axes.verticalHeader().resizeSection(row, height)
+        self.view_axes.verticalHeader().resizeSection(row_idx, height)
+        # set that row's height back to "automatic height"
+        if row_idx in self.user_defined_axes_row_heights:
+            del self.user_defined_axes_row_heights[row_idx]
+        if height > prev_height:
+             self.detected_axes_row_heights[row_idx] = height
 
     # must be connected to signal:
     # view_vlabels.verticalHeader().sectionHandleDoubleClicked
-    def resize_vlabels_row_to_contents(self, row):
+    def resize_vlabels_row_to_contents(self, local_row_idx):
         # clsname = self.__class__.__name__
         # print(f"{clsname}.resize_vlabels_row_to_contents({row})")
-        height = max(self.view_vlabels.sizeHintForRow(row),
-                     self.view_data.sizeHintForRow(row))
+        global_row_idx = self.model_data.v_offset + local_row_idx
+        prev_height = self.detected_vlabels_row_heights.get(global_row_idx, 0)
+        height = max(self.view_vlabels.sizeHintForRow(local_row_idx),
+                     self.view_data.sizeHintForRow(local_row_idx),
+                     prev_height)
         # view_data row height will be synchronized automatically
-        self.view_vlabels.verticalHeader().resizeSection(row, height)
+        self.view_vlabels.verticalHeader().resizeSection(local_row_idx, height)
+        # set that row's height back to "automatic height"
+        if global_row_idx in self.user_defined_vlabels_row_heights:
+            del self.user_defined_vlabels_row_heights[global_row_idx]
+        if height > prev_height:
+             self.detected_vlabels_row_heights[global_row_idx] = height
 
     def scientific_changed(self, value):
         # auto-detect frac_digits
