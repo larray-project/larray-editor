@@ -2860,6 +2860,8 @@ class XlsxPathAdapter(WorkbookAdapter):
 
 
 class CsvFileAdapter(TextFileAdapter):
+    DELIMITER = ','
+
     def __init__(self, data, attributes):
         # we know the module is loaded but it is not in the current namespace
         csv = sys.modules['csv']
@@ -2867,7 +2869,7 @@ class CsvFileAdapter(TextFileAdapter):
         if self._nbytes > 0:
             first_line = self._get_lines(0, 1)
             assert len(first_line) == 1
-            reader = csv.reader([first_line[0]])
+            reader = csv.reader([first_line[0]], delimiter=self.DELIMITER)
             self._colnames = next(reader)
         else:
             self._colnames = []
@@ -2894,12 +2896,23 @@ class CsvFileAdapter(TextFileAdapter):
         # we know the module is loaded but it is not in the current namespace
         csv = sys.modules['csv']
         # Note that csv reader actually needs a line-based input
-        reader = csv.reader(lines)
+        reader = csv.reader(lines, delimiter=self.DELIMITER)
         return [line[h_start:h_stop] for line in reader]
 
 
 @path_adapter_for('.csv', 'csv')
 class CsvPathAdapter(CsvFileAdapter):
+    @classmethod
+    def open(cls, fpath):
+        return open(fpath, 'rt')
+
+
+class TsvFileAdapter(CsvFileAdapter):
+    DELIMITER = '\t'
+
+
+@path_adapter_for('.tsv', 'csv')
+class TsvPathAdapter(TsvFileAdapter):
     @classmethod
     def open(cls, fpath):
         return open(fpath, 'rt')
