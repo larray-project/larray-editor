@@ -59,6 +59,7 @@ Array Editor Dialog based on Qt
 #   worth it for a while.
 
 import math
+from pathlib import Path
 
 import numpy as np
 
@@ -1151,34 +1152,40 @@ class DataView(AbstractView):
         global_h_pos = model.h_offset + index.column()
         new_data = model.adapter.cell_activated(global_v_pos, global_h_pos)
         if new_data is not None:
+            # the adapter wants us to open a sub-element
             editor_widget = self.parent().parent()
             assert isinstance(editor_widget, ArrayEditorWidget)
             adapter_creator = get_adapter_creator(new_data)
-            if adapter_creator is not None:
-                if adapter_creator is get_path_suffix_adapter:
-                    adapter = get_path_suffix_adapter(new_data, {})
-                    if adapter is None:
-                        logger.info("File type not handled")
-                        return
-                from larray_editor.editor import AbstractEditorWindow, MappingEditorWindow
-                widget = self
-                while (widget is not None and
-                       not isinstance(widget, AbstractEditorWindow) and
-                       callable(widget.parent)):
-                    widget = widget.parent()
-                if isinstance(widget, MappingEditorWindow):
-                    kernel = widget.kernel
-                    if kernel is not None:
-                        # make the current object available in the console
-                        kernel.shell.push({
-                            '__current__': new_data
-                        })
-                # TODO: we should add an operand on the future quickbar instead
-                editor_widget.back_button_bar.add_back(editor_widget.data,
-                                                       editor_widget.data_adapter)
-                # TODO: we should open a new window instead (see above)
-                editor_widget.set_data(new_data)
+            if adapter_creator is None:
+                if isinstance(new_data, Path):
+                    title = "File type not supported"
+                    msg = f"Cannot display {new_data.suffix} files"
+                else:
+                    obj_type = type(new_data)
+                    title = "Object type not supported"
+                    msg = f"Cannot display objects of type {obj_type.__name__}"
+                QMessageBox.information(self, title, msg)
                 return True
+
+            from larray_editor.editor import AbstractEditorWindow, MappingEditorWindow
+            widget = self
+            while (widget is not None and
+                   not isinstance(widget, AbstractEditorWindow) and
+                   callable(widget.parent)):
+                widget = widget.parent()
+            if isinstance(widget, MappingEditorWindow):
+                kernel = widget.kernel
+                if kernel is not None:
+                    # make the current object available in the console
+                    kernel.shell.push({
+                        '__current__': new_data
+                    })
+            # TODO: we should add an operand on the future quickbar instead
+            editor_widget.back_button_bar.add_back(editor_widget.data,
+                                                   editor_widget.data_adapter)
+            # TODO: we should open a new window instead (see above)
+            editor_widget.set_data(new_data)
+            return True
         return False
 
 class ScrollBar(QScrollBar):
