@@ -404,6 +404,17 @@ class AbstractAdapter:
             f"{self.__class__.__name__}.get_data_values_and_attributes("
             f"{h_start=}, {v_start=}, {h_stop=}, {v_stop=})"
         )
+        height, width = self.shape2d()
+        assert v_start >= 0, f"v_start ({v_start}) is out of bounds (should be >= 0)"
+        assert h_start >= 0, f"h_start ({h_start}) is out of bounds (should be >= 0)"
+        assert v_stop >= 0, f"v_stop ({v_stop}) is out of bounds (should be >= 0)"
+        assert h_stop >= 0, f"h_stop ({h_stop}) is out of bounds (should be >= 0)"
+        if height > 0:
+            assert v_start < height, f"v_start ({v_start}) is out of bounds (should be < {height})"
+        if width > 0:
+            assert h_start < width, f"h_start ({h_start}) is out of bounds (should be < {width})"
+        assert v_stop <= height, f"v_stop ({v_stop}) is out of bounds (should be <= {height})"
+        assert h_stop <= width, f"h_stop ({h_stop}) is out of bounds (should be <= {width})"
         chunk_values = self.get_values(h_start, v_start, h_stop, v_stop)
         if isinstance(chunk_values, np.ndarray):
             assert chunk_values.ndim == 2
@@ -1915,6 +1926,7 @@ class PyArrowParquetFileAdapter(AbstractColumnarAdapter):
         num_rows_per_group = np.array([meta.row_group(i).num_rows
                                        for i in range(data.num_row_groups)])
         self._group_ends = num_rows_per_group.cumsum()
+        assert self._group_ends[-1] == meta.num_rows
         self._cached_table = None
         self._cached_table_h_start = None
         self._cached_table_v_start = None
