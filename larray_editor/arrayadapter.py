@@ -1001,8 +1001,9 @@ class DirectoryPathAdapter(AbstractColumnarAdapter):
 @adapter_for('pathlib.Path')
 def get_path_suffix_adapter(fpath):
     logger.debug(f"get_path_suffix_adapter('{fpath}')")
-    if fpath.suffix.lower() in PATH_SUFFIX_ADAPTERS:
-        path_adapter_cls, required_module = PATH_SUFFIX_ADAPTERS[fpath.suffix]
+    suffix = fpath.suffix.lower()
+    if suffix in PATH_SUFFIX_ADAPTERS:
+        path_adapter_cls, required_module = PATH_SUFFIX_ADAPTERS[suffix]
         if required_module is not None:
             if required_module not in sys.modules:
                 import importlib
@@ -1013,7 +1014,15 @@ def get_path_suffix_adapter(fpath):
                                 f"which is required to handle {fpath.suffix} "
                                 f"files")
                     return None
-        return path_adapter_cls
+        # 2 options:
+        # - either there is a single adapter for that suffix
+        if (isinstance(path_adapter_cls, type) and
+                issubclass(path_adapter_cls, AbstractAdapter)):
+            return path_adapter_cls
+        # - different adapters handle that suffix and/or not all instances can
+        #   be handled
+        else:
+            return path_adapter_cls(fpath)
     elif fpath.is_dir():
         return DirectoryPathAdapter
     else:
@@ -2524,9 +2533,9 @@ class H5PathAdapter(PyTablesFileAdapter):
 
 
 # TODO: options to display as hex or decimal
-# >>> s = f.read(20)
+# >>> s = f.read(10)
 # >>> s
-# b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xc2\xea\x81\xb3\x14\x11\xcf\xbd
+# b'\x00\x00\xc2\xea\x81\xb3\x14\x11\xcf\xbd
 @adapter_for('_io.BufferedReader')
 class BinaryFileAdapter(AbstractAdapter):
     def __init__(self, data, attributes):
@@ -2710,8 +2719,12 @@ class TextFileAdapter(AbstractAdapter):
         try:
             import charset_normalizer
             chartset_match = charset_normalizer.from_bytes(chunk).best()
-            self._encoding = chartset_match.encoding
-            logger.debug(f"encoding detected as {self._encoding}")
+            if chartset_match is None:
+                self._encoding = None
+                logger.debug("could not detect encoding from chunk")
+            else:
+                self._encoding = chartset_match.encoding
+                logger.debug(f"encoding detected as {self._encoding}")
         except ImportError:
             logger.debug("could not import 'charset_normalizer' => cannot detect encoding")
 
@@ -3096,6 +3109,31 @@ class DuckDBPathAdapter(DuckDBConnectionAdapter):
     def open(cls, fpath):
         duckdb = sys.modules['duckdb']
         return duckdb.connect(fpath)
+
+
+class CSVGZPathAdapater(CsvFileAdapter):
+    @classmethod
+    def open(cls, fpath):
+        import gzip
+        # not specifying an encoding is not an option because in that case
+        # we would get bytes and not str, which makes csv reader unhappy
+        return gzip.open(fpath, mode='rt', encoding='utf-8')
+
+    @property
+    def _binary_file(self):
+        import gzip
+        return gzip.open(self.data.name, mode='rb')
+
+
+@path_adapter_for('.gz', 'gzip')
+def dispatch_gzip_path_adapter(gz_path):
+    # strip .gz extension and dispatch to appropriate adapter
+    fpath = gz_path.with_name(gz_path.stem)
+    suffix = fpath.suffix.lower()
+    if suffix == '.csv':
+        return CSVGZPathAdapater
+    else:
+        return None
 
 
 @adapter_for('zipfile.ZipFile')
