@@ -323,8 +323,13 @@ def test_run_editor_on_exception(local_arr):
 # run_editor_on_exception(usercode_traceback=False, usercode_frame=False)
 
 # test_run_editor_on_exception(arr2)
-
-pd_df_mixed = pd.DataFrame(np_struct_arr)
+_df_size = 100_000
+pd_df_mixed = pd.DataFrame({
+    'name': la.sequence(_df_size).apply(lambda i: f'name{i}').to_series(),
+    'age': la.random.randint(0, 105, axes=_df_size).to_series(),
+    'male': (la.random.randint(0, 2, axes=_df_size) == 1).to_series(),
+    'height': la.random.normal(1.75, 0.07, axes=_df_size).to_series()
+})
 pd_df1 = la_int_2d.df
 pd_df2 = la_float_4d_many_digits.df
 pd_df3 = pd_df2.T
