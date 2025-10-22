@@ -1748,7 +1748,20 @@ class PandasDataFrameAdapter(AbstractColumnarAdapter):
             return [index.values]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        return self.sorted_data.iloc[v_start:v_stop, h_start:h_stop].values
+        # Sadly, as of Pandas 2.2.3, the previous version of this code:
+        #     df.iloc[v_start:v_stop, h_start:h_stop].values
+        # first copies all mentioned columns in their entirety, then take the
+        # subset of the rows (then converts to a numpy array)
+        # As a workaround, we first take each *single* column in its entirety
+        # which, in most case, is a view, then take the row slice
+        # (then recombine using numpy stack)
+        df = self.sorted_data
+        columns = [df.iloc[:, i].values for i in range(h_start, h_stop)]
+        chunks = [col[v_start:v_stop] for col in columns]
+        try:
+            return np.stack(chunks, axis=1)
+        except np.exceptions.DTypePromotionError:
+            return np.stack(chunks, axis=1, dtype=object)
 
     def can_sort_hlabel(self, row_idx, col_idx):
         # allow sorting on columns but not rows
