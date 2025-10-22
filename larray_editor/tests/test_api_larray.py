@@ -323,13 +323,15 @@ def test_run_editor_on_exception(local_arr):
 # run_editor_on_exception(usercode_traceback=False, usercode_frame=False)
 
 # test_run_editor_on_exception(arr2)
-_df_size = 100_000
-pd_df_mixed = pd.DataFrame({
-    'name': la.sequence(_df_size).apply(lambda i: f'name{i}').to_series(),
-    'age': la.random.randint(0, 105, axes=_df_size).to_series(),
-    'male': (la.random.randint(0, 2, axes=_df_size) == 1).to_series(),
-    'height': la.random.normal(1.75, 0.07, axes=_df_size).to_series()
-})
+def make_test_df(size):
+    return pd.DataFrame({
+        'name': la.sequence(size).apply(lambda i: f'name{i}').to_series(),
+        'age': la.random.randint(0, 105, axes=size).to_series(),
+        'male': (la.random.randint(0, 2, axes=size) == 1).to_series(),
+        'height': la.random.normal(1.75, 0.07, axes=size).to_series()
+    })
+
+pd_df_mixed = make_test_df(100_000)
 pd_df1 = la_int_2d.df
 pd_df2 = la_float_4d_many_digits.df
 pd_df3 = pd_df2.T
@@ -346,8 +348,9 @@ pl_df1 = pl.from_pandas(pd_df1)
 pl_df2 = pl.from_pandas(pd_df2)
 # test with a datetime column and another column
 # the Arrow table has the same problem (e.g. pl_df3.to_arrow())
-pl_df3 = pl_df1.select(pl.from_epoch(pl.col('M')).alias('Datetime Column'), 'M').limit(5)
+pl_df3 = pl_df1.select(pl.from_epoch(pl.col('M')).alias('datetime_col'), 'M').limit(5)
 pl_df_big = pl.from_pandas(pd_df_big, include_index=True)
+pl_df_mixed = pl.from_pandas(pd_df_mixed, include_index=False)
 pl_lf1 = pl.scan_parquet('big.parquet')
 pl_lf2 = pl.scan_ipc('big.feather')
 
