@@ -2383,15 +2383,59 @@ class PyTablesPandasFrameAdapter(AbstractColumnarAdapter):
     def __init__(self, data, attributes):
         super().__init__(data=data, attributes=attributes)
         attrs = data._v_attrs
-        assert hasattr(attrs, 'nblocks') and attrs.nblocks == 1, "not implemented for nblocks > 1"
+        assert hasattr(attrs, 'nblocks')
         assert hasattr(attrs, 'axis0_variety') and attrs.axis0_variety in {'regular', 'multi'}
         assert hasattr(attrs, 'axis1_variety') and attrs.axis1_variety in {'regular', 'multi'}
         self._axis0_variety = attrs.axis0_variety
         self._axis1_variety = attrs.axis1_variety
         self._encoding = getattr(attrs, 'encoding', None)
+        nblocks = attrs.nblocks
+        self._block_values_nodes = [data._f_get_child(f'block{i}_values')
+                                    for i in range(nblocks)]
+        assert not (nblocks > 1 and attrs.axis0_variety == 'multi'), \
+            ("loading mixed type DataFrames with a multi-index in columns "
+             "from HDF5 is not implemented yet")
+
+        # data.block0_values.shape[0] is not always correct (if multiblocks)
+        if attrs.axis1_variety == 'multi':
+            self._num_rows = data.axis1_label0.shape[0]
+        else:
+            self._num_rows = data.axis1.shape[0]
+
+        if nblocks > 1:
+            import tables
+
+            axis_node = data._f_get_child('axis0')
+            col_names = axis_node.read().tolist()
+            # {col_idx: (block_idx, idx_in_block)}
+            column_source = {}
+            cached_string_blocks = {}
+            for block_idx in range(nblocks):
+                block_values_node = data._f_get_child(f'block{block_idx}_values')
+                block_items = data._f_get_child(f'block{block_idx}_items').read()
+
+                if isinstance(block_values_node, tables.VLArray):
+                    # This is very unfortunate but we cannot slice those blocks
+                    # on disk because they are stored as a single blob
+                    # We load the full block and kept it cached in
+                    # memory so that we do not reload the whole block on each
+                    # scroll
+                    block_values = block_values_node.read()[0]
+                    cached_string_blocks[block_idx] = block_values
+                for idx_in_block, col_name in enumerate(block_items):
+                    col_idx = col_names.index(col_name)
+                    column_source[col_idx] = (block_idx, idx_in_block)
+            self._cached_string_blocks = cached_string_blocks
+            self._column_source = column_source
+            self._num_columns = len(column_source)
+        else:
+            self._cached_string_blocks = None
+            self._column_source = None
+            self._num_columns = data.block0_values.shape[1]
+
 
     def shape2d(self):
-        return self.data.block0_values.shape
+        return self._num_rows, self._num_columns
 
     def _get_axis_names(self, axis_num: int) -> list[str]:
         group = self.data
@@ -2454,7 +2498,25 @@ class PyTablesPandasFrameAdapter(AbstractColumnarAdapter):
         return self._get_axis_labels(1, start, stop).transpose()
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        return self.data.block0_values[v_start:v_stop, h_start:h_stop]
+        data = self.data
+        attrs = data._v_attrs
+        if attrs.nblocks == 1:
+            return data.block0_values[v_start:v_stop, h_start:h_stop]
+        else:
+            import tables
+            block_nodes = self._block_values_nodes
+            # TODO: for performance, we should probably read all columns from
+            #       the same block at once
+            np_columns = []
+            for col_idx in range(h_start, h_stop):
+                block_idx, idx_in_block = self._column_source[col_idx]
+                block_node = block_nodes[block_idx]
+                if isinstance(block_node, tables.VLArray):
+                    block_node = self._cached_string_blocks[block_idx]
+                chunk = block_node[v_start:v_stop, idx_in_block]
+                np_columns.append(chunk)
+
+            return np.stack(np_columns, axis=1, dtype=object)
 
 
 @adapter_for('tables.Group')
@@ -2525,6 +2587,7 @@ class PyTablesArrayAdapter(NumpyHomogeneousArrayAdapter):
 
 
 @path_adapter_for('.h5', 'tables')
+@path_adapter_for('.hdf', 'tables')
 class H5PathAdapter(PyTablesFileAdapter):
     @classmethod
     def open(cls, fpath):
