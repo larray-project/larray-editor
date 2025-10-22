@@ -50,7 +50,8 @@ import larray as la
 from larray.util.misc import Product
 
 from larray_editor.utils import (get_sample, scale_to_01range,
-                                 is_number_value_vectorized, logger)
+                                 is_number_value_vectorized, logger,
+                                 timed)
 from larray_editor.commands import CellValueChange
 
 
@@ -397,6 +398,7 @@ class AbstractAdapter:
     # TODO: factorize with LArrayArrayAdapter (so that we get the attributes
     #       handling of LArrayArrayAdapter for all types and the larray adapter
     #       can benefit from the generic code here
+    @timed(logger)
     def get_data_values_and_attributes(self, h_start, v_start, h_stop, v_stop):
         """h_stop and v_stop should *not* be included"""
         # TODO: implement region caching
@@ -551,6 +553,7 @@ class AbstractAdapter:
         # return self.get_values(0, 0, min(width, 20), min(height, 20))
         return self.get_data_values_and_attributes(0, 0, min(width, 20), min(height, 20))['values']
 
+    @timed(logger)
     def update_finite_min_max_values(self, finite_values: np.ndarray,
                                      h_start: int, v_start: int,
                                      h_stop: int, v_stop: int):
@@ -652,6 +655,7 @@ class AbstractAdapter:
     def sort_hlabel(self, row_idx, col_idx, ascending):
         pass
 
+    @timed(logger)
     def get_vlabels(self, start, stop) -> dict:
         chunk_values = self.get_vlabels_values(start, stop)
         if isinstance(chunk_values, list) and len(chunk_values) == 0:
@@ -667,6 +671,7 @@ class AbstractAdapter:
         # that would be slower than what we have now.
         return [[i] for i in range(start, stop)]
 
+    @timed(logger)
     def get_hlabels(self, start, stop):
         values = self.get_hlabels_values(start, stop)
         return {'values': values, 'decoration': self.get_hlabels_decorations(start, stop, values)}
@@ -899,6 +904,7 @@ class AbstractColumnarAdapter(AbstractAdapter):
         self.vmin = {}
         self.vmax = {}
 
+    @timed(logger)
     def update_finite_min_max_values(self, finite_values: np.ndarray, 
                                      h_start: int, v_start: int,
                                      h_stop: int, v_stop: int):

@@ -7,6 +7,7 @@ import socket
 import sys
 import math
 import logging
+import time
 import traceback
 from contextlib import contextmanager
 from pathlib import Path
@@ -806,3 +807,91 @@ def get_func_name(frame):
         # defined, not the instance class which is usually much more useful
         func_name = f"{frame.f_locals['self'].__class__.__name__}.{func_name}"
     return func_name
+
+
+def time2str(seconds, precision="auto"):
+    """Format a duration in seconds as a string using given precision.
+
+    Parameters
+    ----------
+    seconds : float
+        Duration (in seconds) to format.
+    precision : str, optional
+        Precision of the output. Defaults to "auto" (the largest unit minus 2).
+        See examples below.
+
+    Returns
+    -------
+    str
+# FIXME: round values instead of truncating them
+    Examples
+    --------
+    >>> time2str(3727.2785, precision="ns")
+    '1 hour 2 minutes 7 seconds 278 ms 500 µs'
+    >>> # auto: the largest unit is hour, the unit two steps below is seconds => precision = seconds
+    >>> time2str(3727.2785)
+    '1 hour 2 minutes 7 seconds'
+    >>> time2str(3605.2785)
+    '1 hour 5 seconds'
+    >>> time2str(3727.2785, precision="hour")
+    '1 hour'
+    >>> time2str(3723.1234567890123456789, precision="ns")
+    '1 hour 2 minutes 3 seconds 123 ms 456 µs 789 ns'
+    >>> time2str(3723.1234567890123456789)
+    '1 hour 2 minutes 3 seconds'
+    """
+    # for Python 3.7+, we could use a dict (and rely on dict ordering)
+    divisors = [
+        ('ns', 1000),
+        ('µs', 1000),
+        ('ms', 1000),
+        ('second', 60),
+        ('minute', 60),
+        ('hour', 24),
+        ('day', 365),
+    ]
+    precision_map = {
+        'day': 6,
+        'hour': 5,
+        'minute': 4,
+        'second': 3,
+        'ms': 2,
+        'µs': 1,
+        'ns': 0,
+    }
+
+    values = []
+    str_parts = []
+    ns = int(seconds * 10 ** 9)
+    value = ns
+    for cur_precision, (unit, divisor_for_next) in enumerate(divisors):
+        next_value, cur_value = divmod(value, divisor_for_next)
+        values.append(cur_value)
+        if next_value == 0:
+            break
+        value = next_value
+    max_prec = len(values) - 1
+    int_precision = max_prec - 2 if precision == 'auto' else precision_map[precision]
+    for cur_precision, (cur_value, (unit, divisor_for_next)) in enumerate(zip(values, divisors)):
+        if cur_value > 0 and cur_precision >= int_precision:
+            str_parts.append(f"{cur_value:d} {unit}{'s' if cur_value > 1 and cur_precision > 2 else ''}")
+    return ' '.join(str_parts[::-1])
+
+
+def timed(logger):
+    def decorator(func):
+        def new_func(*args, **kwargs):
+            # testing for this outside new_func to make the decorator return
+            # the original func if the logger is not enabled does not work
+            # because the logger is not configured yet when the code to be
+            # profiled is defined (and the decorator is called)
+            if logger.isEnabledFor(logging.DEBUG):
+                start = time.perf_counter()
+                res = func(*args, **kwargs)
+                time_taken = time.perf_counter() - start
+                logger.debug(f"{func.__name__} done in {time2str(time_taken)}")
+                return res
+            else:
+                return func(*args, **kwargs)
+        return new_func
+    return decorator
