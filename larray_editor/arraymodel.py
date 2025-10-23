@@ -11,9 +11,6 @@ from larray_editor.utils import (get_default_font,
                                  LinearGradient, logger, broadcast_get,
                                  format_exception, log_caller)
 
-# TODO before first release:
-# * add tests for reliable/"supported" adapters
-
 # TODO before using the widget in other projects:
 # * move ndigits/format detection to adapter
 #   but the trick is to avoid using current column width and just

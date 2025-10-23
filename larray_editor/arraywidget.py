@@ -78,10 +78,13 @@ from larray_editor.utils import (keybinding, create_action, clear_layout, get_de
                                  LinearGradient, logger, cached_property, data_frac_digits,
                                  num_int_digits)
 from larray_editor.arrayadapter import (get_adapter, get_adapter_creator,
-                                        AbstractAdapter, AbstractPathAdapter)
+                                        AbstractAdapter, AbstractPathAdapter,
+                                        MAX_FILTER_OPTIONS)
 from larray_editor.arraymodel import (HLabelsArrayModel, VLabelsArrayModel, LabelsArrayModel,
                                       AxesArrayModel, DataArrayModel)
 from larray_editor.combo import FilterComboBox, CombinedSortFilterMenu
+
+MORE_OPTIONS_NOT_SHOWN = "<more options not shown>"
 
 # mime-type we use when drag and dropping axes (x- prefix is for unregistered
 # types)
@@ -145,22 +148,22 @@ class FilterBar(QWidget):
                 #        only fetch labels when they are needed to be displayed
                 #        this needs a whole new widget though
                 if len(filter_labels) < 10000:
-                    layout.addWidget(self.create_filter_combo(filter_idx, filter_name, filter_labels))
+                    layout.addWidget(self.create_filter_combo(filter_idx, filter_labels))
                 else:
                     layout.addWidget(QLabel("too big to be filtered"))
             layout.addStretch()
 
-    def create_filter_combo(self, filter_idx, filter_name, filter_labels):
+    def create_filter_combo(self, filter_idx, filter_labels):
         def filter_changed(checked_items):
-            self.change_filter(filter_idx, filter_name, checked_items)
+            self.change_filter(filter_idx, checked_items)
 
         combo = FilterComboBox(self)
         combo.addItems([str(label) for label in filter_labels])
         combo.checked_items_changed.connect(filter_changed)
         return combo
 
-    def change_filter(self, filter_idx, filter_name, indices):
-        logger.debug(f"FilterBar.change_filter({filter_idx}, {filter_name}, {indices})")
+    def change_filter(self, filter_idx, indices):
+        logger.debug(f"FilterBar.change_filter({filter_idx}, {indices})")
         # FIXME: the method can be called from the outside, and in that case
         #        the combos checked items need be synchronized too
         array_widget = self.array_widget
@@ -170,7 +173,8 @@ class FilterBar(QWidget):
         old_v_pos = vscrollbar.value()
         old_h_pos = hscrollbar.value()
         old_nrows, old_ncols = data_adapter.shape2d()
-        data_adapter.update_filter(filter_idx, filter_name, indices)
+        data_adapter.update_filter(filter_idx, indices)
+        data_adapter._current_sort = []
         # TODO: this does too much work (it sets the adapters even
         #       if those do not change and sets v_offset/h_offset to 0 when we
         #       do not *always* want to do so) and maybe too little
@@ -182,14 +186,13 @@ class FilterBar(QWidget):
         new_nrows, new_ncols = data_adapter.shape2d()
         hscrollbar.update_range()
         vscrollbar.update_range()
+        array_widget.update_cell_sizes_from_content()
         if old_v_pos == 0 and old_h_pos == 0:
             # if the old values were already 0, visible_v/hscroll_changed will
             # not be triggered and update_*_column_widths has no chance to run
             # unless we call them explicitly
-            array_widget._update_axes_column_widths_from_content()
-            array_widget._update_hlabels_column_widths_from_content()
-            array_widget._update_axes_row_heights_from_content()
-            array_widget._update_vlabels_row_heights_from_content()
+            assert isinstance(array_widget, ArrayEditorWidget)
+            array_widget.update_cell_sizes_from_content()
         else:
             # TODO: would be nice to implement some clever positioning algorithm
             #       here when new_X != old_X so that the visible rows stay visible.
@@ -705,35 +708,41 @@ class AxesView(AbstractView):
                 sort_direction = adapter.axis_sort_direction(column_idx)
             else:
                 sort_direction = 'unsorted'
-            filter_name = adapter.get_filter_names()[column_idx]
             filter_labels = adapter.get_filter_options(column_idx)
         except IndexError:
             filtrable = False
-            filter_name = ''
             filter_labels = []
             sortable = False
             sort_direction = 'unsorted'
         if filtrable or sortable:
             menu = self.create_filter_menu(column_idx,
-                                           filtrable, filter_name, filter_labels,
-                                           sortable, sort_direction)
-            x = self.columnViewportPosition(column_idx) + self.verticalHeader().width()
-            y = self.rowViewportPosition(row_idx) + self.rowHeight(row_idx) + self.horizontalHeader().height()
+                                           filtrable,
+                                           filter_labels,
+                                           sortable,
+                                           sort_direction)
+            x = (self.columnViewportPosition(column_idx) +
+                 self.verticalHeader().width())
+            y = (self.rowViewportPosition(row_idx) + self.rowHeight(row_idx) +
+                 self.horizontalHeader().height())
             menu.exec_(self.mapToGlobal(QPoint(x, y)))
 
-    def create_filter_menu(self, axis_idx, filtrable, filter_name, filter_labels,
-                           sortable=False, sort_direction='unsorted'):
+    def create_filter_menu(self,
+                           axis_idx,
+                           filtrable,
+                           filter_labels,
+                           sortable=False,
+                           sort_direction='unsorted'):
         def filter_changed(checked_items):
-            print("change_filter", axis_idx, filter_name, checked_items)
+            # print("filter_changed", axis_idx, checked_items)
             arraywidget = self.parent().parent()
-            arraywidget.filter_bar.change_filter(axis_idx, filter_name, checked_items)
+            arraywidget.filter_bar.change_filter(axis_idx, checked_items)
 
         def sort_changed(ascending):
             arraywidget = self.parent().parent()
             arraywidget.sort_axis_labels(axis_idx, ascending)
 
         menu = CombinedSortFilterMenu(self,
-                                      filters=filtrable,
+                                      filtrable=filtrable,
                                       sortable=sortable,
                                       sort_direction=sort_direction)
         if filtrable:
@@ -765,79 +774,101 @@ class LabelsView(AbstractView):
         AbstractView.__init__(self, parent, model, hpos, vpos)
 
         # FIXME: only have this if the adapter supports any extra action on axes
-        # self.clicked.connect(self.on_clicked)
+        if self.vpos == TOP:
+            self.clicked.connect(self.on_clicked)
 
     def on_clicked(self, index: QModelIndex):
         if not index.isValid():
             return
 
         row_idx = index.row()
-        column_idx = index.column()
+        local_col_idx = index.column()
+        model: LabelsArrayModel = self.model()
+        global_col_idx = model.h_offset + local_col_idx
 
-        # FIXME: column_idx works fine for the unfiltered/initial array but on
-        #        an already filtered array it breaks because column_idx is the
+        assert self.vpos == TOP
+
+        # FIXME: global_col_idx works fine for the unfiltered/initial array but on
+        #        an already filtered array it breaks because global_col_idx is the
         #        idx of the *filtered* array which can contain less axes while
         #        change_filter (via create_filter_menu) want the index of the
         #        *unfiltered* array
-        # try:
-        adapter = self.model().adapter
-        filtrable = adapter.can_filter_hlabel(1, column_idx)
-        # hlabels
-        if self.vpos == TOP:
-            sortable = adapter.can_sort_hlabel(row_idx, column_idx)
-        else:
-            sortable = False
+        adapter = model.adapter
+        filtrable = adapter.can_filter_hlabel(1, global_col_idx)
+        sortable = adapter.can_sort_hlabel(row_idx, global_col_idx)
         if sortable:
-            sort_direction = adapter.hlabel_sort_direction(row_idx, column_idx)
-            print(f"LabelsView.on_clicked sortable {sort_direction}")
+            sort_direction = adapter.hlabel_sort_direction(row_idx, global_col_idx)
             def sort_changed(ascending):
-                print(f"LabelsView.sort_changed({ascending})")
                 # TODO: the chain for this is kinda convoluted:
                 # local signal handler
                 # -> ArrayWidget method
                 # -> adapter method+model reset
                 arraywidget = self.parent().parent()
-                arraywidget.sort_hlabel(row_idx, column_idx, ascending)
+                arraywidget.sort_hlabel(row_idx, global_col_idx, ascending)
         else:
             sort_direction = 'unsorted'
             sort_changed = None
 
         if filtrable:
-            filter_name = adapter.get_filter_names()[column_idx]
-            filter_labels = adapter.get_filter_options(column_idx)
-
+            filter_labels = adapter.get_filter_options(global_col_idx)
+            if len(filter_labels) == MAX_FILTER_OPTIONS:
+                filter_labels = filter_labels.tolist()
+                filter_labels[-1] = MORE_OPTIONS_NOT_SHOWN
+            filter_indices = adapter.get_current_filter_indices(global_col_idx)
             def filter_changed(checked_items):
                 # TODO: the chain for this is kinda convoluted:
                 # local signal handler (this function)
                 # -> ArrayWidget method
                 # -> adapter method+model reset
-                print("change_filter", column_idx, filter_name, checked_items)
                 arraywidget = self.parent().parent()
-                arraywidget.change_filter(column_idx, filter_name, checked_items)
+                assert isinstance(arraywidget, ArrayEditorWidget)
+                arraywidget.filter_bar.change_filter(global_col_idx, checked_items)
         else:
-            filter_name = ''
             filter_labels = []
             filter_changed = None
+            filter_indices = None
 
         if filtrable or sortable:
-            menu = self.create_filter_menu(column_idx,
-                                           filter_name, filter_labels,
-                                           filter_changed, sort_changed,
+            # because of the local vs global idx, we cannot cache/reuse the
+            # filter menu widget (we would need to remove the items and readd
+            # the correct ones) so it is easier to just recreate the whole
+            # widget. We need to take the already ticked indices into account
+            # though.
+            menu = self.create_filter_menu(global_col_idx,
+                                           filter_labels,
+                                           filter_indices,
+                                           filter_changed,
+                                           sort_changed,
                                            sort_direction)
-            x = self.columnViewportPosition(column_idx) + self.verticalHeader().width()
-            y = self.rowViewportPosition(row_idx) + self.rowHeight(row_idx) + self.horizontalHeader().height()
+            x = (self.columnViewportPosition(local_col_idx) +
+                 self.verticalHeader().width())
+            y = (self.rowViewportPosition(row_idx) + self.rowHeight(row_idx) +
+                 self.horizontalHeader().height())
             menu.exec_(self.mapToGlobal(QPoint(x, y)))
 
-    def create_filter_menu(self, label_idx, filter_name, filter_labels,
-                           filter_changed, sort_changed,
-                           sort_direction='unsorted'):
-        print(f"LabelsView.create_filter_menu({label_idx}, {filter_name}, {filter_labels}, {sort_direction})")
+    def create_filter_menu(self,
+                           filter_idx,
+                           filter_labels,
+                           filter_indices,
+                           filter_changed,
+                           sort_changed,
+                           sort_direction):
         filtrable = filter_changed is not None
         sortable = sort_changed is not None
-        menu = CombinedSortFilterMenu(self, filters=filtrable, sortable=sortable,
+        menu = CombinedSortFilterMenu(self,
+                                      filtrable=filtrable,
+                                      sortable=sortable,
                                       sort_direction=sort_direction)
         if filtrable:
-            menu.addItems([str(label) for label in filter_labels])
+            menu.addItems([str(label) for label in filter_labels],
+                          filter_indices)
+            # disable last item if there are too many options
+            if len(filter_labels) == MAX_FILTER_OPTIONS:
+                # this is correct (MAX - 1 to get the last item, + 1 because
+                # of the "Select all" item at the beginning)
+                last_item = menu._model[MAX_FILTER_OPTIONS - 1 + 1]
+                last_item.setFlags(QtCore.Qt.NoItemFlags)
+
             menu.checked_items_changed.connect(filter_changed)
         if sortable:
             menu.sort_signal.connect(sort_changed)
@@ -1709,8 +1740,9 @@ class ArrayEditorWidget(QWidget):
         self._update_hlabels_column_widths_from_content()
         # we do not need to update axes cell size on scroll but vlabels
         # width can change on scroll (and they are linked to axes widths)
-        self._update_axes_column_widths_from_content()
         self._update_vlabels_row_heights_from_content()
+        self._update_axes_column_widths_from_content()
+        self._update_axes_row_heights_from_content()
 
     def visible_hscroll_changed(self, value):
         # 'value' will be the first visible column
@@ -2278,6 +2310,9 @@ class ArrayEditorWidget(QWidget):
     def sort_hlabel(self, row_idx, col_idx, ascending):
         self.data_adapter.sort_hlabel(row_idx, col_idx, ascending)
         self._set_models_adapter()
+        # since we will probably display different rows, they can have different
+        # column widths
+        self.update_cell_sizes_from_content()
 
     def copy(self):
         """Copy selection as text to clipboard"""
