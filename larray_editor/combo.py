@@ -69,7 +69,10 @@ class CombinedSortFilterMenu(QtWidgets.QMenu):
     checked_items_changed = QtCore.Signal(list)
     sort_signal = QtCore.Signal(bool)  # bool argument is for ascending
 
-    def __init__(self, parent=None, sortable: bool = False, sort_direction='unsorted', filters=False):
+    def __init__(self, parent=None,
+                 sortable: bool = False,
+                 sort_direction: str = 'unsorted',
+                 filtrable=False):
         super().__init__(parent)
 
         self._model, self._list_view = None, None
@@ -77,14 +80,16 @@ class CombinedSortFilterMenu(QtWidgets.QMenu):
         if sortable:
             self.addAction(create_action(self, _('Sort A-Z'),
                                          triggered=lambda: self.sort_signal.emit(True),
-                                         checkable=True, checked=sort_direction == 'ascending'))
+                                         checkable=True,
+                                         checked=sort_direction == 'ascending'))
             self.addAction(create_action(self, _('Sort Z-A'),
                                          triggered=lambda: self.sort_signal.emit(False),
-                                         checkable=True, checked=sort_direction == 'descending'))
-            if filters:
+                                         checkable=True,
+                                         checked=sort_direction == 'descending'))
+            if filtrable:
                 self.addSeparator()
 
-        if filters:
+        if filtrable:
             self.setup_list_view()
 
         self.installEventFilter(self)
@@ -186,16 +191,22 @@ class CombinedSortFilterMenu(QtWidgets.QMenu):
         model.blockSignals(False)
         self.checked_items_changed.emit([to_check - 1])
 
-    def addItem(self, text):
+    def addItem(self, text, checked=True):
         item = StandardItem(text)
         # not editable
         item.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled)
-        item.checked = True
+        item.checked = checked
         self._model.appendRow(item)
 
-    def addItems(self, items):
-        for item in items:
-            self.addItem(item)
+    def addItems(self, items, items_checked=None):
+        if items_checked is None:
+            for item_label in items:
+                self.addItem(item_label)
+        else:
+            assert 0 <= len(items_checked) <= len(items)
+            checked_indices_set = set(items_checked)
+            for idx, item_label in enumerate(items):
+                self.addItem(item_label, idx in checked_indices_set)
 
     def eventFilter(self, obj, event):
         event_type = event.type()
@@ -230,7 +241,7 @@ class FilterComboBox(QtWidgets.QToolButton):
         # uglier
         self.setPopupMode(QtWidgets.QToolButton.MenuButtonPopup)
 
-        menu = CombinedSortFilterMenu(self, filters=True)
+        menu = CombinedSortFilterMenu(self, filtrable=True)
         self.setMenu(menu)
         self._menu = menu
         menu.checked_items_changed.connect(self.on_checked_items_changed)

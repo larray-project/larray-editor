@@ -54,6 +54,8 @@ from larray_editor.utils import (get_sample, scale_to_01range,
                                  timed)
 from larray_editor.commands import CellValueChange
 
+MAX_FILTER_OPTIONS = 1001
+
 
 def indirect_sort(seq, ascending):
     return sorted(range(len(seq)), key=seq.__getitem__, reverse=not ascending)
@@ -501,17 +503,29 @@ class AbstractAdapter:
         """return [combo_values]"""
         return None
 
-    def update_filter(self, filter_idx, filter_name, indices):
+    def update_filter(self, filter_idx, indices):
         """Update current filter for a given axis if labels selection from the array widget has changed
 
         Parameters
         ----------
-        axis: Axis
-             Axis for which selection has changed.
+        filter_idx: int
+             Index of filter for which selection has changed.
         indices: list of int
             Indices of selected labels.
         """
         raise NotImplementedError()
+
+    def get_current_filter_indices(self, filter_idx):
+        """Returns indices currently selected for a given filter.
+
+        Must return None if that filter is not applied.
+
+        Parameters
+        ----------
+        filter_idx : int
+             Index of filter.
+        """
+        return self.current_filter.get(filter_idx)
 
     def map_filtered_to_global(self, filtered_shape, filter, local2dkey):
         """
@@ -624,6 +638,7 @@ class AbstractAdapter:
         return self._current_sort
 
     # Adapter classes *may* implement this if can_sort_axis returns True for any axis
+    # (otherwise they will rely on this default implementation)
     def axis_sort_direction(self, axis_idx):
         """must return 'ascending', 'descending' or 'unsorted'"""
         for cur_sort_axis_idx, label_idx, ascending in self._current_sort:
@@ -970,38 +985,66 @@ class DirectoryPathAdapter(AbstractColumnarAdapter):
         path_objs = list(data.iterdir())
         # sort by type then name
         path_objs.sort(key=lambda p: (not p.is_dir(), p.name))
+
         parent_dir = data.parent
         if parent_dir != data:
             path_objs.insert(0, parent_dir)
-        self._path_objs = path_objs
+        self._sorted_path_objs = path_objs
 
+        self._colnames = ['Name', 'Time Modified', 'Size']
+
+    def shape2d(self):
+        return len(self._sorted_path_objs), len(self._colnames)
+
+    def get_hlabels_values(self, start, stop):
+        return [self._colnames[start:stop]]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
         def file_mtime_as_str(p) -> str:
             try:
                 mt_time = datetime.fromtimestamp(p.stat().st_mtime)
                 return mt_time.strftime('%d/%m/%Y %H:%M')
             except Exception:
                 return ''
-
-        self._list = [(
+        parent_dir = self.data.parent
+        return [(
             p.name if p != parent_dir else '..',
             # give the mtime of the "current" directory
-           file_mtime_as_str(p if p != parent_dir else data),
-           '<directory>' if p.is_dir() else p.stat().st_size
-        ) for p in path_objs]
-        self._colnames = ['Name', 'Time Modified', 'Size']
+            file_mtime_as_str(p if p != parent_dir else self.data),
+            '<directory>' if p.is_dir() else p.stat().st_size
+        )[h_start:h_stop] for p in self._sorted_path_objs[v_start:v_stop]]
 
-    def shape2d(self):
-        return len(self._list), len(self._colnames)
+    def can_sort_hlabel(self, row_idx, col_idx):
+        return True
 
-    def get_hlabels_values(self, start, stop):
-        return [self._colnames[start:stop]]
+    def sort_hlabel(self, row_idx, col_idx, ascending):
+        assert row_idx == 0
+        assert col_idx in {0, 1, 2}
+        self._current_sort = [(self.num_v_axes() + row_idx, col_idx, ascending)]
+        # strip ".." before sorting
+        path_objs = self._sorted_path_objs[1:]
 
-    def get_values(self, h_start, v_start, h_stop, v_stop):
-        return [row[h_start:h_stop]
-                for row in self._list[v_start:v_stop]]
+        def get_sort_key(p):
+            # name
+            if col_idx == 0:
+                return not p.is_dir(), p.name
+            # time
+            elif col_idx == 1:
+                return not p.is_dir(), p.stat().st_mtime
+            # size
+            else:
+                return not p.is_dir(), p.stat().st_size
+
+        path_objs.sort(key=get_sort_key, reverse=not ascending)
+
+        # re-add ".."
+        parent_dir = self.data.parent
+        if parent_dir != self.data:
+            path_objs.insert(0, parent_dir)
+        self._sorted_path_objs = path_objs
 
     def cell_activated(self, row_idx, column_idx):
-        return self._path_objs[row_idx].absolute()
+        return self._sorted_path_objs[row_idx].absolute()
 
 
 @adapter_for('pathlib.Path')
@@ -1394,15 +1437,13 @@ class LArrayArrayAdapter(AbstractAdapter):
         data = data.i[full_indices_filter]
         return la.asarray(data) if np.isscalar(data) else data
 
-    def update_filter(self, filter_idx, filter_name, indices):
+    def update_filter(self, filter_idx, indices):
         """Update current filter for a given axis if labels selection from the array widget has changed
 
         Parameters
         ----------
         filter_idx : int
              Index of filter (axis) for which selection has changed.
-        filter_name : str
-             Name of filter (axis) for which selection has changed.
         indices: list of int
             Indices of selected labels.
         """
@@ -1678,57 +1719,14 @@ class PandasDataFrameAdapter(AbstractColumnarAdapter):
         assert isinstance(data, pd.DataFrame)
         super().__init__(data, attributes=attributes)
         self.sorted_data = data
+        self.filtered_data = data
+        self._unq_values_per_column = {}
 
     def shape2d(self):
         return self.data.shape
 
-    def get_filter_names(self):
-        return []
-        # pd = sys.modules['pandas']
-        # df = self.data
-        # assert isinstance(df, pd.DataFrame)
-        # def get_index_names(index):
-        #     if isinstance(index, pd.MultiIndex):
-        #         return list(index.names)
-        #     else:
-        #         return [index.name if index.name is not None else '']
-        # return get_index_names(df.index) + get_index_names(df.columns)
-
     def num_v_axes(self):
         return self.data.index.nlevels
-
-    def get_filter_options(self, filter_idx):
-        pd = sys.modules['pandas']
-        df = self.data
-        assert isinstance(df, pd.DataFrame)
-        def get_values(index):
-            if isinstance(index, pd.MultiIndex):
-                return list(index.levels)
-            else:
-                return [index.values]
-        # FIXME: this is awfully inefficient
-        all_filters_options = get_values(df.index) + get_values(df.columns)
-        return all_filters_options[filter_idx]
-
-    def filter_data(self, data, filter):
-        """
-        filter is a {axis_idx: axis_indices} dict
-        """
-        if data is None or filter is None:
-            return data
-
-        pd = sys.modules['pandas']
-        assert isinstance(data, pd.DataFrame)
-        if isinstance(data.index, pd.MultiIndex) or isinstance(data.columns, pd.MultiIndex):
-            print("WARNING: filtering with ndim > 2 not implemented yet")
-            return data
-
-        indexer = tuple(filter.get(axis_idx, slice(None))
-                        for axis_idx in range(self.data.ndim))
-        res = data.iloc[indexer]
-        if isinstance(res, pd.Series):
-            res = res.to_frame()
-        return res
 
     def get_hnames(self):
         return self.data.columns.names
@@ -1770,12 +1768,60 @@ class PandasDataFrameAdapter(AbstractColumnarAdapter):
             return np.stack(chunks, axis=1, dtype=object)
 
     def can_sort_hlabel(self, row_idx, col_idx):
-        # allow sorting on columns but not rows
         return True
 
     def sort_hlabel(self, row_idx, col_idx, ascending):
-        self._current_sort = [(self.num_v_axes() + row_idx, col_idx, ascending)]
-        self.sorted_data = self.data.sort_values(self.data.columns[col_idx], ascending=ascending)
+        self._current_sort = [(1, col_idx, ascending)]
+        self.sorted_data = self._sort_data(self.filtered_data)
+
+    def _sort_data(self, data):
+        columns = data.columns
+        colnames = []
+        ascendings = []
+        for axis_idx, col_idx, ascending in self._current_sort:
+            assert axis_idx == 1
+            colnames.append(columns[col_idx])
+            ascendings.append(ascending)
+        return data.sort_values(colnames, ascending=ascendings)
+
+    def can_filter_hlabel(self, row_idx, col_idx) -> bool:
+        return True
+
+    def get_filter_options(self, filter_idx):
+        if filter_idx in self._unq_values_per_column:
+            return self._unq_values_per_column[filter_idx]
+        else:
+            pd = sys.modules['pandas']
+            df = self.data
+            assert isinstance(df, pd.DataFrame)
+
+            col_values = df.iloc[:, filter_idx]
+            unique_values = col_values.unique()
+            unique_values.sort()
+            unq_values = unique_values[:MAX_FILTER_OPTIONS]
+            self._unq_values_per_column[filter_idx] = unq_values
+            return unq_values
+
+    def update_filter(self, filter_idx, indices):
+        if not indices:
+            indices = list(range(len(self.get_filter_options(filter_idx))))
+        self.current_filter = cur_filter = {filter_idx: indices}
+        self.filtered_data = self._filter_data(self.data, cur_filter)
+        self.sorted_data = self._sort_data(self.filtered_data)
+        if self.attributes is not None:
+            # FIXME: need to sort attributes too
+            self.filtered_attributes = {k: self._filter_data(v, cur_filter)
+                                        for k, v in self.attributes.items()}
+
+    def _filter_data(self, data, cur_filter):
+        df = data
+        columns = df.columns
+        for col_idx, filtered_indices in cur_filter.items():
+            col_name = columns[col_idx]
+            col_unq_values = self._unq_values_per_column[col_idx]
+            filtered_values = col_unq_values[filtered_indices]
+            df = df[df[col_name].isin(filtered_values)]
+        return df
 
 
 @adapter_for('pandas.Series')
@@ -1843,14 +1889,17 @@ class FeatherFileAdapter(AbstractColumnarAdapter):
             self._num_columns = len(f.schema)
             self._num_record_batches = f.num_record_batches
 
-        self._batch_nrows = np.zeros(self._num_record_batches, dtype=np.int64)
+        self._batch_nrows = np.full(self._num_record_batches, -1, dtype=np.int64)
         maxint = np.iinfo(np.int64).max
         self._batch_ends = np.full(self._num_record_batches, maxint, dtype=np.int64)
-        # TODO: get this from somewhere else
-        default_buffer_rows = 40
+        # TODO: get this from somewhere else. We could use
+        #       AbstractArrayModel.default_buffer_rows, but that would create
+        #       a dependency on arraymodel which I would rather avoid.
+        #       I guess I should move that to a shared constants module
+        DEFAULT_BUFFER_ROWS = 40
         self._num_batches_indexed = 0
         self._num_rows = None
-        self._index_up_to(default_buffer_rows)
+        self._index_rows_up_to(DEFAULT_BUFFER_ROWS)
 
     def _open_file(self, col_indices=None):
         """col_indices is only taken into account if self.data is a Path"""
@@ -1884,7 +1933,7 @@ class FeatherFileAdapter(AbstractColumnarAdapter):
     def get_hlabels_values(self, start, stop):
         return [self._colnames[start:stop]]
 
-    def _index_up_to(self, num_rows):
+    def _index_rows_up_to(self, num_rows):
         if self._num_batches_indexed == 0:
             last_indexed_batch_end = 0
         else:
@@ -1897,9 +1946,8 @@ class FeatherFileAdapter(AbstractColumnarAdapter):
             while (num_rows > last_indexed_batch_end and
                    self._num_batches_indexed < self._num_record_batches):
                 batch_num = self._num_batches_indexed
-                batch_rows = f.get_batch(batch_num).num_rows
+                batch_rows = self._get_batch_nrows(f, batch_num)
                 last_indexed_batch_end += batch_rows
-                self._batch_nrows[batch_num] = batch_rows
                 self._batch_ends[batch_num] = last_indexed_batch_end
                 self._num_batches_indexed += 1
 
@@ -1910,19 +1958,28 @@ class FeatherFileAdapter(AbstractColumnarAdapter):
             else:
                 # we are not fully indexed
                 self._num_rows = None
-                # if we have not already indexed the last batch
-                if self._batch_nrows[-1] == 0:
-                    last_batch = self._num_record_batches - 1
-                    self._batch_nrows[-1] = f.get_batch(last_batch).num_rows
-                # we do not count the last batch which usually has a different length
+                last_batch_nrows = (
+                    self._get_batch_nrows(f, self._num_record_batches - 1))
+
+                # since we are not fully indexed, we are guaranteed to not
+                # count the last batch which usually has a different length
                 estimated_rows_per_batch = np.mean(self._batch_nrows[:self._num_batches_indexed])
                 self._estimated_num_rows = int(estimated_rows_per_batch *
                                                (self._num_record_batches - 1)
-                                               + self._batch_nrows[-1])
+                                               + last_batch_nrows)
+
+    def _get_batch_nrows(self, f, batch_num):
+        if self._batch_nrows[batch_num] == -1:
+            batch_rows = f.get_batch(batch_num).num_rows
+            assert batch_rows >= 0
+            self._batch_nrows[batch_num] = batch_rows
+        else:
+            batch_rows = self._batch_nrows[batch_num]
+        return batch_rows
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
         pyarrow = sys.modules['pyarrow']
-        self._index_up_to(v_stop)
+        self._index_rows_up_to(v_stop)
         # - 1 because the last row is not included
         start_batch, stop_batch = np.searchsorted(self._batch_ends,
                                                   v=[v_start, v_stop - 1],
@@ -2038,18 +2095,84 @@ class PyArrowTableAdapter(AbstractColumnarAdapter):
 @adapter_for('polars.DataFrame')
 @adapter_for('narwhals.DataFrame')
 class PolarsDataFrameAdapter(AbstractColumnarAdapter):
+    def __init__(self, data, attributes):
+        super().__init__(data, attributes=attributes)
+        self.filtered_data = data
+        self.sorted_data = data
+        self._unq_values_per_column = {}
+
     def shape2d(self):
-        return self.data.shape
+        return self.sorted_data.shape
 
     def get_hlabels_values(self, start, stop):
-        return [self.data.columns[start:stop]]
+        return [self.sorted_data.columns[start:stop]]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
         # Going via Pandas instead of directly using to_numpy() because this
         # has a better behavior for datetime columns (e.g. pl_df3).
         # Otherwise, Polars converts datetimes to floats instead using a numpy
         # object array
-        return self.data[v_start:v_stop, h_start:h_stop].to_pandas().values
+        return self.sorted_data[v_start:v_stop, h_start:h_stop].to_pandas().values
+
+    def can_sort_hlabel(self, row_idx, col_idx):
+        return True
+
+    def sort_hlabel(self, row_idx, col_idx, ascending):
+        self._current_sort = [(1, col_idx, ascending)]
+        self.sorted_data = self._sort_data(self.filtered_data)
+
+    def _sort_data(self, data):
+        for axis_idx, col_idx, ascending in self._current_sort:
+            assert axis_idx == 1
+            col_name = data.columns[col_idx]
+            data = data.sort(col_name, descending=not ascending)
+        return data
+
+    def can_filter_hlabel(self, row_idx, col_idx) -> bool:
+        return True
+
+    def get_filter_options(self, filter_idx):
+        if filter_idx in self._unq_values_per_column:
+            return self._unq_values_per_column[filter_idx]
+        else:
+            df = self.data
+            column = df.get_column(df.columns[filter_idx])
+            unq_values = column.unique().sort().limit(MAX_FILTER_OPTIONS).to_numpy()
+            self._unq_values_per_column[filter_idx] = unq_values
+            return unq_values
+
+    def update_filter(self, filter_idx, indices):
+        """Update current filter for a given axis if labels selection from the array widget has changed
+
+        Parameters
+        ----------
+        filter_idx : int
+             Index of filter (axis) for which selection has changed.
+        indices: list of int
+            Indices of selected labels.
+        """
+        # only allow filtering a single columns for now (by not keeping previous
+        # filters)
+        if not indices:
+            indices = list(range(len(self.get_filter_options(filter_idx))))
+        self.current_filter = cur_filter = {filter_idx: indices}
+        self.filtered_data = self._filter_data(self.data, cur_filter)
+        self.sorted_data = self._sort_data(self.filtered_data)
+        if self.attributes is not None:
+            # FIXME: need to sort attributes too
+            self.filtered_attributes = {k: self._filter_data(v, cur_filter)
+                                        for k, v in self.attributes.items()}
+
+    def _filter_data(self, data, cur_filter):
+        import polars as pl
+        df = data
+        columns = df.columns
+        for col_idx, filtered_indices in cur_filter.items():
+            col_name = columns[col_idx]
+            col_unq_values = self._unq_values_per_column[col_idx]
+            filtered_values = col_unq_values[filtered_indices]
+            df = df.filter(pl.col(col_name).is_in(filtered_values))
+        return df
 
 
 @adapter_for('polars.LazyFrame')
@@ -2064,7 +2187,12 @@ class PolarsLazyFrameAdapter(AbstractColumnarAdapter):
         # TODO: this is often slower than computing the "first window" data
         #       so we could try to use a temporary value and
         #       fill the real height as we go like for CSV files
-        self._height = data.select(pl.len()).collect(engine='streaming').item()
+
+        self.filtered_data = data
+        len_query = self.filtered_data.select(pl.len())
+        self._height = len_query.collect(engine='streaming').item()
+        self.sorted_data = data
+        self._unq_values_per_column = {}
 
     def shape2d(self):
         return self._height, len(self._schema)
@@ -2073,7 +2201,9 @@ class PolarsLazyFrameAdapter(AbstractColumnarAdapter):
         return [self._columns[start:stop]]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        subset = self.data[v_start:v_stop].select(self._columns[h_start:h_stop])
+        lf = self.sorted_data
+        row_subset = lf[v_start:v_stop]
+        subset = row_subset.select(self._columns[h_start:h_stop])
         df = subset.collect(engine='streaming')
         # Going via Pandas instead of directly using to_numpy() because this
         # has a better behavior for datetime columns (e.g. pl_df3).
@@ -2081,14 +2211,89 @@ class PolarsLazyFrameAdapter(AbstractColumnarAdapter):
         # object array
         return df.to_pandas().values
 
+    def can_sort_hlabel(self, row_idx, col_idx):
+        return True
 
+    def sort_hlabel(self, row_idx, col_idx, ascending):
+        self._current_sort = [(1, col_idx, ascending)]
+        self.sorted_data = self._sort_data(self.filtered_data)
+
+    def _sort_data(self, data):
+        for axis_idx, col_idx, ascending in self._current_sort:
+            assert axis_idx == 1
+            col_name = self._columns[col_idx]
+            data = data.sort(col_name, descending=not ascending)
+        return data
+
+    def can_filter_hlabel(self, row_idx, col_idx) -> bool:
+        return True
+
+    def get_filter_options(self, filter_idx):
+        if filter_idx in self._unq_values_per_column:
+            return self._unq_values_per_column[filter_idx]
+        else:
+            lf = self.data
+            colname = self._columns[filter_idx]
+            query = (lf.select(colname)
+                       .unique(colname)
+                       .sort(colname)
+                       .limit(MAX_FILTER_OPTIONS))
+            unq_values_df = query.collect(engine='streaming')
+            unq_values = unq_values_df[:, 0].to_numpy()
+            self._unq_values_per_column[filter_idx] = unq_values
+            return unq_values
+
+    def update_filter(self, filter_idx, indices):
+        """Update current filter for a given axis if labels selection from the array widget has changed
+
+        Parameters
+        ----------
+        filter_idx : int
+             Index of filter (axis) for which selection has changed.
+        indices: list of int
+            Indices of selected labels.
+        """
+        # cur_filter = self.current_filter
+        # cur_filter[filter_idx] = indices
+        # only allow filtering a single columns for now (by not keeping previous
+        # filters)
+        import polars as pl
+        if not indices:
+            indices = list(range(len(self.get_filter_options(filter_idx))))
+        self.current_filter = cur_filter = {filter_idx: indices}
+        self.filtered_data = self._filter_data(self.data, cur_filter)
+        self.sorted_data = self._sort_data(self.filtered_data)
+        len_query = self.filtered_data.select(pl.len())
+        self._height = len_query.collect(engine='streaming').item()
+        if self.attributes is not None:
+            # FIXME: need to sort attributes too
+            self.filtered_attributes = {k: self._filter_data(v, cur_filter)
+                                        for k, v in self.attributes.items()}
+
+    def _filter_data(self, data, cur_filter):
+        import polars as pl
+        df = data
+        columns = df.columns
+        for col_idx, filtered_indices in cur_filter.items():
+            col_name = columns[col_idx]
+            col_unq_values = self._unq_values_per_column[col_idx]
+            filtered_values = col_unq_values[filtered_indices]
+            df = df.filter(pl.col(col_name).is_in(filtered_values))
+        return df
+
+
+# we need an explicit adapter (instead of reusing PolarsLazyFrameAdapter as-is)
+# because Narwhals lazy frames are not indexable, so we need the row_index
+# trick
 @adapter_for('narwhals.LazyFrame')
-class NarwhalsLazyFrameAdapter(AbstractColumnarAdapter):
+class NarwhalsLazyFrameAdapter(PolarsLazyFrameAdapter):
     def __init__(self, data, attributes):
         import narwhals as nw
         assert isinstance(data, nw.LazyFrame)
 
-        super().__init__(data=data, attributes=attributes)
+        # do not use super().__init__ to avoid the isinstance check from
+        # the parent class
+        AbstractColumnarAdapter.__init__(self, data=data, attributes=attributes)
         self._schema = data.collect_schema()
         self._columns = self._schema.names()
         # TODO: this is often slower than computing the "first window" data
@@ -2098,23 +2303,94 @@ class NarwhalsLazyFrameAdapter(AbstractColumnarAdapter):
         #       is forwarded to the underlying engine) so it will work with
         #       Polars but probably not other engines)
         self._height = data.select(nw.len()).collect(engine='streaming').item()
-        self._wh_index = data.with_row_index('_index')
-
-    def shape2d(self):
-        return self._height, len(self._schema)
-
-    def get_hlabels_values(self, start, stop):
-        return [self._columns[start:stop]]
+        self.data = data
+        self.filtered_data = data
+        # this is almost a noop initially (no sort) but does add a row index
+        # column, which is necessary to slice the lazyframe (see below)
+        self.sorted_data = self._sort_data(self.filtered_data)
+        self._unq_values_per_column = {}
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
+        # if not self._current_sort:
+            # FIXME: this breaks column width detection code
+            # return [['narwhals lazyframes must be sorted to display them']
+            #         + [''] * (h_stop - h_start - 1)]
+
         nw = sys.modules['narwhals']
         # narwhals LazyFrame does not support slicing, so we have to
         # resort to this awful workaround which is MUCH slower than native
-        # polars
+        # polars slicing. I suspect it must evaluate the whole dataset.
         filter_ = (nw.col('_index') >= v_start) & (nw.col('_index') < v_stop)
+        row_subset = self.sorted_data.filter(filter_)
         # .select also implicitly drops _index
-        lazy_sub_df = self._wh_index.filter(filter_).select(self._columns[h_start:h_stop])
-        return lazy_sub_df.collect(engine='streaming').to_numpy()
+        subset = row_subset.select(self._columns[h_start:h_stop])
+        df = subset.collect(engine='streaming')
+        # Going via Pandas instead of directly using to_numpy() because this
+        # has a better behavior for datetime columns (e.g. pl_df3).
+        # Otherwise, Polars converts datetimes to floats instead using a numpy
+        # object array
+        return df.to_pandas().values
+
+    def _sort_data(self, data):
+        col_names = []
+        for axis_idx, col_idx, ascending in self._current_sort:
+            assert axis_idx == 1
+            col_name = self._columns[col_idx]
+            col_names.append(col_name)
+            data = data.sort(col_name, descending=not ascending)
+        # We need to add a row index to be able to slice the lazyframe (see
+        # below). This needs to be done *after* filtering and sorting.
+        # FIXME: using order_by=None because narwhals API requires the order_by
+        #        argument for lazyframes but its implementation (currently)
+        #        allows None for polars-backed lazyframes.
+        #        We use it instead of order_by=col_names, even though this
+        #        probably breaks in non Polars backends because narwhals does
+        #        not seem to support specifying descending order for the row
+        #        index.
+        return data.with_row_index('_index', order_by=None)
+
+    def get_filter_options(self, filter_idx):
+        if filter_idx in self._unq_values_per_column:
+            return self._unq_values_per_column[filter_idx]
+        else:
+            lf = self.data
+            colname = self._columns[filter_idx]
+            query = (lf.select(colname)
+                       .unique(colname)
+                       .sort(colname)
+                       # narwhals does not support .limit() on LazyFrame
+                       .head(MAX_FILTER_OPTIONS))
+            unq_values_df = query.collect(engine='streaming')
+            unq_values = unq_values_df[:, 0].to_numpy()
+            self._unq_values_per_column[filter_idx] = unq_values
+            return unq_values
+
+    # overridden just to use nw.len() instead of pl.len()
+    def update_filter(self, filter_idx, indices):
+        nw = sys.modules['narwhals']
+        if not indices:
+            indices = list(range(len(self.get_filter_options(filter_idx))))
+        self.current_filter = cur_filter = {filter_idx: indices}
+        self.filtered_data = self._filter_data(self.data, cur_filter)
+        self.sorted_data = self._sort_data(self.filtered_data)
+        len_query = self.filtered_data.select(nw.len())
+        self._height = len_query.collect(engine='streaming').item()
+        if self.attributes is not None:
+            # FIXME: need to sort attributes too
+            self.filtered_attributes = {k: self._filter_data(v, cur_filter)
+                                        for k, v in self.attributes.items()}
+
+    # overridden just to use nw.col() instead of pl.col()
+    def _filter_data(self, data, cur_filter):
+        nw = sys.modules['narwhals']
+        df = data
+        columns = df.columns
+        for col_idx, filtered_indices in cur_filter.items():
+            col_name = columns[col_idx]
+            col_unq_values = self._unq_values_per_column[col_idx]
+            filtered_values = col_unq_values[filtered_indices]
+            df = df.filter(nw.col(col_name).is_in(filtered_values))
+        return df
 
 
 @adapter_for('iode.Variables')
@@ -3108,11 +3384,28 @@ class SQLiteTableAdapter(AbstractColumnarAdapter):
     def get_values(self, h_start, v_start, h_stop, v_stop):
         cur = self.data.con.cursor()
         cols = self._columns[h_start:h_stop]
-        cur.execute(f"SELECT {', '.join(cols)} FROM {self.data.name} "
-                    f"LIMIT {v_stop - v_start} OFFSET {v_start}")
+        if self._current_sort:
+            col_names = [
+                f"{self._columns[col_idx]}{'' if ascending else ' DESC'}"
+                for axis, col_idx, ascending in self._current_sort
+            ]
+            order_by = f" ORDER BY {', '.join(col_names)}"
+        else:
+            order_by = ""
+        query = f"""\
+SELECT {', '.join(cols)} FROM {self.data.name}{order_by}
+LIMIT {v_stop - v_start} OFFSET {v_start}"""
+        cur.execute(query)
         rows = cur.fetchall()
         cur.close()
         return rows
+
+    def can_sort_hlabel(self, row_idx, col_idx):
+        return True
+
+    def sort_hlabel(self, row_idx, col_idx, ascending):
+        assert row_idx == 0
+        self._current_sort = [(1, col_idx, ascending)]
 
 
 @adapter_for('sqlite3.Connection')
@@ -3147,6 +3440,7 @@ class DuckDBRelationAdapter(AbstractColumnarAdapter):
         super().__init__(data=data, attributes=attributes)
         self._numrows = len(data)
         self._columns = data.columns
+        self._unq_values_per_column = {}
 
     def shape2d(self):
         return self._numrows, len(self._columns)
@@ -3157,9 +3451,76 @@ class DuckDBRelationAdapter(AbstractColumnarAdapter):
     def get_values(self, h_start, v_start, h_stop, v_stop):
         cols = self._columns[h_start:h_stop]
         num_rows = v_stop - v_start
-        rows = self.data.limit(num_rows, offset=v_start)
+        query = self.data
+        query = self._add_filters(query)
+        for axis, col_idx, ascending in self._current_sort:
+            assert axis == 1
+            colname = self._columns[col_idx]
+            desc = "" if ascending else " DESC"
+            query = query.order(f"{colname}{desc}")
+        rows = query.limit(num_rows, offset=v_start)
         subset = rows.select(*cols)
         return subset.fetchall()
+
+    def _add_filters(self, query):
+        for filter_idx, filter_indices in self.current_filter.items():
+            colname = self._columns[filter_idx]
+            col_unq_values = self.get_filter_options(filter_idx)
+            filter_values = col_unq_values[filter_indices]
+
+            # Sadly, duckdb relation API does not support named parameters/
+            # prepared statements so we have to inline the values
+            if isinstance(filter_values[0], str):
+                # this is hopefully enough to avoid creating an SQL injection
+                # vulnerability
+                assert not any(isinstance(v, str) and "'" in v
+                               for v in filter_values)
+                filter_values = [f"'{v}'" for v in filter_values]
+            else:
+                filter_values = [str(v) for v in filter_values]
+                assert not any("'" in v  for v in filter_values)
+            query = query.filter(f"{colname} IN ({', '.join(filter_values)})")
+        return query
+
+    def can_sort_hlabel(self, row_idx, col_idx):
+        return True
+
+    def sort_hlabel(self, row_idx, col_idx, ascending):
+        assert row_idx == 0
+        self._current_sort = [(1, col_idx, ascending)]
+
+    def can_filter_hlabel(self, row_idx, col_idx) -> bool:
+        return True
+
+    def get_filter_options(self, filter_idx):
+        if filter_idx in self._unq_values_per_column:
+            return self._unq_values_per_column[filter_idx]
+        else:
+            colname = self._columns[filter_idx]
+            query = (self.data.select(colname)
+                              .distinct()
+                              .order(colname)
+                              .limit(MAX_FILTER_OPTIONS))
+            unq_values = query.fetchnumpy()[colname]
+            self._unq_values_per_column[filter_idx] = unq_values
+            return unq_values
+
+    def update_filter(self, filter_idx, indices):
+        """Update current filter for a given axis if labels selection from the array widget has changed
+
+        Parameters
+        ----------
+        filter_idx : int
+             Index of filter (axis) for which selection has changed.
+        indices: list of int
+            Indices of selected labels.
+        """
+        # only allow filtering a single columns for now (by not keeping previous
+        # filters)
+        if not indices:
+            indices = list(range(len(self.get_filter_options(filter_idx))))
+        self.current_filter = {filter_idx: indices}
+        self._numrows = len(self._add_filters(self.data))
 
 
 @adapter_for('duckdb.DuckDBPyConnection')

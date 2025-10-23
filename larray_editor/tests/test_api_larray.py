@@ -354,6 +354,14 @@ pl_df_mixed = pl.from_pandas(pd_df_mixed, include_index=False)
 pl_lf1 = pl.scan_parquet('big.parquet')
 pl_lf2 = pl.scan_ipc('big.feather')
 
+try:
+    import narwhals as nw
+
+    nw_df = nw.from_native(pl_df_mixed)
+    nw_lf = nw.from_native(pl_lf_parquet)
+except ImportError:
+    print("skipping narwhals tests (not installed)")
+
 path_dir = Path('.')
 path_py = Path('test_adapter.py')
 path_csv = Path('be.csv')
@@ -382,7 +390,7 @@ try:
 
     # d = dataset('OIN/data.feather', format='ipc')
 except ImportError:
-    pass
+    print("skipping pyarrow tests (not installed)")
 
 # import cProfile as profile
 # profile.runctx('edit(la.Session(arr2=arr2))', vars(), {},
@@ -398,15 +406,13 @@ cur.close()
 
 try:
     import duckdb
-except ImportError:
-    duckdb = None
 
-if duckdb is not None:
     duckdb_con = duckdb.connect(":memory:")
     duckdb_con.execute("create table lang (name VARCHAR, first_appeared INTEGER)")
     duckdb_con.executemany("insert into lang values (?, ?)", list_mixed_tuples)
     duckdb_table = duckdb_con.table('lang')
-
+except ImportError:
+    print("skipping duckdb tests (not installed)")
 
 zipf = zipfile.ZipFile('c:/Users/gdm/Downloads/active_directory-0.6.7.zip')
 
