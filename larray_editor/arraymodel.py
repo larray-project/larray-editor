@@ -488,8 +488,15 @@ class AbstractArrayModel(QAbstractTableModel):
             raw_data = self._fetch_data(self.h_offset, self.v_offset,
                                         h_stop, v_stop)
         except Exception as e:
-            logger.error(f"could not fetch data from adapter:\n"
-                         f"{''.join(format_exception(e))}")
+            try:
+                logger.error(f"could not fetch data from adapter:\n"
+                             f"{''.join(format_exception(e))}")
+            except Exception:
+                # sometimes the exception message itself contains unprintable
+                # data (e.g. unicode string with characters which cannot be
+                # encoded to the stderr encoding)
+                logger.error("could not fetch data from adapter "
+                             "(and cannot log exception)")
             raw_data = np.array([[]])
         if not isinstance(raw_data, dict):
             raw_data = {'values': raw_data}
