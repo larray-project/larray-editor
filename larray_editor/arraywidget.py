@@ -644,7 +644,7 @@ class AbstractView(QTableView):
 
     def autofit_columns(self):
         """Resize cells to contents"""
-        print(f"{self.__class__.__name__}.autofit_columns()")
+        # print(f"{self.__class__.__name__}.autofit_columns()")
         QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
 
         # for column in range(self.model_axes.columnCount()):
@@ -1400,6 +1400,10 @@ class ArrayEditorWidget(QWidget):
         hlabels_h_header.sectionResized.connect(self.on_hlabels_column_resized)
         vlabels_v_header.sectionResized.connect(self.on_vlabels_row_resized)
 
+        # only useful for debugging
+        # data_h_header = self.view_data.horizontalHeader()
+        # data_h_header.sectionResized.connect(self.on_data_column_resized)
+
         # Propagate auto-resizing requests
         axes_h_header.sectionHandleDoubleClicked.connect(self.resize_axes_column_to_contents)
         hlabels_h_header.sectionHandleDoubleClicked.connect(self.resize_hlabels_column_to_contents)
@@ -1816,11 +1820,16 @@ class ArrayEditorWidget(QWidget):
 
     def on_hlabels_column_resized(self, logical_index, old_size, new_size):
         # synchronize with linked view
+        # logger.debug(f"on_hlabels_column_resized {logical_index=} {new_size=}")
         self.view_data.setColumnWidth(logical_index, new_size)
         if self._updating_hlabels_column_widths:
             return
         h_offset = self.model_data.h_offset
         self.user_defined_hlabels_column_widths[logical_index + h_offset] = new_size
+
+    # def on_data_column_resized(self, logical_index, old_size, new_size):
+        # log_caller()
+        # logger.debug(f"on_data_column_resized {logical_index=} {new_size=}")
 
     def on_vlabels_row_resized(self, logical_index, old_size, new_size):
         # synchronize with linked view
@@ -2239,17 +2248,20 @@ class ArrayEditorWidget(QWidget):
     # view_hlabels.horizontalHeader().sectionHandleDoubleClicked
     def resize_hlabels_column_to_contents(self, local_col_idx,
                                           min_width=None, max_width=None):
-        # clsname = self.__class__.__name__
-        # print(f"{clsname}.resize_hlabels_column_to_contents({local_col_idx})")
         global_col_idx = self.model_data.h_offset + local_col_idx
         prev_width = self.detected_hlabels_column_widths.get(global_col_idx, 0)
+        # logger.debug("ArrayEditorWidget.resize_hlabels_column_to_contents("
+        #              f"{local_col_idx=}, {min_width=}, {max_width=})")
         width = max(self.view_hlabels.sizeHintForColumn(local_col_idx),
                     self.view_data.sizeHintForColumn(local_col_idx),
                     prev_width)
+        # logger.debug(f"   {global_col_idx=} {prev_width=} => (before clip) "
+        #              f"{width=} ")
         if min_width is not None:
             width = max(width, min_width)
         if max_width is not None:
             width = min(width, max_width)
+        # logger.debug(f"   -> (after clip) {width=}")
         # view_data column width will be synchronized automatically
         self.view_hlabels.horizontalHeader().resizeSection(local_col_idx, width)
 
@@ -2257,6 +2269,7 @@ class ArrayEditorWidget(QWidget):
         if global_col_idx in self.user_defined_hlabels_column_widths:
             del self.user_defined_hlabels_column_widths[global_col_idx]
         if width > prev_width:
+            # logger.debug(f"   -> width > prev_width (updating detected)")
             self.detected_hlabels_column_widths[global_col_idx] = width
 
     # must be connected to signal:

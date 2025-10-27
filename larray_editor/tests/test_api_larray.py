@@ -351,8 +351,8 @@ pl_df2 = pl.from_pandas(pd_df2)
 pl_df3 = pl_df1.select(pl.from_epoch(pl.col('M')).alias('datetime_col'), 'M').limit(5)
 pl_df_big = pl.from_pandas(pd_df_big, include_index=True)
 pl_df_mixed = pl.from_pandas(pd_df_mixed, include_index=False)
-pl_lf1 = pl.scan_parquet('big.parquet')
-pl_lf2 = pl.scan_ipc('big.feather')
+pl_lf_parquet = pl.scan_parquet('big.parquet')
+pl_lf_feather = pl.scan_ipc('big.feather')
 
 try:
     import narwhals as nw
