@@ -40,6 +40,7 @@ from larray.util.misc import Product
 
 # field is field_name + conversion if any
 M_SPECIFIER_PATTERN = re.compile(r'\{(?P<field>[^:}]*):(?P<format_spec>[^m}]*)m\}')
+ICON_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'images')
 
 logger = logging.getLogger("editor")
 
@@ -240,17 +241,17 @@ def get_idx_rect(index_list):
 
 class IconManager:
     _icons = {'larray': 'larray.ico'}
-    _icon_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'images')
 
     def icon(self, ref):
         if ref in self._icons:
-            icon_path = os.path.join(self._icon_dir, self._icons[ref])
+            icon_path = os.path.join(ICON_DIR, self._icons[ref])
+            assert os.path.exists(icon_path)
             return QIcon(icon_path)
         else:
-            # By default, only X11 will support themed icons. In order to use
-            # themed icons on Mac and Windows, you will have to bundle a compliant
-            # theme in one of your PySide.QtGui.QIcon.themeSearchPaths() and set the
-            # appropriate PySide.QtGui.QIcon.themeName() .
+            # By default, only X11 supports themed icons. In order to use
+            # themed icons on Mac and Windows, we need to bundle a
+            # compliant theme in one of the QtGui.QIcon.themeSearchPaths()
+            # directories and set QtGui.QIcon.themeName() accordingly.
             return QIcon.fromTheme(ref)
 
 
@@ -352,7 +353,8 @@ class LinearGradient:
             key_isnan = np.isnan(key)[..., np.newaxis]
             color = color0 + (color1 - color0) * normalized_value[..., np.newaxis]
             color = np.where(key_isnan, self.nan_color.getHsvF(), color)
-            return from_hsvf(color[..., 0], color[..., 1], color[..., 2], color[..., 3])
+            return from_hsvf(color[..., 0], color[..., 1], color[..., 2],
+                             color[..., 3])
 
 
 class PlotDialog(QDialog):
@@ -493,7 +495,8 @@ class RecentlyUsedList:
         if self.settings.value(list_name) is None:
             self.settings.setValue(list_name, [])
         if parent_action is not None:
-            actions = [QAction(parent_action) for _ in range(self.MAX_RECENT_FILES)]
+            actions = [QAction(parent_action)
+                       for _ in range(self.MAX_RECENT_FILES)]
             for action in actions:
                 action.setVisible(False)
                 if triggered is not None:
@@ -544,7 +547,8 @@ class RecentlyUsedList:
                 action.setStatusTip(filepath)
                 action.setData(filepath)
                 action.setVisible(True)
-            # if we have less recent files than actions, hide the remaining actions
+            # if we have less recent files than actions, hide the remaining
+            # actions
             for action in self.actions[len(recent_files):]:
                 action.setVisible(False)
 
@@ -553,7 +557,8 @@ def cached_property(must_invalidate_cache_method):
     """A decorator to cache class properties."""
     def getter_decorator(original_getter):
         def caching_getter(self):
-            if must_invalidate_cache_method(self) or not hasattr(self, '_cached_property_values'):
+            if (must_invalidate_cache_method(self) or
+                    not hasattr(self, '_cached_property_values')):
                 self._cached_property_values = {}
             try:
                 # cache hit
@@ -803,7 +808,7 @@ def get_func_name(frame):
     func_name = frame.f_code.co_name
     if 'self' in frame.f_locals:
         # We do not use Python 3.11+ frame.f_code.co_qualname because
-        # because it returns the (super) class where the method is
+        # it returns the (super) class where the method is
         # defined, not the instance class which is usually much more useful
         func_name = f"{frame.f_locals['self'].__class__.__name__}.{func_name}"
     return func_name
