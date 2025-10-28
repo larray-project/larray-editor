@@ -38,6 +38,7 @@ import logging
 import sys
 import os
 import math
+import importlib
 import itertools
 import time
 # import types
@@ -1055,7 +1056,6 @@ def get_path_suffix_adapter(fpath):
         path_adapter_cls, required_module = PATH_SUFFIX_ADAPTERS[suffix]
         if required_module is not None:
             if required_module not in sys.modules:
-                import importlib
                 try:
                     importlib.import_module(required_module)
                 except ImportError:
@@ -3198,12 +3198,35 @@ class TextFileAdapter(AbstractAdapter):
         return [[line] for line in self._get_lines(v_start, v_stop)]
 
 
-@path_adapter_for('.parquet', 'pyarrow.parquet')
-class ParquetPathAdapter(PyArrowParquetFileAdapter):
+class PolarsParquetPathAdapter(PolarsLazyFrameAdapter):
     @classmethod
     def open(cls, fpath):
-        pq = sys.modules['pyarrow.parquet']
+        import polars as pl
+        return pl.scan_parquet(fpath)
+
+
+class PyArrowParquetPathAdapter(PyArrowParquetFileAdapter):
+    @classmethod
+    def open(cls, fpath):
+        import pyarrow.parquet as pq
         return pq.ParquetFile(fpath)
+
+
+@path_adapter_for('.parquet')
+def dispatch_parquet_path_adapter(fpath):
+    # the polars adapter is first as it has more features
+    return dispatch_by_available_module({
+        'polars': PolarsParquetPathAdapter,
+        'pyarrow.parquet': PyArrowParquetPathAdapter
+    })
+
+
+# modules are tried in the order they are defined
+def dispatch_by_available_module(module_dict: dict):
+    for module_name, adapter_cls in module_dict.items():
+        if importlib.util.find_spec(module_name) is not None:
+            return adapter_cls
+    return None
 
 
 @path_adapter_for('.bat')
@@ -3350,7 +3373,9 @@ class ProfilingStatsAdapter(AbstractColumnarAdapter):
                 in zip(func_calls, call_details)]
 
 
-SQLITE_LIST_TABLES_QUERY = "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+SQLITE_LIST_TABLES_QUERY = ("SELECT name "
+                            "FROM sqlite_schema "
+                            "WHERE type='table' AND name NOT LIKE 'sqlite_%'")
 
 
 class SQLiteTable:
