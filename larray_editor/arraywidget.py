@@ -1205,7 +1205,7 @@ class DataView(AbstractView):
                    callable(widget.parent)):
                 widget = widget.parent()
             if isinstance(widget, MappingEditorWindow):
-                kernel = widget.kernel
+                kernel = widget.ipython_kernel
                 if kernel is not None:
                     # make the current object available in the console
                     kernel.shell.push({

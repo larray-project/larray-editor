@@ -103,7 +103,7 @@ class EditSessionArrayCommand(EditObjectCommand):
 
     def apply_change(self, key, new_value):
         # FIXME: we should pass via the adapter to have something generic
-        self.editor.kernel.shell.run_cell(f"{self.target}.i[{key}] = {new_value}")
+        self.editor.ipython_kernel.shell.run_cell(f"{self.target}.i[{key}] = {new_value}")
 
 
 class EditCurrentArrayCommand(EditObjectCommand):

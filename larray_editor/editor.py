@@ -438,7 +438,7 @@ class MappingEditorWindow(AbstractEditorWindow):
         self.current_expr_text = None
 
         self.expressions = {}
-        self.kernel = None
+        self.ipython_kernel = None
         self._unsaved_modifications = False
 
         # to handle recently opened data/script files
@@ -489,7 +489,7 @@ class MappingEditorWindow(AbstractEditorWindow):
             for type_ in arrayadapter.REGISTERED_ADAPTERS:
                 text_formatter.for_type(type_, void_formatter)
 
-            self.kernel = kernel
+            self.ipython_kernel = kernel
 
             kernel_client = kernel_manager.client()
             kernel_client.start_channels()
@@ -576,7 +576,7 @@ class MappingEditorWindow(AbstractEditorWindow):
 
     def _push_data(self, data):
         self.data = data if isinstance(data, la.Session) else la.Session(data)
-        if qtconsole_available:
+        if self.ipython_kernel is not None:
             # Avoid displaying objects we handle in IPython console.
 
             # Sadly, we cannot do this for all objects we support without
@@ -600,7 +600,7 @@ class MappingEditorWindow(AbstractEditorWindow):
 
             # The combination of the above limitations mean that types
             # imported via the console will NOT use the void_formatter :(.
-            text_formatter = self.kernel.shell.display_formatter.formatters['text/plain']
+            text_formatter = self.ipython_kernel.shell.display_formatter.formatters['text/plain']
             unique_types = {type(v) for v in self.data.values()}
             for obj_type in unique_types:
                 adapter_creator = arrayadapter.get_adapter_creator_for_type(obj_type)
@@ -620,7 +620,7 @@ class MappingEditorWindow(AbstractEditorWindow):
                 if current_formatter is not void_formatter:
                     logger.debug(f"applying void_formatter for {obj_type}")
                     text_formatter.for_type(obj_type, void_formatter)
-            self.kernel.shell.push(dict(self.data.items()))
+            self.ipython_kernel.shell.push(dict(self.data.items()))
         var_names = [k for k, v in self.data.items() if self._display_in_varlist(k, v)]
         self.add_list_items(var_names)
         self._listwidget.setCurrentRow(0)
@@ -652,8 +652,8 @@ class MappingEditorWindow(AbstractEditorWindow):
         self.current_array = None
         self.current_expr_text = None
         self.edit_undo_stack.clear()
-        if qtconsole_available:
-            self.kernel.shell.reset()
+        if self.ipython_kernel is not None:
+            self.ipython_kernel.shell.reset()
             self.ipython_cell_executed()
         else:
             self.eval_box.setText('None')
@@ -820,8 +820,8 @@ class MappingEditorWindow(AbstractEditorWindow):
         current_item = self._listwidget.currentItem()
         name = str(current_item.text())
         del self.data[name]
-        if qtconsole_available:
-            self.kernel.shell.del_var(name)
+        if self.ipython_kernel is not None:
+            self.ipython_kernel.shell.del_var(name)
         self.unsaved_modifications = True
         self._listwidget.takeItem(self._listwidget.row(current_item))
 
@@ -850,7 +850,7 @@ class MappingEditorWindow(AbstractEditorWindow):
         return arrayadapter.get_adapter_creator(v) is not None
 
     def ipython_cell_executed(self):
-        user_ns = self.kernel.shell.user_ns
+        user_ns = self.ipython_kernel.shell.user_ns
         ip_keys = {'In', 'Out', '_', '__', '___', '__builtin__', '_dh', '_ih', '_oh', '_sh', '_i', '_ii', '_iii',
                    'exit', 'get_ipython', 'quit'}
         # '__builtins__', '__doc__', '__loader__', '__name__', '__package__', '__spec__',
@@ -1165,18 +1165,18 @@ class MappingEditorWindow(AbstractEditorWindow):
                     if start == '':
                         start = 1
                     if stop == '':
-                        stop = self.kernel.shell.execution_count
+                        stop = self.ipython_kernel.shell.execution_count
                         if sep == ':':
                             stop += 1
                     return f'{start}{sep}{stop}'
 
                 lines = ' '.join(complete_slice(s) for s in lines.split(' '))
             else:
-                lines = f'1-{self.kernel.shell.execution_count}'
+                lines = f'1-{self.ipython_kernel.shell.execution_count}'
 
             with io.StringIO() as tmp_out:
                 with redirect_stdout(tmp_out):
-                    self.kernel.shell.run_line_magic('save', f'{overwrite} "{filepath}" {lines}')
+                    self.ipython_kernel.shell.run_line_magic('save', f'{overwrite} "{filepath}" {lines}')
                 stdout = tmp_out.getvalue()
             if 'commands were written to file' not in stdout:
                 raise Exception(stdout)
@@ -1188,7 +1188,7 @@ class MappingEditorWindow(AbstractEditorWindow):
     # See http://ipython.readthedocs.io/en/stable/interactive/magics.html#magic-save
     # for more details
     def save_script(self):
-        if self.kernel.shell.execution_count == 1:
+        if self.ipython_kernel.shell.execution_count == 1:
             QMessageBox.critical(self, "Error", "Cannot save an empty command history")
             return
 
