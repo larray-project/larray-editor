@@ -1,3 +1,4 @@
+import importlib
 import io
 import logging
 import os
@@ -36,7 +37,9 @@ from qtpy.QtCore import Qt, QUrl, QSettings
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
                             QDialogButtonBox, QShortcut, QVBoxLayout, QGridLayout, QLineEdit,
-                            QCheckBox, QComboBox, QMessageBox, QDialog, QInputDialog, QLabel, QGroupBox, QRadioButton)
+                            QCheckBox, QComboBox, QMessageBox, QDialog,
+                            QInputDialog, QLabel, QGroupBox, QRadioButton,
+                            QTabWidget)
 
 try:
     from qtpy.QtWidgets import QUndoStack
@@ -60,6 +63,7 @@ from larray_editor.utils import (_,
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor import arrayadapter
 from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayCommand
+from larray_editor.sql import SQLWidget
 
 try:
     from qtconsole.rich_jupyter_widget import RichJupyterWidget
@@ -94,10 +98,7 @@ SUBSET_UPDATE_PATTERN = re.compile(r'(\w+)'
                                    r'([-+*/%&|^><]|//|\*\*|>>|<<)?'
                                    r'=\s*[^=].*')
 HISTORY_VARS_PATTERN = re.compile(r'_i?\d+')
-# XXX: add all scalars except strings (from numpy or plain Python)?
-# (long) strings are not handled correctly so should NOT be in this list
-# tuple, list
-DISPLAY_IN_GRID = (la.Array, np.ndarray, pd.DataFrame)
+CAN_CONVERT_TO_LARRAY = (la.Array, np.ndarray, pd.DataFrame)
 
 opened_secondary_windows = []
 
@@ -162,7 +163,7 @@ class AbstractEditorWindow(QMainWindow):
             self.edit_undo_stack = QUndoStack(self)
 
         self.settings_group_name = self.name.lower().replace(' ', '_')
-        self.widget_state_settings = {}
+        self.widgets_to_save_to_settings = {}
 
         # set icon
         icon = ima.icon('larray')
@@ -374,8 +375,13 @@ class AbstractEditorWindow(QMainWindow):
         settings.beginGroup(self.settings_group_name)
         settings.setValue('geometry', self.saveGeometry())
         settings.setValue('state', self.saveState())
-        for widget_name, widget in self.widget_state_settings.items():
-            settings.setValue(f'state/{widget_name}', widget.saveState())
+        for widget_name, widget in self.widgets_to_save_to_settings.items():
+            settings.beginGroup(f'widget/{widget_name}')
+            if hasattr(widget, 'save_to_settings'):
+                widget.save_to_settings(settings)
+            elif hasattr(widget, 'saveState'):
+                settings.setValue('state', widget.saveState())
+            settings.endGroup()
         settings.endGroup()
 
     def restore_widgets_state_and_geometry(self):
@@ -387,10 +393,15 @@ class AbstractEditorWindow(QMainWindow):
         state = settings.value('state')
         if state:
             self.restoreState(state)
-        for widget_name, widget in self.widget_state_settings.items():
-            state = settings.value(f'state/{widget_name}')
-            if state:
-                widget.restoreState(state)
+        for widget_name, widget in self.widgets_to_save_to_settings.items():
+            settings.beginGroup(f'widget/{widget_name}')
+            if hasattr(widget, 'load_from_settings'):
+                widget.load_from_settings(settings)
+            elif hasattr(widget, 'restoreState'):
+                widget_state = settings.value('state')
+                if widget_state:
+                    widget.restoreState(widget_state)
+            settings.endGroup()
         settings.endGroup()
         return (geometry is not None) or (state is not None)
 
@@ -428,11 +439,20 @@ class MappingEditorWindow(AbstractEditorWindow):
     file_menu = True
     help_menu = True
 
-    def __init__(self, data, title='', readonly=False, caller_info=None, parent=None,
-                 stack_pos=None, add_larray_functions=False):
+    def __init__(self, data, title='', readonly=False, caller_info=None,
+                 parent=None, stack_pos=None, add_larray_functions=False,
+                 python_console=True, sql_console=None):
         AbstractEditorWindow.__init__(self, title=title, readonly=readonly, caller_info=caller_info,
                                       parent=parent)
 
+        if sql_console is None:
+            sql_console = 'polars' in sys.modules
+            logger.debug("polars is present, enabling SQL console")
+        elif sql_console:
+            if importlib.util.find_spec('polars') is None:
+                raise RuntimeError('SQL console is not available because '
+                                   'polars is not installed (module cannot be '
+                                   'imported)')
         self.current_file = None
         self.current_array = None
         self.current_expr_text = None
@@ -465,61 +485,86 @@ class MappingEditorWindow(AbstractEditorWindow):
         self.arraywidget = ArrayEditorWidget(self, readonly=readonly)
         self.arraywidget.dataChanged.connect(self.push_changes)
         # FIXME: this is currently broken as it fires for each scroll
-        #        we either need to fix model_data.dataChanged (but that might be needed for display)
-        #        or find another way to add a star to the window title *only* when the user actually changed something
+        #        we either need to fix model_data.dataChanged (but that might
+        #        be needed for display) or find another way to add a star to
+        #        the window title *only* when the user actually changed
+        #        something
         # self.arraywidget.model_data.dataChanged.connect(self.update_title)
 
-        if qtconsole_available:
-            # silence a warning on Python 3.11 (see issue #263)
-            if "PYDEVD_DISABLE_FILE_VALIDATION" not in os.environ:
-                os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
+        if sql_console:
+            sql_widget = SQLWidget(self)
+            self.widgets_to_save_to_settings['sql_console'] = sql_widget
+        else:
+            sql_widget = None
+        self.sql_widget = sql_widget
+        if python_console:
+            if qtconsole_available:
+                # silence a warning on Python 3.11 (see issue #263)
+                if "PYDEVD_DISABLE_FILE_VALIDATION" not in os.environ:
+                    os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
 
-            # Create an in-process kernel
-            kernel_manager = QtInProcessKernelManager()
-            kernel_manager.start_kernel(show_banner=False)
-            kernel = kernel_manager.kernel
+                # Create an in-process kernel
+                kernel_manager = QtInProcessKernelManager()
+                kernel_manager.start_kernel(show_banner=False)
+                kernel = kernel_manager.kernel
 
-            if add_larray_functions:
-                kernel.shell.run_cell('from larray import *')
-            kernel.shell.push({
-                '__editor__': self
-            })
+                if add_larray_functions:
+                    kernel.shell.run_cell('from larray import *')
+                kernel.shell.push({
+                    '__editor__': self
+                })
 
-            text_formatter = kernel.shell.display_formatter.formatters['text/plain']
-            for type_ in arrayadapter.REGISTERED_ADAPTERS:
-                text_formatter.for_type(type_, void_formatter)
+                text_formatter = kernel.shell.display_formatter.formatters['text/plain']
+                for type_ in arrayadapter.REGISTERED_ADAPTERS:
+                    text_formatter.for_type(type_, void_formatter)
 
-            self.ipython_kernel = kernel
+                self.ipython_kernel = kernel
 
-            kernel_client = kernel_manager.client()
-            kernel_client.start_channels()
+                kernel_client = kernel_manager.client()
+                kernel_client.start_channels()
 
-            ipython_widget = RichJupyterWidget()
-            ipython_widget.kernel_manager = kernel_manager
-            ipython_widget.kernel_client = kernel_client
-            ipython_widget.executed.connect(self.ipython_cell_executed)
-            ipython_widget._display_banner = False
+                ipython_widget = RichJupyterWidget()
+                ipython_widget.kernel_manager = kernel_manager
+                ipython_widget.kernel_client = kernel_client
+                ipython_widget.executed.connect(self.ipython_cell_executed)
+                ipython_widget._display_banner = False
 
-            self.eval_box = ipython_widget
-            self.eval_box.setMinimumHeight(20)
+                self.eval_box = ipython_widget
 
+                self.eval_box.setMinimumHeight(20)
+
+                right_panel_widget = QSplitter(Qt.Vertical)
+                right_panel_widget.addWidget(self.arraywidget)
+                if sql_console:
+                    tab_widget = QTabWidget(self)
+                    tab_widget.addTab(self.eval_box, 'Python Console')
+                    tab_widget.addTab(sql_widget, 'SQL Console')
+                    right_panel_widget.addWidget(tab_widget)
+                else:
+                    right_panel_widget.addWidget(self.eval_box)
+
+                right_panel_widget.setSizes([90, 10])
+                self.widgets_to_save_to_settings['right_panel_widget'] = right_panel_widget
+            else:
+                # cannot easily use a QTextEdit because it has no returnPressed signal
+                self.eval_box = QLineEdit()
+                self.eval_box.returnPressed.connect(self.line_edit_update)
+
+                right_panel_layout = QVBoxLayout()
+                right_panel_layout.addWidget(self.arraywidget)
+                right_panel_layout.addWidget(self.eval_box)
+
+                # you cant add a layout directly in a splitter, so we have to wrap
+                # it in a widget
+                right_panel_widget = QWidget()
+                right_panel_widget.setLayout(right_panel_layout)
+        elif sql_console:
             right_panel_widget = QSplitter(Qt.Vertical)
             right_panel_widget.addWidget(self.arraywidget)
-            right_panel_widget.addWidget(self.eval_box)
+            right_panel_widget.addWidget(sql_widget)
+
             right_panel_widget.setSizes([90, 10])
-            self.widget_state_settings['right_panel_widget'] = right_panel_widget
-        else:
-            self.eval_box = QLineEdit()
-            self.eval_box.returnPressed.connect(self.line_edit_update)
-
-            right_panel_layout = QVBoxLayout()
-            right_panel_layout.addWidget(self.arraywidget)
-            right_panel_layout.addWidget(self.eval_box)
-
-            # you cant add a layout directly in a splitter, so we have to wrap
-            # it in a widget
-            right_panel_widget = QWidget()
-            right_panel_widget.setLayout(right_panel_layout)
+            self.widgets_to_save_to_settings['right_panel_widget'] = right_panel_widget
 
         main_splitter = QSplitter(Qt.Horizontal)
         debug = isinstance(data, StackSummary)
@@ -551,7 +596,7 @@ class MappingEditorWindow(AbstractEditorWindow):
         main_splitter.addWidget(right_panel_widget)
         main_splitter.setSizes([180, 620])
         main_splitter.setCollapsible(1, False)
-        self.widget_state_settings['main_splitter'] = main_splitter
+        self.widgets_to_save_to_settings['main_splitter'] = main_splitter
 
         layout.addWidget(main_splitter)
 
@@ -624,6 +669,8 @@ class MappingEditorWindow(AbstractEditorWindow):
         var_names = [k for k, v in self.data.items() if self._display_in_varlist(k, v)]
         self.add_list_items(var_names)
         self._listwidget.setCurrentRow(0)
+        if self.sql_widget is not None:
+            self.sql_widget.update_completer_options(self.data)
 
     def on_stack_frame_changed(self):
         selected = self._stack_frame_widget.selectedItems()
@@ -812,7 +859,11 @@ class MappingEditorWindow(AbstractEditorWindow):
         if len(changed_displayable_keys) > 0 or deleted_displayable_keys:
             self.unsaved_modifications = True
 
-        # 4) return variable to display, if any (if there are more than one,
+        # 4) update sql completer options if needed
+        if self.sql_widget is not None and (new_displayable_keys or deleted_displayable_keys):
+            self.sql_widget.update_completer_options(self.data)
+
+        # 5) return variable to display, if any (if there are more than one,
         #    return first)
         return changed_displayable_keys[0] if changed_displayable_keys else None
 
@@ -998,6 +1049,8 @@ class MappingEditorWindow(AbstractEditorWindow):
         # this method is also called to refresh the widget value because of an
         # inplace setitem
 
+        if self.sql_widget is not None:
+            self.sql_widget.update_completer_options(self.data, selected=array)
         # FIXME: we should never store the current_array but current_adapter instead
         self.current_array = array
         self.arraywidget.set_data(array)

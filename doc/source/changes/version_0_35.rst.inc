@@ -53,6 +53,15 @@ New features
 * the editor now features a new "File Explorer" (accessible from the "File"
   menu) so that one can more easily make use of all the above file viewers.
 
+* added a new SQL Console (next to the iPython console) for querying Polars
+  structures (DataFrame, LazyFrame and Series) as SQL tables. The console
+  features auto-completion for SQL keywords, table names and column names
+  and stores the last 1000 queries (even across sessions). Recalling a query
+  from history is done with the up and down arrows and like in the iPython
+  console, it searches through history with the current command as prefix.
+  This console will only be present if you import polars *before* opening
+  the editor.
+
 * allow sorting objects by column by pressing on an horizontal label.
   This is currently implemented for the following objects:
     - python built-in sequences (e.g. tuples and lists)
