@@ -3114,47 +3114,64 @@ class TextFileAdapter(AbstractAdapter):
         return [[str(i) if i < lines_indexed else '~' + str(i)]
                 for i in range(start, stop)]
 
-    def _get_lines(self, start, stop):
+    def _get_lines(self, start_line, stop_line):
         """stop is exclusive"""
-        assert start >= 0 and stop >= 0
+        assert start_line >= 0 and stop_line >= 0
         with self._binary_file as f:
-            self._index_up_to(f, stop)
+            self._index_up_to(f, stop_line)
             num_indexed_lines = len(self._lines_end_index)
-            if self._fully_indexed and stop > num_indexed_lines:
-                stop = num_indexed_lines
+            if self._fully_indexed and stop_line > num_indexed_lines:
+                stop_line = num_indexed_lines
 
             # if we are entirely in indexed lines, we can use exact pos
-            if stop <= num_indexed_lines:
-                # position of first line is one byte after the end of the line preceding it (if any)
-                start_pos = self._lines_end_index[start - 1] + 1 if start >= 1 else 0
-                # v_stop line should be excluded (=> -1)
-                stop_pos = self._lines_end_index[stop - 1]
+            if stop_line <= num_indexed_lines:
+                # position of start_line is one byte after the end of the line
+                # preceding it (if any)
+                if start_line >= 1:
+                    start_pos = self._lines_end_index[start_line - 1] + 1
+                else:
+                    start_pos = 0
+                # stop_line should be excluded (=> -1)
+                stop_pos = self._lines_end_index[stop_line - 1]
                 f.seek(start_pos)
                 chunk = f.read(stop_pos - start_pos)
-                lines = self._decode_chunks_to_lines([chunk], stop - start)
+                num_lines = stop_line - start_line
+                lines = self._decode_chunks_to_lines([chunk], num_lines)
                 # lines = chunk.split(b'\n')
                 # assert len(lines) == num_required_lines
                 return lines
             else:
                 pos_last_end = self._lines_end_index[-1]
-                if start - 1 < num_indexed_lines:
+                # start_line is indexed
+                if start_line - 1 < num_indexed_lines:
                     approx_start = False
-                    start_pos = self._lines_end_index[start - 1] + 1 if start >= 1 else 0
+                    start_pos = (self._lines_end_index[start_line - 1] + 1
+                                 if start_line >= 1 else 0)
                 else:
                     approx_start = True
                     # use approximate pos for start
-                    start_pos = pos_last_end + 1 + int((start - num_indexed_lines) * self._avg_bytes_per_line)
-                    # read one more line before expected start_pos to have more chance of getting the line entirely
+                    non_indexed_lines_before_start = start_line - num_indexed_lines
+                    estim_non_indexed_bytes_before_start = (
+                        int(non_indexed_lines_before_start *
+                            self._avg_bytes_per_line))
+                    start_pos = pos_last_end + 1 + estim_non_indexed_bytes_before_start
+                    # read one more line before expected start_pos to have more
+                    # chance of getting the line entirely
                     start_pos = max(start_pos - int(self._avg_bytes_per_line), 0)
 
                 num_lines = 0
-                num_lines_required = stop - start
+                num_lines_required = stop_line - start_line
 
                 f.seek(start_pos)
                 # use approximate pos for stop
                 chunks = []
                 CHUNK_SIZE = 1 * MB
-                stop_pos = pos_last_end + math.ceil((stop - num_indexed_lines) * self._avg_bytes_per_line)
+                non_indexed_lines_before_stop = stop_line - num_indexed_lines
+                estim_non_indexed_bytes_before_stop = (
+                    math.ceil(non_indexed_lines_before_stop *
+                              self._avg_bytes_per_line))
+                stop_pos = pos_last_end + estim_non_indexed_bytes_before_stop
+                # read maximum 4Mb and do not read beyond file end
                 max_stop_pos = min(stop_pos + 4 * MB, self._nbytes)
                 # first chunk size is what we *think* is necessary to get
                 # num_lines_required
