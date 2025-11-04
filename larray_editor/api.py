@@ -159,7 +159,7 @@ def _get_title(obj, depth=0, maxnames=3):
 
 
 def create_edit_dialog(parent, obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0,
-                       display_caller_info=True, add_larray_functions=None):
+                       display_caller_info=True, add_larray_functions=None, **kwargs):
     """
     Open a new editor window.
 
@@ -198,7 +198,7 @@ def create_edit_dialog(parent, obj=None, title='', minvalue=None, maxvalue=None,
         return MappingEditorWindow(obj, title=title, readonly=readonly,
                                    caller_info=caller_info,
                                    add_larray_functions=add_larray_functions,
-                                   parent=parent)
+                                   parent=parent, **kwargs)
     else:
         return ArrayEditorWindow(obj, title=title, readonly=readonly,
                                  caller_info=caller_info,
@@ -381,7 +381,7 @@ def _get_debug_except_hook(root_path=None, usercode_traceback=True, usercode_fra
     return excepthook
 
 
-def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0):
+def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth=0, **kwargs):
     r"""
     Open a new editor window.
 
@@ -415,7 +415,7 @@ def edit(obj=None, title='', minvalue=None, maxvalue=None, readonly=False, depth
     >>> edit(a1)                                                                                       # doctest: +SKIP
     """
     _show_dialog("Viewer", create_edit_dialog, obj=obj, title=title, minvalue=minvalue, maxvalue=maxvalue,
-                 readonly=readonly, depth=depth + 1)
+                 readonly=readonly, depth=depth + 1, **kwargs)
 
 
 def view(obj=None, title='', depth=0):

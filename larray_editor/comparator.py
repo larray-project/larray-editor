@@ -7,7 +7,7 @@ from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QHBoxL
 
 from larray_editor.utils import _
 from larray_editor.arraywidget import ArrayEditorWidget
-from larray_editor.editor import AbstractEditorWindow, DISPLAY_IN_GRID
+from larray_editor.editor import AbstractEditorWindow, CAN_CONVERT_TO_LARRAY
 
 
 class ComparatorWidget(QWidget):
@@ -305,7 +305,7 @@ class ArrayComparatorWindow(AbstractEditorWindow):
 
         widget = self.centralWidget()
         arrays = [la.asarray(array) for array in data
-                  if isinstance(array, DISPLAY_IN_GRID)]
+                  if isinstance(array, CAN_CONVERT_TO_LARRAY)]
         if names is None:
             names = [f"Array{i}" for i in range(len(arrays))]
 
@@ -382,7 +382,7 @@ class SessionComparatorWindow(AbstractEditorWindow):
         self.atol = atol
         self.rtol = rtol
 
-        array_names = sorted(set.union(*[set(s.filter(kind=DISPLAY_IN_GRID).names) for s in self.sessions]))
+        array_names = sorted(set.union(*[set(s.filter(kind=CAN_CONVERT_TO_LARRAY).names) for s in self.sessions]))
         self.array_names = array_names
         listwidget = QListWidget(self)
         listwidget.addItems(array_names)
@@ -424,7 +424,7 @@ class SessionComparatorWindow(AbstractEditorWindow):
         main_splitter.addWidget(comparator_widget)
         main_splitter.setSizes([5, 95])
         main_splitter.setCollapsible(1, False)
-        self.widget_state_settings['main_splitter'] = main_splitter
+        self.widgets_to_save_to_settings['main_splitter'] = main_splitter
 
         main_layout.addLayout(comparison_options_layout)
         main_layout.addWidget(main_splitter)
