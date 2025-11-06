@@ -3288,12 +3288,15 @@ def dispatch_by_available_module(module_dict: dict):
 
 @path_adapter_for('.bat')
 @path_adapter_for('.cfg')
+@path_adapter_for('.log')
 @path_adapter_for('.md')
 @path_adapter_for('.py')
 @path_adapter_for('.rst')
 @path_adapter_for('.sh')
+@path_adapter_for('.sql')
 @path_adapter_for('.toml')
 @path_adapter_for('.txt')
+@path_adapter_for('.wsgi')
 @path_adapter_for('.yaml')
 @path_adapter_for('.yml')
 class TextPathAdapter(TextFileAdapter):
