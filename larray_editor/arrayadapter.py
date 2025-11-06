@@ -1854,6 +1854,23 @@ class PandasSeriesAdapter(AbstractAdapter):
         return self.data.iloc[v_start:v_stop].values.reshape(-1, 1)
 
 
+@adapter_for('pandas.core.groupby.generic.DataFrameGroupBy')
+class PandasDataFrameGroupByAdapter(PandasDataFrameAdapter):
+    def __init__(self, data, attributes):
+        original_df = data.obj
+        gb_keys = data.keys
+        if not isinstance(gb_keys, list):
+            gb_keys = [gb_keys]
+        numeric_columns = original_df.select_dtypes(['number', 'bool']).columns
+        agg_df = data[numeric_columns.difference(gb_keys)].sum()
+        super().__init__(agg_df, attributes={})
+
+    def get_hlabels_values(self, start, stop):
+        label_rows = super().get_hlabels_values(start, stop)
+        last_row = [f'{label}\n(sum)' for label in label_rows[-1]]
+        return label_rows[:-1] + [last_row]
+
+
 @adapter_for('pyarrow.Array')
 class PyArrowArrayAdapter(AbstractAdapter):
     def shape2d(self):
