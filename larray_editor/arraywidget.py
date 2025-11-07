@@ -586,9 +586,11 @@ class AbstractView(QTableView):
                                        model.index(local_bottom, local_right))
             selection_model.select(selection, QItemSelectionModel.ClearAndSelect)
         else:
-            self.first_selection_corner = None
-            self.second_selection_corner = None
+            self.first_selection_corner = cursor_new_global_v_pos, cursor_new_global_h_pos
+            self.second_selection_corner = cursor_new_global_v_pos, cursor_new_global_h_pos
             self.setCurrentIndex(local_cursor_index)
+        logger.debug(f"after navigate_key_event: {self.first_selection_corner=} "
+                     f"{self.second_selection_corner=}")
 
     # after we drop support for Python < 3.10, we should use:
     # def get_cursor_global_pos(self) -> tuple[int, int] | None:
