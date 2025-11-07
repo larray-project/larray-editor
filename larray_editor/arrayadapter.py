@@ -1699,13 +1699,20 @@ class SheetAdapter(AbstractAdapter):
         return [[i] for i in range(start + 1, stop + 1)]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        return self.data[v_start:v_stop, h_start:h_stop].__array__()
+        range = self.data[v_start:v_stop, h_start:h_stop]
+        np_data = range.__array__()
+        # TODO: I wonder if I shouldn't change larray.Sheet.__array__ instead
+        #       to make it always return 2D arrays (even for single column/row
+        #       ranges)
+        if np_data.ndim < 2:
+            np_data = np_data.reshape((v_stop - v_start, h_stop - h_start))
+        return np_data
 
 
 @adapter_for('larray.inout.xw_excel.Range')
 class RangeAdapter(AbstractAdapter):
     def shape2d(self):
-        return self.data.shape
+        return nd_shape_to_2d(self.data.shape)
 
     def get_hlabels_values(self, start, stop):
         # - 1 because data.column is 1-based (Excel) while excel_colname is 0-based
@@ -1717,7 +1724,14 @@ class RangeAdapter(AbstractAdapter):
         return [[i] for i in range(offset + start, offset + stop)]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        return self.data[v_start:v_stop, h_start:h_stop].__array__()
+        sub_range = self.data[v_start:v_stop, h_start:h_stop]
+        np_data = sub_range.__array__()
+        # TODO: I wonder if I shouldn't change larray.Sheet.__array__ instead
+        #       to make it always return 2D arrays (even for single column/row
+        #       ranges)
+        if np_data.ndim < 2:
+            np_data = np_data.reshape((v_stop - v_start, h_stop - h_start))
+        return np_data
 
 
 @adapter_for('pandas.DataFrame')
