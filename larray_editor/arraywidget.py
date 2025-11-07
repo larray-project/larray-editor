@@ -1125,8 +1125,17 @@ class DataView(AbstractView):
         if event.button() == Qt.LeftButton:
             cursor_global_pos = self.get_cursor_global_pos()
             if cursor_global_pos is not None:
-                assert self.first_selection_corner is not None
-                self.second_selection_corner = cursor_global_pos
+                if self.first_selection_corner is not None:
+                    # this is the normal case where we just finished a selection
+                    self.second_selection_corner = cursor_global_pos
+                else:
+                    # this can happen when the array_widget is reset between
+                    # a mouse button press and its release, e.g. when
+                    # double-clicking in the explorer to open a dataset but
+                    # keeping the button pressed during the second click,
+                    # moving the mouse a bit to select the cell, then releasing
+                    # the mouse button
+                    self.first_selection_corner = None
 
     def keyPressEvent(self, event):
         """Reimplement Qt method"""
