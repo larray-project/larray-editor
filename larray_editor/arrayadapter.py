@@ -3373,16 +3373,19 @@ class TsvPathAdapter(TsvFileAdapter):
 
 
 # This is a Path adapter (it handles Path objects) because pyreadstat has no
-# object representing open files
-@path_adapter_for('.sas7bdat', 'pyreadstat')
-class Sas7BdatPathAdapter(AbstractColumnarAdapter):
+# object representing open files. It does provide an uniform interface across
+# formats, hence the abstract base class
+class AbstractPyReadStatPathAdapter(AbstractColumnarAdapter):
+    READ_FUNC_NAME = None
+
     # data must be a Path object
     def __init__(self, data, attributes=None):
         assert isinstance(data, Path)
         # we know the module is loaded but it is not in the current namespace
         pyreadstat = sys.modules['pyreadstat']
         super().__init__(data, attributes=attributes)
-        empty_df, meta = pyreadstat.read_sas7bdat(data, metadataonly=True)
+        self._read_func = getattr(pyreadstat, self.READ_FUNC_NAME)
+        empty_df, meta = self._read_func(data, metadataonly=True)
         self._colnames = meta.column_names
         self._numrows = meta.number_rows
 
@@ -3393,15 +3396,21 @@ class Sas7BdatPathAdapter(AbstractColumnarAdapter):
         return [self._colnames[start:stop]]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        # we know the module is loaded but it is not in the current namespace
-        pyreadstat = sys.modules['pyreadstat']
         used_cols = self._colnames[h_start:h_stop]
-        df, meta = pyreadstat.read_sas7bdat(self.data, row_offset=v_start,
-                                            row_limit=v_stop - v_start,
-                                            usecols=used_cols)
+        df, meta = self._read_func(self.data, row_offset=v_start,
+                                   row_limit=v_stop - v_start,
+                                   usecols=used_cols)
         return df.values
 
 
+@path_adapter_for('.sas7bdat', 'pyreadstat')
+class Sas7BdatPathAdapter(AbstractPyReadStatPathAdapter):
+    READ_FUNC_NAME = 'read_sas7bdat'
+
+
+@path_adapter_for('.dta', 'pyreadstat')
+class DtaPathAdapter(AbstractPyReadStatPathAdapter):
+    READ_FUNC_NAME = 'read_dta'
 
 
 @adapter_for('pstats.Stats')
