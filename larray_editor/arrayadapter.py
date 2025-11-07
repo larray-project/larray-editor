@@ -1678,6 +1678,14 @@ class WorkbookAdapter(SequenceAdapter):
         return self.data[row_idx]
 
 
+@path_adapter_for('.xlsx', 'xlwings')
+@path_adapter_for('.xls', 'xlwings')
+class XlsxPathAdapter(WorkbookAdapter):
+    @classmethod
+    def open(cls, fpath):
+        return la.open_excel(fpath)
+
+
 @adapter_for('larray.inout.xw_excel.Sheet')
 class SheetAdapter(AbstractAdapter):
     def shape2d(self):
@@ -3255,37 +3263,6 @@ class TextFileAdapter(AbstractAdapter):
         return [[line] for line in self._get_lines(v_start, v_stop)]
 
 
-class PolarsParquetPathAdapter(PolarsLazyFrameAdapter):
-    @classmethod
-    def open(cls, fpath):
-        import polars as pl
-        return pl.scan_parquet(fpath)
-
-
-class PyArrowParquetPathAdapter(PyArrowParquetFileAdapter):
-    @classmethod
-    def open(cls, fpath):
-        import pyarrow.parquet as pq
-        return pq.ParquetFile(fpath)
-
-
-@path_adapter_for('.parquet')
-def dispatch_parquet_path_adapter(fpath):
-    # the polars adapter is first as it has more features
-    return dispatch_by_available_module({
-        'polars': PolarsParquetPathAdapter,
-        'pyarrow.parquet': PyArrowParquetPathAdapter
-    })
-
-
-# modules are tried in the order they are defined
-def dispatch_by_available_module(module_dict: dict):
-    for module_name, adapter_cls in module_dict.items():
-        if importlib.util.find_spec(module_name) is not None:
-            return adapter_cls
-    return None
-
-
 @path_adapter_for('.bat')
 @path_adapter_for('.cfg')
 @path_adapter_for('.log')
@@ -3305,14 +3282,6 @@ class TextPathAdapter(TextFileAdapter):
         return open(fpath, 'rt')
 
 
-@path_adapter_for('.xlsx', 'xlwings')
-@path_adapter_for('.xls', 'xlwings')
-class XlsxPathAdapter(WorkbookAdapter):
-    @classmethod
-    def open(cls, fpath):
-        return la.open_excel(fpath)
-
-
 class CsvFileAdapter(TextFileAdapter):
     DELIMITER = ','
 
@@ -3322,7 +3291,7 @@ class CsvFileAdapter(TextFileAdapter):
         TextFileAdapter.__init__(self, data=data, attributes=attributes)
         if self._nbytes > 0:
             first_line = self._get_lines(0, 1)
-            assert len(first_line) == 1
+            assert len(first_line) == 1, f"{len(first_line)}"
             reader = csv.reader([first_line[0]], delimiter=self.DELIMITER)
             self._colnames = next(reader)
         else:
@@ -3370,6 +3339,38 @@ class TsvPathAdapter(TsvFileAdapter):
     @classmethod
     def open(cls, fpath):
         return open(fpath, 'rt')
+
+
+
+class PolarsParquetPathAdapter(PolarsLazyFrameAdapter):
+    @classmethod
+    def open(cls, fpath):
+        import polars as pl
+        return pl.scan_parquet(fpath)
+
+
+class PyArrowParquetPathAdapter(PyArrowParquetFileAdapter):
+    @classmethod
+    def open(cls, fpath):
+        import pyarrow.parquet as pq
+        return pq.ParquetFile(fpath)
+
+
+@path_adapter_for('.parquet')
+def dispatch_parquet_path_adapter(fpath):
+    # the polars adapter is first as it has more features
+    return dispatch_by_available_module({
+        'polars': PolarsParquetPathAdapter,
+        'pyarrow.parquet': PyArrowParquetPathAdapter
+    })
+
+
+# modules are tried in the order they are defined
+def dispatch_by_available_module(module_dict: dict):
+    for module_name, adapter_cls in module_dict.items():
+        if importlib.util.find_spec(module_name) is not None:
+            return adapter_cls
+    return None
 
 
 # This is a Path adapter (it handles Path objects) because pyreadstat has no
