@@ -3037,7 +3037,7 @@ def index_line_ends(s, index=None, offset=0, c='\n'):
         if line_end == -1:
             break
         append(line_end + offset)
-        line_start = line_end + 1
+        line_start = line_end + len(c)
     return index
 
 
@@ -3071,6 +3071,7 @@ class TextFileAdapter(AbstractAdapter):
         self._lines_end_index = []
         self._fully_indexed = False
         self._encoding = None
+        self._lines_end_char = None
 
         # sniff a small chunk so that we can compute an approximate number of lines
         # TODO: instead of opening and closing the file over and over, we
@@ -3136,7 +3137,10 @@ class TextFileAdapter(AbstractAdapter):
                 if self._encoding is None:
                     self._detect_encoding(chunk)
 
-                line_end_char = b'\n'
+                # Detect line ending if not already detected
+                if self._lines_end_char is None:
+                    self._detect_lines_end_char(chunk)
+                line_end_char = self._lines_end_char
                 index_line_ends(chunk, self._lines_end_index, offset=chunk_start, c=line_end_char)
                 length_read = len(chunk)
                 # FIXME: this test is buggy.
@@ -3152,6 +3156,22 @@ class TextFileAdapter(AbstractAdapter):
                     if not self._lines_end_index or self._lines_end_index[-1] != file_last_char_pos:
                         self._lines_end_index.append(file_length)
                 chunk_start += length_read
+
+    def _detect_lines_end_char(self, chunk):
+        # Try to detect between:
+        # * CRLF - \r\n - 0D0A (Windows)
+        # * LF - \n - 0A (Linux/Unix)
+        # * CR - \r - 0D (Classic macOS before transitioning to LF)
+        for line_end_char in (b'\r\n', b'\n', b'\r'):
+            if line_end_char in chunk:
+                logger.debug(f'detected line endings as {line_end_char!r}')
+                break
+        else:
+            # if the loop did not break, we fallback to \n
+            line_end_char = b'\n'
+            logger.debug('failed to detect line endings, falling back to '
+                         f'{line_end_char!r}')
+        self._lines_end_char = line_end_char
 
     def _detect_encoding(self, chunk: bytes):
         encoding = detect_encoding(chunk)
@@ -3187,7 +3207,8 @@ class TextFileAdapter(AbstractAdapter):
                 # position of start_line is one byte after the end of the line
                 # preceding it (if any)
                 if start_line >= 1:
-                    start_pos = self._lines_end_index[start_line - 1] + 1
+                    start_pos = (self._lines_end_index[start_line - 1] +
+                                 len(self._lines_end_char))
                 else:
                     start_pos = 0
                 # stop_line should be excluded (=> -1)
@@ -3204,7 +3225,8 @@ class TextFileAdapter(AbstractAdapter):
                 # start_line is indexed
                 if start_line - 1 < num_indexed_lines:
                     approx_start = False
-                    start_pos = (self._lines_end_index[start_line - 1] + 1
+                    start_pos = (self._lines_end_index[start_line - 1] +
+                                     len(self._lines_end_char)
                                  if start_line >= 1 else 0)
                 else:
                     approx_start = True
@@ -3240,7 +3262,7 @@ class TextFileAdapter(AbstractAdapter):
                 while num_lines < num_lines_required and stop_pos < max_stop_pos:
                     chunk = f.read(chunk_size)
                     chunks.append(chunk)
-                    num_lines += chunk.count(b'\n')
+                    num_lines += chunk.count(self._lines_end_char)
                     stop_pos += len(chunk)
                     chunk_size = CHUNK_SIZE
 
@@ -3280,7 +3302,8 @@ class TextFileAdapter(AbstractAdapter):
         while len(lines) < num_required_lines and chunk_idx < len(chunks):
             chunk = chunks[chunk_idx]
             decoded_chunk = self._decode_chunk(chunk)
-            chunk_lines = decoded_chunk.splitlines()
+            line_ending = self._lines_end_char.decode(self._encoding)
+            chunk_lines = decoded_chunk.split(line_ending)
             first_line = chunk_lines[0]
             if last_line:
                 first_line = last_line + first_line
