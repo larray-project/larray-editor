@@ -1222,9 +1222,10 @@ class DataView(AbstractView):
                     kernel.shell.push({
                         '__current__': new_data
                     })
-            # TODO: we should add an operand on the future quickbar instead
-            editor_widget.back_button_bar.add_back(editor_widget.data,
-                                                   editor_widget.data_adapter)
+            if not (isinstance(new_data, Path) and new_data.is_dir()):
+                # TODO: we should add an operand on the future quickbar instead
+                editor_widget.back_button_bar.add_back(editor_widget.data,
+                                                       editor_widget.data_adapter)
             # TODO: we should open a new window instead (see above)
             editor_widget.set_data(new_data)
             return True
