@@ -1685,6 +1685,9 @@ class XlsxPathAdapter(WorkbookAdapter):
     def open(cls, fpath):
         return la.open_excel(fpath)
 
+    def close(self):
+        self.data.close()
+
 
 @adapter_for('larray.inout.xw_excel.Sheet')
 class SheetAdapter(AbstractAdapter):
@@ -2927,6 +2930,9 @@ class H5PathAdapter(PyTablesFileAdapter):
     def open(cls, fpath):
         tables = sys.modules['tables']
         return tables.open_file(fpath)
+
+    def close(self):
+        self.data.close()
 
 
 # TODO: options to display as hex or decimal
