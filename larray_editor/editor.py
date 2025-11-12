@@ -118,6 +118,7 @@ class EditorWindow(QWidget):
         layout = QVBoxLayout()
         self.setLayout(layout)
         array_widget = ArrayEditorWidget(self, data=data, readonly=readonly)
+        self.array_widget = array_widget
         layout.addWidget(array_widget)
 
         icon = ima.icon('larray')
@@ -131,9 +132,11 @@ class EditorWindow(QWidget):
         self.resize(self.default_width, self.default_height)
 
     def closeEvent(self, event):
+        logger.debug('EditorWindow.closeEvent()')
         if self in opened_secondary_windows:
             opened_secondary_windows.remove(self)
         super().closeEvent(event)
+        self.array_widget.close()
 
 
 class AbstractEditorWindow(QMainWindow):
@@ -1083,11 +1086,15 @@ class MappingEditorWindow(AbstractEditorWindow):
             return True
 
     def closeEvent(self, event):
-        # as per the example in the Qt doc (https://doc.qt.io/qt-5/qwidget.html#closeEvent), we should *NOT* call
-        # the closeEvent() method of the superclass in this case because all it does is "event.accept()"
-        # unconditionally which results in the application being closed regardless of what the user chooses (see #202).
+        logger.debug('MappingEditorWindow.closeEvent()')
+        # as per the example in the Qt doc
+        # (https://doc.qt.io/qt-5/qwidget.html#closeEvent), we should *NOT* call
+        # the superclass closeEvent() method in this case because all it does is
+        # "event.accept()" unconditionally which results in the application
+        # being closed regardless of what the user chooses (see #202).
         if self._ask_to_save_if_unsaved_modifications():
             self.save_widgets_state_and_geometry()
+            self.arraywidget.close()
             event.accept()
         else:
             event.ignore()

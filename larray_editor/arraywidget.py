@@ -1877,7 +1877,28 @@ class ArrayEditorWidget(QWidget):
         self.data = data
         self.set_data_adapter(data_adapter, frac_digits)
 
+    def close(self):
+        logger.debug("ArrayEditorWidget.close()")
+        if self.data_adapter is not None:
+            self._close_adapter(self.data_adapter)
+        for adapter in self.back_button_bar._back_data_adapters[::-1]:
+            self._close_adapter(adapter)
+        super().close()
+
+    @staticmethod
+    def _close_adapter(adapter):
+        clsname = type(adapter).__name__
+        logger.debug(f"closing old data adapter ({clsname})")
+        adapter.close()
+
     def set_data_adapter(self, data_adapter: AbstractAdapter, frac_digits):
+        old_adapter = self.data_adapter
+        if old_adapter is not None:
+            # We only need to close it if that adapter is not used in any
+            # "back button"
+            if not any(adapter is old_adapter
+                       for adapter in self.back_button_bar._back_data_adapters):
+                self._close_adapter(old_adapter)
         self.data_adapter = data_adapter
 
         # update models
