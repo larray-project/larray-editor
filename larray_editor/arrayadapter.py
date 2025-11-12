@@ -3135,14 +3135,9 @@ class TextFileAdapter(AbstractAdapter):
                 # TODO: if we are beyond v_start, we should store the chunks to avoid reading them twice from disk
                 #       (once for indexing then again for getting the data)
                 chunk = f.read(chunk_size)
-                if self._encoding is None:
-                    self._detect_encoding(chunk)
-
-                # Detect line ending if not already detected
-                if self._lines_end_char is None:
-                    self._detect_lines_end_char(chunk)
-                line_end_char = self._lines_end_char
-                index_line_ends(chunk, self._lines_end_index, offset=chunk_start, c=line_end_char)
+                if chunk_start == 0:
+                    self._analyze_first_chunk(chunk)
+                self._analyze_chunk(chunk, chunk_start)
                 length_read = len(chunk)
                 # FIXME: this test is buggy.
                 #        * if there was exactly chunk_size left to read, the file might never
@@ -3153,10 +3148,23 @@ class TextFileAdapter(AbstractAdapter):
                     self._fully_indexed = True
                     # add implicit line end at the end of the file if there isn't an explicit one
                     file_length = chunk_start + length_read
-                    file_last_char_pos = file_length - len(line_end_char)
+                    file_last_char_pos = file_length - len(self._lines_end_char)
                     if not self._lines_end_index or self._lines_end_index[-1] != file_last_char_pos:
                         self._lines_end_index.append(file_length)
                 chunk_start += length_read
+
+    def _analyze_first_chunk(self, chunk):
+        """first chunk-specific analyses"""
+        if self._encoding is None:
+            self._detect_encoding(chunk)
+
+        if self._lines_end_char is None:
+            self._detect_lines_end_char(chunk)
+
+    def _analyze_chunk(self, chunk, chunk_start):
+        """analyzes a chunk (including first chunk)"""
+        index_line_ends(chunk, self._lines_end_index, offset=chunk_start,
+                        c=self._lines_end_char)
 
     def _detect_lines_end_char(self, chunk):
         # Try to detect between:
@@ -3341,19 +3349,38 @@ class TextPathAdapter(TextFileAdapter):
 
 
 class CsvFileAdapter(TextFileAdapter):
-    DELIMITER = ','
+    DEFAULT_DELIMITER = ','
 
     def __init__(self, data, attributes):
-        # we know the module is loaded but it is not in the current namespace
-        csv = sys.modules['csv']
+        self._dialect = None
         TextFileAdapter.__init__(self, data=data, attributes=attributes)
         if self._nbytes > 0:
             first_line = self._get_lines(0, 1)
             assert len(first_line) == 1, f"{len(first_line)}"
-            reader = csv.reader([first_line[0]], delimiter=self.DELIMITER)
+            reader = self._get_reader([first_line[0]])
             self._colnames = next(reader)
         else:
             self._colnames = []
+
+    def _analyze_first_chunk(self, chunk):
+        import csv
+        # detects encoding and line endings
+        super()._analyze_first_chunk(chunk)
+        # try to detect dialect
+        str_chunk = chunk.decode(self._encoding)
+        sniffer = csv.Sniffer()
+        # make sure the default delimiter is tried first
+        sniffer.preferred.insert(0, self.DEFAULT_DELIMITER)
+        try:
+            dialect = sniffer.sniff(str_chunk)
+            logger.debug("CSV dialect detected: "
+                         f"delimiter={dialect.delimiter!r}, "
+                         f"quotechar={dialect.quotechar!r}")
+        except csv.Error as e:
+            dialect = None
+            logger.debug(f"Could not detect CSV dialect: {e}, "
+                         f"using default delimiter: {self.DEFAULT_DELIMITER}")
+        self._dialect = dialect
 
     # for large files, this is approximate
     def shape2d(self):
@@ -3374,11 +3401,17 @@ class CsvFileAdapter(TextFileAdapter):
         lines = self._get_lines(v_start + 1, v_stop + 1)
         if not lines:
             return []
-        # we know the module is loaded but it is not in the current namespace
-        csv = sys.modules['csv']
-        # Note that csv reader actually needs a line-based input
-        reader = csv.reader(lines, delimiter=self.DELIMITER)
+        reader = self._get_reader(lines)
         return [line[h_start:h_stop] for line in reader]
+
+    def _get_reader(self, lines):
+        import csv
+        # Note that csv reader actually needs a line-based input
+        if self._dialect is not None:
+            reader = csv.reader(lines, dialect=self._dialect)
+        else:
+            reader = csv.reader(lines, delimiter=self.DEFAULT_DELIMITER)
+        return reader
 
 
 @path_adapter_for('.csv', 'csv')
@@ -3389,7 +3422,7 @@ class CsvPathAdapter(CsvFileAdapter):
 
 
 class TsvFileAdapter(CsvFileAdapter):
-    DELIMITER = '\t'
+    DEFAULT_DELIMITER = '\t'
 
 
 @path_adapter_for('.tsv', 'csv')
