@@ -450,8 +450,14 @@ class MappingEditorWindow(AbstractEditorWindow):
                                       parent=parent)
 
         if sql_console is None:
+            # This was meant to test whether users actually imported polars
+            # in their script instead of just testing whether polars is present
+            # in their environment but, in practice, this currently only does
+            # the later because: larray_editor unconditionally imports larray
+            # which imports xlwings when available, which imports polars when
+            # available.
             sql_console = 'polars' in sys.modules
-            logger.debug("polars is present, enabling SQL console")
+            logger.debug("polars module is present, enabling SQL console")
         elif sql_console:
             if importlib.util.find_spec('polars') is None:
                 raise RuntimeError('SQL console is not available because '
