@@ -978,21 +978,17 @@ class AbstractPathAdapter:
 
 
 class DirectoryPathAdapter(AbstractColumnarAdapter):
+    _colnames = ['Name', 'Time Modified', 'Size']
+
     def __init__(self, data, attributes):
         # taking absolute() allows going outside of the initial directory
         # via double click. This is both good and bad.
         data = data.absolute()
         super().__init__(data=data, attributes=attributes)
-        path_objs = list(data.iterdir())
-        # sort by type then name
-        path_objs.sort(key=lambda p: (not p.is_dir(), p.name))
 
-        parent_dir = data.parent
-        if parent_dir != data:
-            path_objs.insert(0, parent_dir)
-        self._sorted_path_objs = path_objs
-
-        self._colnames = ['Name', 'Time Modified', 'Size']
+        # sort by ascending name by default
+        self._current_sort = [(1, 0, True)]
+        self._update_sorted_path_objs()
 
     def shape2d(self):
         return len(self._sorted_path_objs), len(self._colnames)
@@ -1001,19 +997,25 @@ class DirectoryPathAdapter(AbstractColumnarAdapter):
         return [self._colnames[start:stop]]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        def file_mtime_as_str(p) -> str:
-            try:
-                mt_time = datetime.fromtimestamp(p.stat().st_mtime)
-                return mt_time.strftime('%d/%m/%Y %H:%M')
-            except Exception:
-                return ''
         parent_dir = self.data.parent
-        return [(
-            p.name if p != parent_dir else '..',
-            # give the mtime of the "current" directory
-            file_mtime_as_str(p if p != parent_dir else self.data),
-            '<directory>' if p.is_dir() else p.stat().st_size
-        )[h_start:h_stop] for p in self._sorted_path_objs[v_start:v_stop]]
+
+        def get_file_info(p: Path) -> tuple[str, str, str|int]:
+            file_name = p.name if p != parent_dir else '..'
+            try:
+                file_stat = p.stat()
+                try:
+                    mt_time = datetime.fromtimestamp(file_stat.st_mtime)
+                    file_mtime = mt_time.strftime('%d/%m/%Y %H:%M')
+                except Exception:
+                    file_mtime = '<unavailable>'
+                file_size = '<directory>' if p.is_dir() else file_stat.st_size
+            except Exception:
+                file_mtime = '<unavailable>'
+                file_size = '<unavailable>'
+            return file_name, file_mtime, file_size
+
+        return [get_file_info(p)[h_start:h_stop]
+                for p in self._sorted_path_objs[v_start:v_stop]]
 
     def can_sort_hlabel(self, row_idx, col_idx):
         return True
@@ -1021,9 +1023,14 @@ class DirectoryPathAdapter(AbstractColumnarAdapter):
     def sort_hlabel(self, row_idx, col_idx, ascending):
         assert row_idx == 0
         assert col_idx in {0, 1, 2}
-        self._current_sort = [(self.num_v_axes() + row_idx, col_idx, ascending)]
-        # strip ".." before sorting
-        path_objs = self._sorted_path_objs[1:]
+        self._current_sort = [(1, col_idx, ascending)]
+        self._update_sorted_path_objs()
+
+    def _update_sorted_path_objs(self):
+        path_objs = list(self.data.iterdir())
+
+        assert len(self._current_sort) == 1
+        _, col_idx, ascending = self._current_sort[0]
 
         def get_sort_key(p):
             # name
@@ -1038,7 +1045,7 @@ class DirectoryPathAdapter(AbstractColumnarAdapter):
 
         path_objs.sort(key=get_sort_key, reverse=not ascending)
 
-        # re-add ".."
+        # add ".." if needed
         parent_dir = self.data.parent
         if parent_dir != self.data:
             path_objs.insert(0, parent_dir)
