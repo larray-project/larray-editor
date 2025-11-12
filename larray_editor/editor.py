@@ -511,18 +511,19 @@ class MappingEditorWindow(AbstractEditorWindow):
                 kernel_manager = QtInProcessKernelManager()
                 kernel_manager.start_kernel(show_banner=False)
                 kernel = kernel_manager.kernel
-
-                if add_larray_functions:
-                    kernel.shell.run_cell('from larray import *')
-                kernel.shell.push({
-                    '__editor__': self
-                })
+                self.ipython_kernel = kernel
 
                 text_formatter = kernel.shell.display_formatter.formatters['text/plain']
                 for type_ in arrayadapter.REGISTERED_ADAPTERS:
                     text_formatter.for_type(type_, void_formatter)
 
-                self.ipython_kernel = kernel
+                kernel.shell.push({
+                    '__editor__': self
+                })
+
+                if add_larray_functions:
+                    kernel.shell.run_cell('from larray import *')
+                    self.ipython_cell_executed()
 
                 kernel_client = kernel_manager.client()
                 kernel_client.start_channels()
@@ -534,7 +535,6 @@ class MappingEditorWindow(AbstractEditorWindow):
                 ipython_widget._display_banner = False
 
                 self.eval_box = ipython_widget
-
                 self.eval_box.setMinimumHeight(20)
 
                 right_panel_widget = QSplitter(Qt.Vertical)
@@ -899,7 +899,11 @@ class MappingEditorWindow(AbstractEditorWindow):
         self.set_current_array(array, expr_text)
 
     def _display_in_varlist(self, k, v):
-        return self._display_in_grid(v) and not k.startswith('__')
+        return (self._display_in_grid(v) and not k.startswith('__') and
+                # This is ugly (and larray specific) but I did not find an
+                # easy way to exclude that specific variable. I do not think
+                # it should be in larray top level namespace anyway.
+                k != 'EXAMPLE_EXCEL_TEMPLATES_DIR')
 
     def _display_in_grid(self, v):
         return arrayadapter.get_adapter_creator(v) is not None
