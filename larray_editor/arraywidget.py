@@ -736,12 +736,12 @@ class AxesView(AbstractView):
                            sort_direction='unsorted'):
         def filter_changed(checked_items):
             # print("filter_changed", axis_idx, checked_items)
-            arraywidget = self.parent().parent()
-            arraywidget.filter_bar.change_filter(axis_idx, checked_items)
+            array_widget = self.parent().parent()
+            array_widget.filter_bar.change_filter(axis_idx, checked_items)
 
         def sort_changed(ascending):
-            arraywidget = self.parent().parent()
-            arraywidget.sort_axis_labels(axis_idx, ascending)
+            array_widget = self.parent().parent()
+            array_widget.sort_axis_labels(axis_idx, ascending)
 
         menu = CombinedSortFilterMenu(self,
                                       filtrable=filtrable,
@@ -805,8 +805,8 @@ class LabelsView(AbstractView):
                 # local signal handler
                 # -> ArrayWidget method
                 # -> adapter method+model reset
-                arraywidget = self.parent().parent()
-                arraywidget.sort_hlabel(row_idx, global_col_idx, ascending)
+                array_widget = self.parent().parent()
+                array_widget.sort_hlabel(row_idx, global_col_idx, ascending)
         else:
             sort_direction = 'unsorted'
             sort_changed = None
@@ -822,9 +822,9 @@ class LabelsView(AbstractView):
                 # local signal handler (this function)
                 # -> ArrayWidget method
                 # -> adapter method+model reset
-                arraywidget = self.parent().parent()
-                assert isinstance(arraywidget, ArrayEditorWidget)
-                arraywidget.filter_bar.change_filter(global_col_idx, checked_items)
+                array_widget = self.parent().parent()
+                assert isinstance(array_widget, ArrayEditorWidget)
+                array_widget.filter_bar.change_filter(global_col_idx, checked_items)
         else:
             filter_labels = []
             filter_changed = None
@@ -2411,7 +2411,7 @@ class ArrayEditorWidget(QWidget):
         #           OR
         #           self.target.i[key] = new_value
         #           and there,
-        #        * editor.arraywidget.model_data.reset() is called which
+        #        * editor.array_widget.model_data.reset() is called which
         #        * notifies qt the whole thing needs to be refreshed (including
         #          reprocessing the data via _process_data but does *NOT* fetch
         #          the actual new data!!!)

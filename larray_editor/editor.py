@@ -324,8 +324,9 @@ class AbstractEditorWindow(QMainWindow):
             title = []
 
         if value is not None:
-            # TODO: the type-specific information added to the title should be computed by a method on the adapter
-            #       (self.arraywidget.data_adapter)
+            # TODO: the type-specific information added to the title should be
+            #       computed by a method on the adapter
+            #       (self.array_widget.data_adapter)
             if hasattr(value, 'dtype'):
                 try:
                     dtype_str = f' [{value.dtype.name}]'
@@ -485,14 +486,14 @@ class MappingEditorWindow(AbstractEditorWindow):
         del_item_shortcut.activated.connect(self.delete_current_item)
 
         self.data = la.Session()
-        self.arraywidget = ArrayEditorWidget(self, readonly=readonly)
-        self.arraywidget.dataChanged.connect(self.push_changes)
+        self.array_widget = ArrayEditorWidget(self, readonly=readonly)
+        self.array_widget.dataChanged.connect(self.push_changes)
         # FIXME: this is currently broken as it fires for each scroll
         #        we either need to fix model_data.dataChanged (but that might
         #        be needed for display) or find another way to add a star to
         #        the window title *only* when the user actually changed
         #        something
-        # self.arraywidget.model_data.dataChanged.connect(self.update_title)
+        # self.array_widget.model_data.dataChanged.connect(self.update_title)
 
         if sql_console:
             sql_widget = SQLWidget(self)
@@ -537,7 +538,7 @@ class MappingEditorWindow(AbstractEditorWindow):
                 self.eval_box.setMinimumHeight(20)
 
                 right_panel_widget = QSplitter(Qt.Vertical)
-                right_panel_widget.addWidget(self.arraywidget)
+                right_panel_widget.addWidget(self.array_widget)
                 if sql_console:
                     tab_widget = QTabWidget(self)
                     tab_widget.addTab(self.eval_box, 'Python Console')
@@ -554,7 +555,7 @@ class MappingEditorWindow(AbstractEditorWindow):
                 self.eval_box.returnPressed.connect(self.line_edit_update)
 
                 right_panel_layout = QVBoxLayout()
-                right_panel_layout.addWidget(self.arraywidget)
+                right_panel_layout.addWidget(self.array_widget)
                 right_panel_layout.addWidget(self.eval_box)
 
                 # you cant add a layout directly in a splitter, so we have to wrap
@@ -563,7 +564,7 @@ class MappingEditorWindow(AbstractEditorWindow):
                 right_panel_widget.setLayout(right_panel_layout)
         elif sql_console:
             right_panel_widget = QSplitter(Qt.Vertical)
-            right_panel_widget.addWidget(self.arraywidget)
+            right_panel_widget.addWidget(self.array_widget)
             right_panel_widget.addWidget(sql_widget)
 
             right_panel_widget.setSizes([90, 10])
@@ -1056,7 +1057,7 @@ class MappingEditorWindow(AbstractEditorWindow):
             self.sql_widget.update_completer_options(self.data, selected=array)
         # FIXME: we should never store the current_array but current_adapter instead
         self.current_array = array
-        self.arraywidget.set_data(array)
+        self.array_widget.set_data(array)
         self.current_expr_text = expr_text
         self.update_title()
 
@@ -1094,7 +1095,7 @@ class MappingEditorWindow(AbstractEditorWindow):
         # being closed regardless of what the user chooses (see #202).
         if self._ask_to_save_if_unsaved_modifications():
             self.save_widgets_state_and_geometry()
-            self.arraywidget.close()
+            self.array_widget.close()
             event.accept()
         else:
             event.ignore()
@@ -1106,7 +1107,7 @@ class MappingEditorWindow(AbstractEditorWindow):
     def new(self):
         if self._ask_to_save_if_unsaved_modifications():
             self._reset()
-            self.arraywidget.set_data(la.empty(0))
+            self.array_widget.set_data(la.empty(0))
             self.set_current_file(None)
             self.unsaved_modifications = False
             self.statusBar().showMessage("Viewer has been reset", 4000)
@@ -1463,11 +1464,11 @@ class ArrayEditorWindow(AbstractEditorWindow):
         widget.setLayout(layout)
 
         self.data = data
-        self.arraywidget = ArrayEditorWidget(self, data, readonly, minvalue=minvalue, maxvalue=maxvalue)
-        self.arraywidget.dataChanged.connect(self.push_changes)
-        self.arraywidget.model_data.dataChanged.connect(self.update_title)
+        self.array_widget = ArrayEditorWidget(self, data, readonly, minvalue=minvalue, maxvalue=maxvalue)
+        self.array_widget.dataChanged.connect(self.push_changes)
+        self.array_widget.model_data.dataChanged.connect(self.update_title)
         self.update_title()
-        layout.addWidget(self.arraywidget)
+        layout.addWidget(self.array_widget)
         self.set_window_size_and_geometry()
 
     def update_title(self):

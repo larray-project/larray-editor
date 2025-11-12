@@ -30,9 +30,9 @@ class ComparatorWidget(QWidget):
         maxdiff_layout.addStretch()
         layout.addLayout(maxdiff_layout)
 
-        #  arraywidget
-        self.arraywidget = ArrayEditorWidget(self, data=None, readonly=True, bg_gradient=bg_gradient)
-        layout.addWidget(self.arraywidget)
+        #  array widget
+        self.array_widget = ArrayEditorWidget(self, data=None, readonly=True, bg_gradient=bg_gradient)
+        layout.addWidget(self.array_widget)
 
         self._combined_array = None
         self._array0 = None
@@ -64,7 +64,7 @@ class ComparatorWidget(QWidget):
         abs(array1[i] - array2[i]) <= (absolute_tol + relative_tol * abs(array2[i]))"""
         tolerance_label = QLabel("Tolerance:")
         tolerance_label.setToolTip(tooltip)
-        # self.arraywidget.btn_layout.addWidget(tolerance_label)
+        # self.array_widget.btn_layout.addWidget(tolerance_label)
         layout.addWidget(tolerance_label)
         tolerance_combobox = QComboBox()
         tolerance_combobox.addItems(["absolute", "relative"])
@@ -253,7 +253,7 @@ class ComparatorWidget(QWidget):
             row_filter = (~self._diff_below_tolerance).any(self.stack_axis)
             array = array[row_filter]
             bg_value = bg_value[row_filter]
-        self.arraywidget.set_data(array, attributes={'bg_value': bg_value})
+        self.array_widget.set_data(array, attributes={'bg_value': bg_value})
 
 
 def align_all(arrays, join='outer', fill_value=la.nan):
