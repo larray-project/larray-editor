@@ -1153,10 +1153,11 @@ class NamedTupleAdapter(AbstractAdapter):
 @adapter_for(collections.abc.Sequence)
 def get_sequence_adapter(data):
     namedtuple_attrs = ['_asdict', '_field_defaults', '_fields', '_make', '_replace']
+    # We do not want to display strings and bytes as sequences
+    if isinstance(data, (bytes, str)):
+        return None
     # Named tuples have no special parent class, so we cannot dispatch using the type
     # of data and need to check the presence of NamedTuple specific attributes instead
-    if isinstance(data, str):
-        return None
     elif all(hasattr(data, attr) for attr in namedtuple_attrs):
         return NamedTupleAdapter
     else:
