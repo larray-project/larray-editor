@@ -298,7 +298,7 @@ name).
         if new_table_name:
             editor_window.select_list_item(new_table_name)
         elif not dropped_table_name:
-            editor_window.arraywidget.set_data(result)
+            editor_window.array_widget.set_data(result)
 
     def save_to_settings(self, settings):
         settings.setValue('queries', self.history)

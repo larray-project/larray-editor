@@ -261,8 +261,8 @@ def get_adapter(data, attributes=None):
     adapter_creator = get_adapter_creator(data)
     if adapter_creator is None:
         raise TypeError(f"No Adapter implemented for data with type {type(data)}")
-    resource_handler = adapter_creator.open(data)
-    return adapter_creator(resource_handler, attributes)
+    resource_handle = adapter_creator.open(data)
+    return adapter_creator(resource_handle, attributes)
 
 
 def nd_shape_to_2d(shape, num_h_axes=1):

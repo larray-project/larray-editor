@@ -63,7 +63,7 @@ class EditObjectCommand(QUndoCommand):
         for change in self.changes:
             self.apply_change(change.key, change.old_value)
         # FIXME: a full reset is bad, see comment below
-        self.editor.arraywidget.model_data.reset()
+        self.editor.array_widget.model_data.reset()
 
     def redo(self):
         for change in self.changes:
@@ -73,7 +73,7 @@ class EditObjectCommand(QUndoCommand):
         #        annoying. We have an awful workaround for this in
         #        ArrayDelegate.setModelData but the issue should still be fixed
         #        properly
-        self.editor.arraywidget.model_data.reset()
+        self.editor.array_widget.model_data.reset()
 
     def get_description(self, target, changes):
         raise NotImplementedError()
