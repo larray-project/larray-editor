@@ -37,6 +37,8 @@ class SQLWidget(QTextEdit):
 
         msg = _("""Enter an SQL query here and press SHIFT+ENTER to execute it. 
 
+You can use any Polars object in the FROM clause.
+
 Use the UP/DOWN arrow keys to navigate through queries you typed previously \
 (including during previous sessions). 
 It will only display past queries which start with the text already typed so \

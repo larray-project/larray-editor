@@ -59,8 +59,7 @@ New features
   and stores the last 1000 queries (even across sessions). Recalling a query
   from history is done with the up and down arrows and like in the iPython
   console, it searches through history with the current command as prefix.
-  This console will only be present if you import polars *before* opening
-  the editor.
+  This console will only be present if the polars module is installed.
 
 * allow sorting objects by column by pressing on an horizontal label.
   This is currently implemented for the following objects:
