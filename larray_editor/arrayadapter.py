@@ -3311,10 +3311,19 @@ class TextFileAdapter(AbstractAdapter):
 
 
 @path_adapter_for('.bat')
+@path_adapter_for('.c')
 @path_adapter_for('.cfg')
+@path_adapter_for('.cpp')
+@path_adapter_for('.h')
+@path_adapter_for('.htm')   # web
+@path_adapter_for('.html')  # web
+@path_adapter_for('.ini')
 @path_adapter_for('.log')
 @path_adapter_for('.md')
 @path_adapter_for('.py')
+@path_adapter_for('.pyx')  # cython
+@path_adapter_for('.pxd')  # cython
+@path_adapter_for('.rep')
 @path_adapter_for('.rst')
 @path_adapter_for('.sh')
 @path_adapter_for('.sql')
