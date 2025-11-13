@@ -958,25 +958,6 @@ class AbstractColumnarAdapter(AbstractAdapter):
         return vmin_slice, vmax_slice
 
 
-# this is NOT (and should not inherit from) AbstractAdapter
-# instances of this class "adapt" a Path object with specific suffixes to a type understood/handled by a real
-# (arrayish) adapter (ie a descendant from AbstractAdapter)
-class AbstractPathAdapter:
-    # Path adapters MAY override this method, but should probably override
-    # open() instead
-    @classmethod
-    def get_file_handler_and_adapter_creator(cls, fpath):
-        file_handler_object = cls.open(fpath)
-        return file_handler_object, get_adapter_creator(file_handler_object)
-
-    # Path adapters MAY override these methods
-    @classmethod
-    def open(cls, fpath):
-        """The result of this method will be stored in the .data
-        attribute and passed as argument to the adapter class"""
-        raise NotImplementedError()
-
-
 class DirectoryPathAdapter(AbstractColumnarAdapter):
     _COL_NAMES = ['Name', 'Type', 'Date Modified', 'Size']
     _SORT_FUNCS = {
