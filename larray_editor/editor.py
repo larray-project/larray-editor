@@ -464,9 +464,8 @@ class MappingEditorWindow(AbstractEditorWindow):
             logger.debug("polars module is present, enabling SQL console")
         elif sql_console:
             if importlib.util.find_spec('polars') is None:
-                raise RuntimeError('SQL console is not available because '
-                                   'polars is not installed (module cannot be '
-                                   'imported)')
+                raise RuntimeError("SQL console is not available because "
+                                   "the 'polars' module is not available")
         self.current_file = None
         self.current_array = None
         self.current_expr_text = None
