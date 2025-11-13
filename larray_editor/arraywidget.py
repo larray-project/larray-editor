@@ -1197,15 +1197,11 @@ class DataView(AbstractView):
             editor_widget = self.parent().parent()
             assert isinstance(editor_widget, ArrayEditorWidget)
             adapter_creator = get_adapter_creator(new_data)
-            if adapter_creator is None:
-                if isinstance(new_data, Path):
-                    title = "File type not supported"
-                    msg = f"Cannot display {new_data.suffix} files"
-                else:
-                    obj_type = type(new_data)
-                    title = "Object type not supported"
-                    msg = f"Cannot display objects of type {obj_type.__name__}"
-                QMessageBox.information(self, title, msg)
+            assert adapter_creator is not None
+            if isinstance(adapter_creator, str):
+                # QMessageBox does not support keyword arguments
+                QMessageBox.information(self, "Cannot display object",
+                                        adapter_creator)
                 return True
 
             from larray_editor.editor import AbstractEditorWindow, MappingEditorWindow
