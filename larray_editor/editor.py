@@ -425,14 +425,18 @@ def void_formatter(obj, p, cycle):
     cycle: bool
         Indicates whether the object is part of a reference cycle.
     """
-    if arrayadapter.get_adapter_creator(obj) is not None:
-        # do nothing
-        return
-    else:
+    adapter_creator = arrayadapter.get_adapter_creator(obj)
+    if isinstance(adapter_creator, str):
+        # the string is an error message => we cannot handle that object
+        #                                => use normal formatting
         # we can get in this case if we registered a void_formatter for a type
         # (such as Sequence) for which we handle some instances of the type
         # but not all
         p.text(repr(obj))
+    else:
+        # we already display the object in the grid
+        #    => do not print it in the console
+        return
 
 
 class MappingEditorWindow(AbstractEditorWindow):
@@ -912,7 +916,7 @@ class MappingEditorWindow(AbstractEditorWindow):
                 k != 'EXAMPLE_EXCEL_TEMPLATES_DIR')
 
     def _display_in_grid(self, v):
-        return arrayadapter.get_adapter_creator(v) is not None
+        return not isinstance(arrayadapter.get_adapter_creator(v), str)
 
     def ipython_cell_executed(self):
         user_ns = self.ipython_kernel.shell.user_ns

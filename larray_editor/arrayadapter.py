@@ -175,7 +175,7 @@ def path_adapter_for(suffix, required_module=None):
     return decorate_callable
 
 
-def get_adapter_creator_for_type(data_type):
+def get_adapter_creator_for_type(data_type): # -> AbstractAdapter | func | None:
     # first check precise type
     if data_type in REGISTERED_ADAPTERS:
         return REGISTERED_ADAPTERS[data_type]
@@ -228,13 +228,13 @@ def get_adapter_creator_for_type(data_type):
     return None
 
 
-def get_adapter_creator(data):
+def get_adapter_creator(data): # -> AbstractAdapter | str:
     obj_type = type(data)
     creator = get_adapter_creator_for_type(obj_type)
     # 3 options:
     # - the type is not handled
     if creator is None:
-        return None
+        return f"Cannot display objects of type {obj_type.__name__}"
     # - all instances of the type are handled by the same adapter
     elif isinstance(creator, type) and issubclass(creator, AbstractAdapter):
         return creator
@@ -259,8 +259,9 @@ def get_adapter(data, attributes=None):
     if data is None:
         return None
     adapter_creator = get_adapter_creator(data)
-    if adapter_creator is None:
-        raise TypeError(f"No Adapter implemented for data with type {type(data)}")
+    assert adapter_creator is not None
+    if isinstance(adapter_creator, str):
+        raise TypeError(adapter_creator)
     resource_handle = adapter_creator.open(data)
     return adapter_creator(resource_handle, attributes)
 
@@ -1054,10 +1055,8 @@ def get_path_suffix_adapter(fpath):
                 try:
                     importlib.import_module(required_module)
                 except ImportError:
-                    logger.warn(f"Failed to import '{required_module}' module, "
-                                f"which is required to handle {fpath.suffix} "
-                                f"files")
-                    return None
+                    return (f"Cannot handle {fpath.suffix} files because the "
+                            f"'{required_module}' module is not available ")
         # 2 options:
         # - either there is a single adapter for that suffix
         if (isinstance(path_adapter_cls, type) and
@@ -1070,7 +1069,7 @@ def get_path_suffix_adapter(fpath):
     elif fpath.is_dir():
         return DirectoryPathAdapter
     else:
-        return None
+        return f"Cannot display {fpath.suffix} files"
 
 
 class SequenceAdapter(AbstractAdapter):
@@ -1136,7 +1135,8 @@ def get_sequence_adapter(data):
     namedtuple_attrs = ['_asdict', '_field_defaults', '_fields', '_make', '_replace']
     # We do not want to display strings and bytes as sequences
     if isinstance(data, (bytes, str)):
-        return None
+        obj_type = type(data)
+        return f"Cannot display objects of type {obj_type.__name__}"
     # Named tuples have no special parent class, so we cannot dispatch using the type
     # of data and need to check the presence of NamedTuple specific attributes instead
     elif all(hasattr(data, attr) for attr in namedtuple_attrs):
@@ -1363,10 +1363,10 @@ class MemoryViewAdapter(NumpyHomogeneousArrayAdapter):
 
 
 @adapter_for(memoryview)
-def get_mv_array_adapter(data):
+def get_memoryview_adapter(data):
     if len(data.format) > 1:
-        # memoryview with 'structured' formats cannot be indexed
-        return None
+        # ... because they cannot be indexed
+        return "memoryview with 'structured' formats are not supported"
     else:
         return MemoryViewAdapter
 
@@ -3431,18 +3431,20 @@ class PyArrowParquetPathAdapter(PyArrowParquetFileAdapter):
 @path_adapter_for('.parquet')
 def dispatch_parquet_path_adapter(fpath):
     # the polars adapter is first as it has more features
-    return dispatch_by_available_module({
+    return dispatch_file_suffix_by_available_module('parquet',{
         'polars': PolarsParquetPathAdapter,
         'pyarrow.parquet': PyArrowParquetPathAdapter
     })
 
 
 # modules are tried in the order they are defined
-def dispatch_by_available_module(module_dict: dict):
+def dispatch_file_suffix_by_available_module(suffix, module_dict: dict):
     for module_name, adapter_cls in module_dict.items():
         if importlib.util.find_spec(module_name) is not None:
             return adapter_cls
-    return None
+    module_names = ', '.join(module_dict.keys())
+    return (f'Cannot handle {suffix} file because none of the required modules '
+            f'are available. Please install at least one of: {module_names}.')
 
 
 # This is a Path adapter (it handles Path objects) because pyreadstat has no
