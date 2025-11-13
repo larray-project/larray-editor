@@ -78,8 +78,7 @@ from larray_editor.utils import (keybinding, create_action, clear_layout, get_de
                                  LinearGradient, logger, cached_property, data_frac_digits,
                                  num_int_digits)
 from larray_editor.arrayadapter import (get_adapter, get_adapter_creator,
-                                        AbstractAdapter, AbstractPathAdapter,
-                                        MAX_FILTER_OPTIONS)
+                                        AbstractAdapter, MAX_FILTER_OPTIONS)
 from larray_editor.arraymodel import (HLabelsArrayModel, VLabelsArrayModel, LabelsArrayModel,
                                       AxesArrayModel, DataArrayModel)
 from larray_editor.combo import FilterComboBox, CombinedSortFilterMenu
@@ -135,7 +134,7 @@ class FilterBar(QWidget):
         data_adapter = self.array_widget.data_adapter
         if data_adapter is None:
             return
-        assert isinstance(data_adapter, (AbstractAdapter, AbstractPathAdapter)), \
+        assert isinstance(data_adapter, AbstractAdapter), \
             f"unexpected data_adapter type: {type(data_adapter)}"
         filter_names = data_adapter.get_filter_names()
         # size > 0 to avoid arrays with length 0 axes and len(axes) > 0 to avoid scalars (scalar.size == 1)
@@ -1230,6 +1229,7 @@ class DataView(AbstractView):
             editor_widget.set_data(new_data)
             return True
         return False
+
 
 class ScrollBar(QScrollBar):
     """
