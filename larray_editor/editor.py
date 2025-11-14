@@ -1070,7 +1070,9 @@ class MappingEditorWindow(AbstractEditorWindow):
             self.sql_widget.update_completer_options(self.data, selected=array)
         # FIXME: we should never store the current_array but current_adapter instead
         self.current_array = array
-        self.array_widget.set_data(array)
+        array_widget = self.array_widget
+        array_widget.back_button_bar.clear()
+        array_widget.set_data(array)
         self.current_expr_text = expr_text
         self.update_title()
 
