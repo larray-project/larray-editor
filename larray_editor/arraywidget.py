@@ -341,6 +341,20 @@ class BackButtonBar(QWidget):
         if not self.isVisible():
             self.show()
 
+    def clear(self):
+        for adapter in self._back_data_adapters[::-1]:
+            self._close_adapter(adapter)
+
+        self._back_data_adapters = []
+        self._back_data = []
+        self.hide()
+
+    @staticmethod
+    def _close_adapter(adapter):
+        clsname = type(adapter).__name__
+        logger.debug(f"closing data adapter ({clsname})")
+        adapter.close()
+
     def on_clicked(self):
         if not len(self._back_data):
             logger.warn("Back button has no target to go to")
@@ -1878,14 +1892,13 @@ class ArrayEditorWidget(QWidget):
         logger.debug("ArrayEditorWidget.close()")
         if self.data_adapter is not None:
             self._close_adapter(self.data_adapter)
-        for adapter in self.back_button_bar._back_data_adapters[::-1]:
-            self._close_adapter(adapter)
+        self.back_button_bar.clear()
         super().close()
 
     @staticmethod
     def _close_adapter(adapter):
         clsname = type(adapter).__name__
-        logger.debug(f"closing old data adapter ({clsname})")
+        logger.debug(f"closing data adapter ({clsname})")
         adapter.close()
 
     def set_data_adapter(self, data_adapter: AbstractAdapter, frac_digits):
