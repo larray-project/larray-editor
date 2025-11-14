@@ -1208,12 +1208,11 @@ class DataView(AbstractView):
         new_data = model.adapter.cell_activated(global_v_pos, global_h_pos)
         if new_data is not None:
             # the adapter wants us to open a sub-element
-            editor_widget = self.parent().parent()
-            assert isinstance(editor_widget, ArrayEditorWidget)
+            array_widget = self.parent().parent()
+            assert isinstance(array_widget, ArrayEditorWidget)
             adapter_creator = get_adapter_creator(new_data)
             assert adapter_creator is not None
             if isinstance(adapter_creator, str):
-                # QMessageBox does not support keyword arguments
                 QMessageBox.information(self, "Cannot display object",
                                         adapter_creator)
                 return True
@@ -1233,10 +1232,10 @@ class DataView(AbstractView):
                     })
             if not (isinstance(new_data, Path) and new_data.is_dir()):
                 # TODO: we should add an operand on the future quickbar instead
-                editor_widget.back_button_bar.add_back(editor_widget.data,
-                                                       editor_widget.data_adapter)
+                array_widget.back_button_bar.add_back(array_widget.data,
+                                                      array_widget.data_adapter)
             # TODO: we should open a new window instead (see above)
-            editor_widget.set_data(new_data)
+            array_widget.set_data(new_data)
             return True
         return False
 
