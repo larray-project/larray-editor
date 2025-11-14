@@ -12,7 +12,6 @@ import numpy as np
 import qtpy
 import larray as la
 import pandas as pd
-import polars as pl
 
 from larray_editor.api import edit
 # from larray_editor.api import view, edit, debug, compare
@@ -344,23 +343,30 @@ pd_df_big = la_big3d.df
 # _big_no_idx.to_parquet('big.parquet')
 # _big_no_idx.to_feather('big.feather')
 
-pl_df1 = pl.from_pandas(pd_df1)
-pl_df2 = pl.from_pandas(pd_df2)
-# test with a datetime column and another column
-# the Arrow table has the same problem (e.g. pl_df3.to_arrow())
-pl_df3 = pl_df1.select(pl.from_epoch(pl.col('M')).alias('datetime_col'), 'M').limit(5)
-pl_df_big = pl.from_pandas(pd_df_big, include_index=True)
-pl_df_mixed = pl.from_pandas(pd_df_mixed, include_index=False)
-pl_lf_parquet = pl.scan_parquet('big.parquet')
-pl_lf_feather = pl.scan_ipc('big.feather')
-
 try:
-    import narwhals as nw
+    import polars as pl
 
-    nw_df = nw.from_native(pl_df_mixed)
-    nw_lf = nw.from_native(pl_lf_parquet)
+    pl_df1 = pl.from_pandas(pd_df1)
+    pl_df2 = pl.from_pandas(pd_df2)
+    # test with a datetime column and another column
+    # the Arrow table has the same problem (e.g. pl_df3.to_arrow())
+    pl_df3 = pl_df1.select(pl.from_epoch(pl.col('M')).alias('datetime_col'), 'M').limit(5)
+    pl_df_big = pl.from_pandas(pd_df_big, include_index=True)
+    pl_df_mixed = pl.from_pandas(pd_df_mixed, include_index=False)
+    pl_lf_parquet = pl.scan_parquet('big.parquet')
+    pl_lf_feather = pl.scan_ipc('big.feather')
+
+    try:
+        import narwhals as nw
+
+        nw_df = nw.from_native(pl_df_mixed)
+        nw_lf = nw.from_native(pl_lf_parquet)
+    except ImportError:
+        print("skipping narwhals tests (not installed)")
+
 except ImportError:
-    print("skipping narwhals tests (not installed)")
+    print("skipping polars tests (not installed)")
+
 
 path_dir = Path('.')
 path_py = Path('test_adapter.py')
