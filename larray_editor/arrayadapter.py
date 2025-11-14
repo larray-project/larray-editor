@@ -1687,6 +1687,9 @@ class XlsxPathAdapter(WorkbookAdapter):
         self.data.close()
 
 
+none_to_empty_string = np.vectorize(lambda v: v if v is not None else '')
+
+
 @adapter_for('larray.inout.xw_excel.Sheet')
 class SheetAdapter(AbstractAdapter):
     def shape2d(self):
@@ -1707,7 +1710,7 @@ class SheetAdapter(AbstractAdapter):
         #       ranges)
         if np_data.ndim < 2:
             np_data = np_data.reshape((v_stop - v_start, h_stop - h_start))
-        return np_data
+        return none_to_empty_string(np_data)
 
 
 @adapter_for('larray.inout.xw_excel.Range')
