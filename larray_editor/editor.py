@@ -1408,8 +1408,31 @@ class MappingEditorWindow(AbstractEditorWindow):
                     QMessageBox.warning(self, "Warning", f"File {filepath} could not be found")
 
     def _save_data(self, filepath):
+        CAN_BE_SAVED = (la.Array, la.Axis, la.Group)
+        in_var_list = {k: v for k, v in self.data.items()
+                       if self._display_in_varlist(k, v)}
+        if not in_var_list:
+            QMessageBox.warning(self, "Warning", "Nothing to save")
+            return
+
+        to_save = {k: v for k, v in in_var_list.items()
+                   if isinstance(v, CAN_BE_SAVED)}
+        if not to_save:
+            msg = ("Nothing can be saved because "
+                   "all the currently loaded variables "
+                   "are of types which are not supported for saving.")
+            QMessageBox.warning(self, "Warning: unsavable objects", msg)
+            return
+
+        unsaveable = in_var_list.keys() - to_save.keys()
+        if unsaveable:
+            object_names = ', '.join(sorted(unsaveable))
+            QMessageBox.warning(self, "Warning: unsavable objects",
+                                "The following variables are of types which "
+                                "are not supported for saving and will be "
+                                f"ignored:\n\n{object_names}")
+        session = la.Session(to_save)
         try:
-            session = la.Session({k: v for k, v in self.data.items() if self._display_in_varlist(k, v)})
             session.save(filepath)
             self.set_current_file(filepath)
             self.edit_undo_stack.clear()
