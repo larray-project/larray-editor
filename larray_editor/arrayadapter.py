@@ -142,35 +142,38 @@ def adapter_for(target_type):
 PATH_SUFFIX_ADAPTERS = {}
 
 
-def register_path_adapter(suffix, adapter_creator, required_module=None):
+def register_path_adapter(suffixes, adapter_creator, required_module=None):
     """Register an adapter to display a file type (extension)
 
     Parameters
     ----------
-    suffix : str
-        File type for which the adapter should be used.
+    suffixes : str | list[str]
+        File extension(s) for which the adapter should be used.
     adapter_creator : callable
         Callable which will return an Adapter instance.
     required_module : str
         Name of module required to handle this file type.
     """
-    if suffix in PATH_SUFFIX_ADAPTERS:
-        logger.warning(f"Replacing path adapter for {suffix}")
-    PATH_SUFFIX_ADAPTERS[suffix] = (adapter_creator, required_module)
+    if isinstance(suffixes, str):
+        suffixes = [suffixes]
+    for suffix in suffixes:
+        if suffix in PATH_SUFFIX_ADAPTERS:
+            logger.warning(f"Replacing path adapter for {suffix}")
+        PATH_SUFFIX_ADAPTERS[suffix] = (adapter_creator, required_module)
 
 
-def path_adapter_for(suffix, required_module=None):
+def path_adapter_for(suffixes, required_module=None):
     """Class/function decorator to register new file-type adapters
 
     Parameters
     ----------
-    suffix : str
-        File type associated with adapter class.
-    required_module : str
+    suffixes : str | list[str]
+        File extension(s) associated with adapter class.
+    required_module : str, optional
         Name of module required to handle this file type.
     """
     def decorate_callable(adapter_creator):
-        register_path_adapter(suffix, adapter_creator, required_module)
+        register_path_adapter(suffixes, adapter_creator, required_module)
         return adapter_creator
     return decorate_callable
 
@@ -1674,8 +1677,7 @@ class WorkbookAdapter(SequenceAdapter):
         return self.data[row_idx]
 
 
-@path_adapter_for('.xlsx', 'xlwings')
-@path_adapter_for('.xls', 'xlwings')
+@path_adapter_for(('.xlsx', '.xls'), 'xlwings')
 class XlsxPathAdapter(WorkbookAdapter):
     @classmethod
     def open(cls, fpath):
@@ -1907,9 +1909,7 @@ class PyArrowArrayAdapter(AbstractAdapter):
 # Contrary to other Path adapters, this one is both a File *and* Path adapter
 # because it is more efficient to NOT keep the file open (because the pyarrow
 # API only allows limiting which columns are read when opening the file)
-@path_adapter_for('.feather', 'pyarrow.ipc')
-@path_adapter_for('.ipc', 'pyarrow.ipc')
-@path_adapter_for('.arrow', 'pyarrow.ipc')
+@path_adapter_for(('.feather', '.ipc', '.arrow'), 'pyarrow.ipc')
 @adapter_for('pyarrow.RecordBatchFileReader')
 class FeatherFileAdapter(AbstractColumnarAdapter):
     def __init__(self, data, attributes):
@@ -2581,8 +2581,7 @@ class IodeEquationsAdapter(AbstractAdapter):
         return np.array(res, dtype=object)
 
 
-@path_adapter_for('.av', 'iode')
-@path_adapter_for('.var', 'iode')
+@path_adapter_for(('.av', '.var'), 'iode')
 class IodeVariablesPathAdapter(IodeVariablesAdapter):
     @classmethod
     def open(cls, fpath):
@@ -2591,8 +2590,7 @@ class IodeVariablesPathAdapter(IodeVariablesAdapter):
         return iode.variables
 
 
-@path_adapter_for('.as', 'iode')
-@path_adapter_for('.scl', 'iode')
+@path_adapter_for(('.as', 'scl'), 'iode')
 class IodeScalarsPathAdapter(IodeScalarsAdapter):
     @classmethod
     def open(cls, fpath):
@@ -2601,8 +2599,7 @@ class IodeScalarsPathAdapter(IodeScalarsAdapter):
         return iode.scalars
 
 
-@path_adapter_for('.ac', 'iode')
-@path_adapter_for('.cmt', 'iode')
+@path_adapter_for(('.ac', '.cmt'), 'iode')
 class IodeCommentsPathAdapter(IodeCommentsAdapter):
     @classmethod
     def open(cls, fpath):
@@ -2611,8 +2608,7 @@ class IodeCommentsPathAdapter(IodeCommentsAdapter):
         return iode.comments
 
 
-@path_adapter_for('.at', 'iode')
-@path_adapter_for('.tbl', 'iode')
+@path_adapter_for(('.at', '.tbl'), 'iode')
 class IodeTablesPathAdapter(IodeTablesAdapter):
     @classmethod
     def open(cls, fpath):
@@ -2621,8 +2617,7 @@ class IodeTablesPathAdapter(IodeTablesAdapter):
         return iode.tables
 
 
-@path_adapter_for('.ae', 'iode')
-@path_adapter_for('.eqs', 'iode')
+@path_adapter_for(('.ae', '.eqs'), 'iode')
 class IodeEquationsPathAdapter(IodeEquationsAdapter):
     @classmethod
     def open(cls, fpath):
@@ -2631,8 +2626,7 @@ class IodeEquationsPathAdapter(IodeEquationsAdapter):
         return iode.equations
 
 
-@path_adapter_for('.ai', 'iode')
-@path_adapter_for('.idt', 'iode')
+@path_adapter_for(('.ai', '.idt'), 'iode')
 class IodeIdentitiesPathAdapter(IodeIdentitiesAdapter):
     @classmethod
     def open(cls, fpath):
@@ -2641,8 +2635,7 @@ class IodeIdentitiesPathAdapter(IodeIdentitiesAdapter):
         return iode.identities
 
 
-@path_adapter_for('.al', 'iode')
-@path_adapter_for('.lst', 'iode')
+@path_adapter_for(('.al', '.lst'), 'iode')
 class IodeListsPathAdapter(IodeListsAdapter):
     @classmethod
     def open(cls, fpath):
@@ -2919,8 +2912,7 @@ class PyTablesArrayAdapter(NumpyHomogeneousArrayAdapter):
             raise NotImplementedError('>2d not implemented yet')
 
 
-@path_adapter_for('.h5', 'tables')
-@path_adapter_for('.hdf', 'tables')
+@path_adapter_for(('.h5', '.hdf'), 'tables')
 class H5PathAdapter(PyTablesFileAdapter):
     @classmethod
     def open(cls, fpath):
@@ -3310,28 +3302,33 @@ class TextFileAdapter(AbstractAdapter):
         return [[line] for line in self._get_lines(v_start, v_stop)]
 
 
-@path_adapter_for('.bat')
-@path_adapter_for('.c')
-@path_adapter_for('.cfg')
-@path_adapter_for('.cpp')
-@path_adapter_for('.h')
-@path_adapter_for('.htm')   # web
-@path_adapter_for('.html')  # web
-@path_adapter_for('.ini')
-@path_adapter_for('.log')
-@path_adapter_for('.md')
-@path_adapter_for('.py')
-@path_adapter_for('.pyx')  # cython
-@path_adapter_for('.pxd')  # cython
-@path_adapter_for('.rep')
-@path_adapter_for('.rst')
-@path_adapter_for('.sh')
-@path_adapter_for('.sql')
-@path_adapter_for('.toml')
-@path_adapter_for('.txt')
-@path_adapter_for('.wsgi')
-@path_adapter_for('.yaml')
-@path_adapter_for('.yml')
+TEXT_FILE_SUFFIXES = (
+    '.bat',
+    '.c',
+    '.cfg',
+    '.cpp',
+    '.h',
+    '.htm',   # web
+    '.html',  # web
+    '.ini',
+    '.log',
+    '.md',
+    '.py',
+    '.pyx',  # cython
+    '.pxd',  # cython
+    '.rep',
+    '.rst',
+    '.sh',
+    '.sql',
+    '.toml',
+    '.txt',
+    '.wsgi',
+    '.yaml',
+    '.yml',
+)
+
+
+@path_adapter_for(TEXT_FILE_SUFFIXES)
 class TextPathAdapter(TextFileAdapter):
     @classmethod
     def open(cls, fpath):
