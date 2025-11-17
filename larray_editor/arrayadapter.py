@@ -2071,7 +2071,16 @@ class FeatherFileAdapter(AbstractColumnarAdapter):
             combined = pyarrow.concat_batches(batches)
         else:
             combined = batches[0]
-        return combined[v_start - chunk_start:v_stop - chunk_start].to_pandas().values
+
+        chunk = combined[v_start - chunk_start:v_stop - chunk_start]
+
+        # not going via to_pandas() because it "eats" index columns
+        columns = chunk.columns
+        np_columns = [c.to_numpy(zero_copy_only=False) for c in columns]
+        try:
+            return np.stack(np_columns, axis=1)
+        except np.exceptions.DTypePromotionError:
+            return np.stack(np_columns, axis=1, dtype=object)
 
 
 @adapter_for('pyarrow.parquet.ParquetFile')
