@@ -1944,7 +1944,7 @@ class FeatherFileAdapter(AbstractColumnarAdapter):
 
     def _open_file(self, col_indices=None):
         """col_indices is only taken into account if self.data is a Path"""
-        ipc = sys.modules['pyarrow.ipc']
+        import pyarrow.ipc as ipc
         if isinstance(self.data, Path):
             if col_indices is not None:
                 options = ipc.IpcReadOptions(included_fields=col_indices)
@@ -3449,6 +3449,14 @@ def dispatch_parquet_path_adapter(fpath):
 # modules are tried in the order they are defined
 def dispatch_file_suffix_by_available_module(suffix, module_dict: dict):
     for module_name, adapter_cls in module_dict.items():
+        # We need this special case because find_spec can only safely check the
+        # presence of top level modules. For submodules, it actually imports
+        # the parent module and only then checks for the submodule, which
+        # breaks if the parent module is not available.
+        if '.' in module_name:
+            top_module = module_name.split('.')[0]
+            if importlib.util.find_spec(top_module) is None:
+                continue
         if importlib.util.find_spec(module_name) is not None:
             return adapter_cls
     module_names = ', '.join(module_dict.keys())
