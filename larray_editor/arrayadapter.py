@@ -352,6 +352,10 @@ class AbstractAdapter:
         self.vmax = None
         self._number_format = "%s"
         self.sort_key = None  # (kind='axis'|'column'|'row', idx_of_kind, direction (1, -1))
+        # caching support
+        self._cached_fragment = None
+        self._cached_fragment_v_start = None
+        self._cached_fragment_h_start = None
 
     # ================================ #
     # methods which MUST be overridden #
@@ -401,6 +405,39 @@ class AbstractAdapter:
     def close(self):
         """Close the ressources used by the adapter"""
         pass
+
+    def _is_chunk_cached(self, h_start, v_start, h_stop, v_stop):
+        cached_fragment = self._cached_fragment
+        if cached_fragment is None:
+            return False
+        cached_h_start = self._cached_fragment_h_start
+        cached_v_start = self._cached_fragment_v_start
+        cached_width = cached_fragment.shape[1]
+        cached_height = cached_fragment.shape[0]
+        return (h_start >= cached_h_start and
+                h_stop <= cached_h_start + cached_width and
+                v_start >= cached_v_start and
+                v_stop <= cached_v_start + cached_height)
+
+    def _get_fragment_via_cache(self, h_start, v_start, h_stop, v_stop):
+        clsname = self.__class__.__name__
+        logger.debug(f"{clsname}._get_fragment_via_cache({h_start, v_start, h_stop, v_stop})")
+        if self._is_chunk_cached(h_start, v_start, h_stop, v_stop):
+            fragment = self._cached_fragment
+            fragment_h_start = self._cached_fragment_h_start
+            fragment_v_start = self._cached_fragment_v_start
+            logger.debug("  -> cache hit ! "
+                         f"({fragment_h_start=} {fragment_v_start=})")
+        else:
+            fragment, fragment_h_start, fragment_v_start = (
+                self._get_fragment_from_source(h_start, v_start,
+                                               h_stop, v_stop))
+            logger.debug("  -> cache miss ! "
+                         f"({fragment_h_start=} {fragment_v_start=})")
+            self._cached_fragment = fragment
+            self._cached_fragment_h_start = fragment_h_start
+            self._cached_fragment_v_start = fragment_v_start
+        return fragment, fragment_h_start, fragment_v_start
 
     # TODO: factorize with LArrayArrayAdapter (so that we get the attributes
     #       handling of LArrayArrayAdapter for all types and the larray adapter
@@ -2040,70 +2077,105 @@ class FeatherFileAdapter(AbstractColumnarAdapter):
 @adapter_for('pyarrow.parquet.ParquetFile')
 class PyArrowParquetFileAdapter(AbstractColumnarAdapter):
     def __init__(self, data, attributes):
+        import json
         super().__init__(data=data, attributes=attributes)
         self._schema = data.schema
-        # TODO: take pandas metadata index columns into account:
-        # - display those columns as labels
-        # - remove those columns from shape
-        # - do not read those columns in get_values
-        # pandas_metadata = data.schema.to_arrow_schema().pandas_metadata
-        # index_columns = pandas_metadata['index_columns']
+        meta = data.metadata
+        self._num_cols = meta.num_columns
+        self._num_rows = meta.num_rows
+        meta_meta = data.metadata.metadata
+        col_names = self._schema.names
+        self._col_names = col_names
+        self._pandas_idx_cols = []
+        if b'pandas' in meta_meta:
+            pd_meta = json.loads(meta_meta[b'pandas'])
+
+            idx_col_names = pd_meta['index_columns']
+            if all(isinstance(col_name, str) for col_name in idx_col_names):
+                idx_col_indices = [col_names.index(col_name)
+                                   for col_name in idx_col_names]
+                # We only support the case where index columns are at the end
+                # and are sorted. It is the case in all files I have seen so
+                # far but I don't know whether it is always the case
+                expected_first_idx_col = self._num_cols - len(idx_col_indices)
+                idx_cols_at_the_end = all(idx >= expected_first_idx_col
+                                          for idx in idx_col_indices)
+                idx_cols_sorted = sorted(idx_col_indices) == idx_col_indices
+                if idx_cols_at_the_end and idx_cols_sorted:
+                    self._pandas_idx_cols = idx_col_indices
+                    self._num_cols -= len(idx_col_indices)
+
         meta = data.metadata
         num_rows_per_group = np.array([meta.row_group(i).num_rows
                                        for i in range(data.num_row_groups)])
         self._group_ends = num_rows_per_group.cumsum()
         assert self._group_ends[-1] == meta.num_rows
-        self._cached_table = None
-        self._cached_table_h_start = None
-        self._cached_table_v_start = None
 
     def shape2d(self):
-        meta = self.data.metadata
-        return meta.num_rows, meta.num_columns
+        return self._num_rows, self._num_cols
 
     def get_hlabels_values(self, start, stop):
-        return [self._schema.names[start:stop]]
+        return [self._col_names[start:stop]]
 
-    # TODO: provide caching in a base class
-    def _is_chunk_cached(self, h_start, v_start, h_stop, v_stop):
-        cached_table = self._cached_table
-        if cached_table is None:
-            return False
-        cached_v_start = self._cached_table_v_start
-        cached_h_start = self._cached_table_h_start
-        return (h_start >= cached_h_start and
-                h_stop <= cached_h_start + cached_table.shape[1] and
-                v_start >= cached_v_start and
-                v_stop <= cached_v_start + cached_table.shape[0])
+    def get_vnames(self):
+        if self._pandas_idx_cols:
+            return [self._col_names[i] for i in self._pandas_idx_cols]
+        else:
+            return ['']
+
+    def get_vlabels_values(self, start, stop):
+        if self._pandas_idx_cols:
+            # This assumes that index columns are contiguous (which is
+            # implicitly tested in __init__ via the "all index at the end" test)
+            # and sorted (tested in __init__)
+            h_start = self._pandas_idx_cols[0]
+            h_stop = self._pandas_idx_cols[-1] + 1
+            return self.get_values(h_start, start, h_stop, stop)
+        else:
+            return [[i] for i in range(start, stop)]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        if self._is_chunk_cached(h_start, v_start, h_stop, v_stop):
-            logger.debug("cache hit !")
-            table = self._cached_table
-            table_h_start = self._cached_table_h_start
-            table_v_start = self._cached_table_v_start
-        else:
-            logger.debug("cache miss !")
-            start_row_group, stop_row_group = (
-                # - 1 because the last row is not included
-                np.searchsorted(self._group_ends, [v_start, v_stop - 1],
-                                side='right'))
-            # - 1 because _group_ends stores row group ends and we want the start
-            table_h_start = h_start
-            table_v_start = (
-                self._group_ends[start_row_group - 1] if start_row_group > 0 else 0)
-            row_groups = range(start_row_group, stop_row_group + 1)
-            column_names = self._schema.names[h_start:h_stop]
-            f = self.data
-            table = f.read_row_groups(row_groups, columns=column_names)
-            self._cached_table = table
-            self._cached_table_h_start = table_h_start
-            self._cached_table_v_start = table_v_start
+        # fragment is a pyarrow.Table
+        fragment, fragment_h_start, fragment_v_start = (
+            self._get_fragment_via_cache(h_start, v_start, h_stop, v_stop))
 
-        chunk = table[v_start - table_v_start:v_stop - table_v_start]
+        # chunk is a list of pyarrow.ChunkedArray
+        chunk = self._fragment_to_chunk(fragment,
+                                        fragment_h_start, fragment_v_start,
+                                        h_start, v_start, h_stop, v_stop)
+        return self._chunk_to_numpy(chunk)
+
+    def _get_fragment_from_source(self, h_start, v_start, h_stop, v_stop):
+        start_row_group, stop_row_group = (
+            # - 1 because the last row is not included
+            np.searchsorted(self._group_ends, [v_start, v_stop - 1],
+                            side='right'))
+        # - 1 because _group_ends stores row group ends and we want the start
+        table_h_start = h_start
+        table_v_start = (
+            self._group_ends[start_row_group - 1] if start_row_group > 0 else 0)
+        row_groups = range(start_row_group, stop_row_group + 1)
+        column_names = self._schema.names[h_start:h_stop]
+        f = self.data
+        table = f.read_row_groups(row_groups, columns=column_names)
+        return table, table_h_start, table_v_start
+
+    # fragment is a native object representing the smallest buffer which can
+    # hold the requested rows and columns (not sliced in memory)
+    # chunk is the actual requested slice from that fragment, still in
+    # whatever format is most convenient for the adapter
+    def _fragment_to_chunk(self, fragment, fragment_h_start, fragment_v_start,
+                           h_start, v_start, h_stop, v_stop):
+
+        chunk = fragment[v_start - fragment_v_start:v_stop - fragment_v_start]
+        h_start_in_chunk = h_start - fragment_h_start
+        h_stop_in_chunk = h_stop - fragment_h_start
         # not going via to_pandas() because it "eats" index columns
-        columns = chunk.columns[h_start - table_h_start:h_stop - table_h_start]
-        np_columns = [c.to_numpy() for c in columns]
+        return chunk.columns[h_start_in_chunk:h_stop_in_chunk]
+
+    def _chunk_to_numpy(self, chunk):
+        # chunk is a list of pyarrow.ChunkedArray
+        np_columns = [c.to_numpy() for c in chunk]
         try:
             return np.stack(np_columns, axis=1)
         except np.exceptions.DTypePromotionError:
