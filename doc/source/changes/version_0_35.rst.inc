@@ -5,11 +5,14 @@ New features
 
 * allow displaying *many* more different kinds of objects, and not only arrays
   from larray. One specific goal when developing this new feature was speed.
-  All these viewers should be fast (when at all possible), even on (very) large
-  datasets. We only support displaying (not editing) all the new types.
+  Most of these viewers should be fast (when at all possible), even on (very)
+  large datasets. We only support displaying (not editing) all the new types.
+
   The following types are supported so far (but adding more is relatively easy):
+
   * Python builtin objects:
-    - tuple, list (sequences), dict (mappings), dict views, memoryview, array
+    - tuple (including named tuple), list (sequences), dict (mappings),
+      dict views, memoryview and array
     - text and binary files
   * Python stdlib objects:
     - pathlib.Path
@@ -23,14 +26,14 @@ New features
     - zipfile.ZipFile and zipfile.Path
   * new objects from LArray: Axis, Excel Workbook (what you get from
     larray.open_excel()), Sheets and Range
-  * Pandas: DataFrame and Series
+  * IODE "collections" objects: Comments, Equations, Identities, Lists, Tables,
+      Scalars and Variables, as well as Table objects
+  * Pandas: DataFrame, Series and DataFrameGroupBy
+  * Polars: DataFrame and LazyFrame
   * Numpy: ndarray
   * PyArrow: Array, Table, RecordBatchFileReader (reader object for feather
     files) and ParquetFile
-  * Polars: DataFrame and LazyFrame
   * Narwhals: DataFrame and LazyFrame
-  * IODE "collections" objects: Comments, Equations, Identities, Lists, Tables,
-      Scalars and Variables, as well as Table objects
   * PyTables: File, Group (with special support for Pandas DataFrames written
     in HDF files), Array and Table
   * IBIS: Table
@@ -40,15 +43,19 @@ New features
   File types (extensions) currently supported:
     - Iode files: .ac, .ae, .ai, .al, .as, .at, .av, .cmt, .eqs, .idt, .lst,
                   .scl, .tbl, .var
-    - Text files: .bat, .cfg, .md, .py, .rst, .sh, .toml, .txt, .yaml, .yml
+    - Text files: .bat, .c, .cfg, .cpp, .h, .htm, .html, .ini, .log, .md,
+                  .py, .pyx, .pxd, .rep, .rst, .sh, .sql, .toml, .txt, .wsgi,
+                  .yaml, .yml
     - HDF5 files: .h5, .hdf
     - Parquet files: .parquet
+    - Stata files: .dta
+    - Feather files: .feather
+    - SAS files: .sas7bdat (slow on large files !)
     - CSV files: .csv
     - Gzipped CSV files: .csv.gz
     - Excel files: .xls, .xlsx
     - Zip files: .zip
     - DuckDB files: .ddb, .duckdb
-    - SAS files: .sas7bdat
 
 * the editor now features a new "File Explorer" (accessible from the "File"
   menu) so that one can more easily make use of all the above file viewers.
@@ -61,7 +68,7 @@ New features
   console, it searches through history with the current command as prefix.
   This console will only be present if the polars module is installed.
 
-* allow sorting objects by column by pressing on an horizontal label.
+* allow sorting some objects by column by pressing on an horizontal label.
   This is currently implemented for the following objects:
     - python built-in sequences (e.g. tuples and lists)
     - python pathlib.Path objects representing directories
@@ -72,7 +79,7 @@ New features
     - SQLite tables
     - DuckDB relations
 
-* allow filtering objects by pressing on an horizontal label.
+* allow filtering some objects by pressing on an horizontal label.
   This is currently implemented for the following objects:
     - Pandas DataFrame
     - Polars DataFrame and LazyFrame
