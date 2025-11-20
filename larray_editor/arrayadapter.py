@@ -1187,6 +1187,10 @@ def get_sequence_adapter(data):
 
 @adapter_for(collections.abc.Mapping)
 class MappingAdapter(AbstractAdapter):
+    def __init__(self, data, attributes):
+        super().__init__(data, attributes=attributes)
+        self.sorted_data = data
+
     def shape2d(self):
         return len(self.data), 1
 
@@ -1204,11 +1208,44 @@ class MappingAdapter(AbstractAdapter):
         # the absence of stale cache problem. Performance-wise, we could cache keys() and
         # values() here (instead of in __init__) if start or stop is above some threshold
         # but I am unsure it is worth the added complexity.
-        return [[k] for k in itertools.islice(self.data.keys(), start, stop)]
+        return [[k] for k in itertools.islice(self.sorted_data.keys(), start, stop)]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        values_chunk = itertools.islice(self.data.values(), v_start, v_stop)
+        values_chunk = itertools.islice(self.sorted_data.values(), v_start, v_stop)
         return [[v] for v in values_chunk]
+
+    def can_sort_hlabel(self, row_idx, col_idx):
+        return True
+
+    def sort_hlabel(self, row_idx, col_idx, ascending):
+        assert row_idx == 0
+        assert col_idx == 0
+        try:
+            # first try the values themselves as sort key...
+            self.sorted_data = dict(sorted(self.data.items(),
+                                           key=lambda items: items[1],
+                                           reverse=not ascending))
+        except TypeError:
+            # ... but that will fail for unsortable types or mixed type mappings
+            # for those cases, we fall back to sorting by str.
+            # We should keep this (str vs repr) in sync with
+            # AbstractArrayModel._format_value, so that the sorting order
+            # matches the displayed values.
+
+            # By using the following commented code, we could also sort all
+            # numbers after strings and that would allow sorting them more
+            # naturally (9 before 10), but might be unexpected for users.
+            # Unsure what is best.
+            # def get_key(items):
+            #     value = items[1]
+            #     if isinstance(value, (int, float)):
+            #         return True, value
+            #     else:
+            #         return False, str(value)
+            self.sorted_data = dict(sorted(self.data.items(),
+                                           key=lambda items: str(items[1]),
+                                           reverse=not ascending))
+        self._current_sort = [(1, 0, ascending)]
 
 
 # @adapter_for(object)
