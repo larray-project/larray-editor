@@ -28,6 +28,8 @@ import matplotlib
 # explicitly request Qt backend (fixes #278)
 matplotlib.use('QtAgg')
 import matplotlib.axes
+import matplotlib.figure
+
 import numpy as np
 import pandas as pd
 
