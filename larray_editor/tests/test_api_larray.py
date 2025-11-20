@@ -1,5 +1,6 @@
 """Array editor test"""
 
+import importlib
 import array
 import logging
 import sys
@@ -190,7 +191,11 @@ la_big3d = la.Array(np_big3d, 'a=a0..a999;b=b0..b999;c=c0..c499')
 la_long_labels = la.zeros('a=a_long_label,another_long_label; b=this_is_a_label,this_is_another_one')
 la_long_axes_names = la.zeros('first_axis=a0,a1; second_axis=b0,b1')
 
-la_wb = la.open_excel('test.xlsx')
+if importlib.util.find_spec('xlwings') is not None:
+    la_wb = la.open_excel('test.xlsx')
+else:
+    print("skipping larray.Workbook test (xlwings not installed)")
+    la_wb = None
 
 # FIXME: the number of digits shown is 0 by default but should be 1,
 #        because la_arr6 contains some ".5" values.
