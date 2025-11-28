@@ -226,9 +226,9 @@ else:
 # edit(arr2)
 
 # test issue #247 (same names)
-# compare(la_arr3, la_arr3)
-# compare(la_arr3, la_arr3 + 1.0)
-# compare(la_arr3, la_arr3 + 1.0, names=['arr3', 'arr3 + 1.0'])
+# compare(la_int_2d, la_int_2d)
+# compare(la_int_2d, la_int_2d + 1.0)
+# compare(la_int_2d, la_int_2d + 1.0, names=['la_int_2d', 'la_int_2d + 1.0'])
 # compare(np.random.normal(0, 1, size=(10, 2)), np.random.normal(0, 1, size=(10, 2)))
 
 # sess1 = la.Session(arr4=arr4, arr3=la_arr3, data=data3)
@@ -246,6 +246,7 @@ arr1bis['a1', 'b1'] = 42
 arr2bis['a1', 'b1'] = 42
 # arr2bis = arr2bis.set_labels({'b2': 'B2'})
 # compare(arr2, arr2bis, align='outer')
+# compare(arr2bis, arr2, align='outer')
 # compare(arr2, arr2bis, align='inner')
 # compare(arr2, arr2bis, align='left')
 # compare(arr2, arr2bis, align='right')

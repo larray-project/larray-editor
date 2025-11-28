@@ -21,7 +21,11 @@ requirements:
 
   run:
     - python >=3.9
-    # requires larray >= 0.32 because of the LArray -> Array rename
+    # Technically, we should require larray >=0.35 because we need align_arrays
+    # for compare(), but to make larray-editor releasable, we cannot depend on
+    # larray X.Y when releasing larray-editor X.Y (see utils.py for more
+    # details)
+    # TODO: require 0.35 for next larray-editor version
     - larray >=0.32
     # it is indirectly pulled from larray, but let us be explicit about this
     - numpy >=1.22

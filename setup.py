@@ -16,10 +16,13 @@ LONG_DESCRIPTION_CONTENT_TYPE = "text/x-rst"
 SETUP_REQUIRES = []
 # FIXME: add numpy and matplotlib dependencies
 # pyqt cannot be installed via pypi. Dependencies (pyqt, qtpy and matplotlib) moved to conda recipe
-# requires larray >= 0.32 because of the LArray -> Array rename
 # TODO: add qtpy as dependency and mention pyqt or pyside
 #       when using pyqt, we require at least pyqt >= 4.6 (for API v2)
 # jedi >=0.18 to workaround incompatibility between jedi <0.18 and parso >=0.8 (see #220)
+# Technically, we should require larray >=0.35 because we need align_arrays for
+# compare(), but to make larray-editor releasable, we cannot depend on larray
+# X.Y when releasing larray-editor X.Y (see utils.py for more details)
+# TODO: require 0.35 for next larray-editor version and drop shim in utils.py
 INSTALL_REQUIRES = ['larray >=0.32', 'jedi >=0.18']
 TESTS_REQUIRE = ['pytest']
 
