@@ -37,6 +37,30 @@ except ImportError:
     from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
 from larray.util.misc import Product
+try:
+    from larray.core.array import align_arrays
+except ImportError:
+    # TODO: remove this when we release any version of larray-editor > 0.35.0
+    #       and require larray >= 0.35
+    # This function is necessary *only* for larray-editor version
+    # 0.35.ZERO. Because of the incorporation of the larray-editor changelog in
+    # the larray release, we cannot depend on larray >= 0.35 when releasing
+    # larray-editor 0.35.0 (which is very silly because we develop both in
+    # parallel)
+    def align_arrays(arrays, join='outer', fill_value=np.nan):
+        if len(arrays) > 2:
+            raise NotImplementedError("aligning more than two arrays requires "
+                                      "larray >= 0.35")
+        first_array = arrays[0]
+
+        def is_raw(array):
+            return all(axis.iswildcard and axis.name is None
+                       for axis in array.axes)
+
+        if all(is_raw(array) and array.shape == first_array.shape
+               for array in arrays[1:]):
+            return arrays
+        return first_array.align(arrays[1], join=join, fill_value=fill_value)
 
 # field is field_name + conversion if any
 M_SPECIFIER_PATTERN = re.compile(r'\{(?P<field>[^:}]*):(?P<format_spec>[^m}]*)m\}')

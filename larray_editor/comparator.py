@@ -5,7 +5,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QHBoxLayout,
                             QLabel, QCheckBox, QLineEdit, QComboBox, QMessageBox)
 
-from larray_editor.utils import _
+from larray_editor.utils import _, print_exception, align_arrays
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor.editor import AbstractEditorWindow, CAN_CONVERT_TO_LARRAY
 
@@ -144,12 +144,13 @@ class ComparatorWidget(QWidget):
         # TODO: implement align in stack instead
         stack_axis = self.stack_axis
         try:
-            aligned_arrays = align_all(self.arrays,
-                                       join=self.align_method,
-                                       fill_value=self.fill_value)
+            aligned_arrays = align_arrays(self.arrays,
+                                          join=self.align_method,
+                                          fill_value=self.fill_value)
             self._combined_array = la.stack(aligned_arrays, stack_axis)
             self._array0 = self._combined_array[stack_axis.i[0]]
         except Exception as e:
+            print_exception(e)
             QMessageBox.critical(self, "Error", str(e))
             self._combined_array = la.Array([''])
             self._array0 = self._combined_array
@@ -254,19 +255,6 @@ class ComparatorWidget(QWidget):
             array = array[row_filter]
             bg_value = bg_value[row_filter]
         self.array_widget.set_data(array, attributes={'bg_value': bg_value})
-
-
-def align_all(arrays, join='outer', fill_value=la.nan):
-    return arrays
-    if len(arrays) > 2:
-        raise NotImplementedError("aligning more than two arrays is not yet implemented")
-    first_array = arrays[0]
-    def is_raw(array):
-        return all(axis.iswildcard and axis.name is None
-                   for axis in array.axes)
-    if all(is_raw(array) and array.shape == first_array.shape for array in arrays[1:]):
-        return arrays
-    return first_array.align(arrays[1], join=join, fill_value=fill_value)
 
 
 class ArrayComparatorWindow(AbstractEditorWindow):
@@ -434,19 +422,23 @@ class SessionComparatorWindow(AbstractEditorWindow):
     def update_listwidget_colors(self):
         atol, rtol = self.comparator_widget._get_atol_rtol()
         listwidget = self.listwidget
-        # TODO: this functionality is super useful but can also be super slow when
-        #       the sessions contain large arrays. It would be great if we
+        # TODO: this functionality is super useful but can also be super slow
+        #       when the sessions contain large arrays. It would be great if we
         #       could do this asynchronously
         for i, name in enumerate(self.array_names):
             align_method = self.comparator_widget.align_method
             fill_value = self.comparator_widget.fill_value
             arrays = self.get_arrays(name)
             try:
-                aligned_arrays = align_all(arrays, join=align_method, fill_value=fill_value)
+                aligned_arrays = align_arrays(arrays, join=align_method,
+                                              fill_value=fill_value)
                 first_array = aligned_arrays[0]
-                all_equal = all(a.equals(first_array, rtol=rtol, atol=atol, nans_equal=True)
+                all_equal = all(a.equals(first_array,
+                                         rtol=rtol, atol=atol, nans_equal=True)
                                 for a in aligned_arrays[1:])
             except Exception:
+                # print_exception(e)
+
                 all_equal = False
             item = listwidget.item(i)
             item.setForeground(Qt.black if all_equal else Qt.red)
