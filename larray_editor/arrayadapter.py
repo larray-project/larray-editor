@@ -3613,14 +3613,118 @@ class AbstractPyReadStatPathAdapter(AbstractColumnarAdapter):
         return df.values
 
 
-@path_adapter_for('.sas7bdat', 'pyreadstat')
-class Sas7BdatPathAdapter(AbstractPyReadStatPathAdapter):
+class PyReadstatSas7BdatPathAdapter(AbstractPyReadStatPathAdapter):
     READ_FUNC_NAME = 'read_sas7bdat'
 
 
 @path_adapter_for('.dta', 'pyreadstat')
 class DtaPathAdapter(AbstractPyReadStatPathAdapter):
     READ_FUNC_NAME = 'read_dta'
+
+
+@adapter_for('pandas.io.sas.sas7bdat.SAS7BDATReader')
+class PandasSAS7BDATReaderAdapter(AbstractColumnarAdapter):
+    MAX_BYTES_TO_SKIP = 10_000_000
+
+    def __init__(self, data, attributes=None):
+        super().__init__(data, attributes=attributes)
+        reader = data
+        index_cols = set(reader.index) if reader.index is not None else set()
+        default_chunksize = max(1_000_000 // reader.row_length, 1)
+        chunksize = reader.chunksize or default_chunksize
+        logger.debug(f'{chunksize=}')
+        self._chunk_size = chunksize
+        self._colnames = [col for col in reader.column_names
+                          if col not in index_cols]
+
+    def shape2d(self):
+        return self.data.row_count, len(self._colnames)
+
+    def get_hlabels_values(self, start, stop):
+        return [self._colnames[start:stop]]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        reader = self.data
+        current_row = reader._current_row_in_file_index
+        if current_row > v_start:
+            logger.debug("must reset Pandas SAS7BDATReader")
+            # reset reader to the beginning of the file by closing it and
+            # re-initializing it
+            fpath = reader.handles.handle.name
+            kwargs = dict(
+                index=reader.index,
+                convert_dates=reader.convert_dates,
+                blank_missing=reader.blank_missing,
+                chunksize=reader.chunksize,
+                encoding=reader.encoding,
+                convert_text=reader.convert_text,
+                convert_header_text=reader.convert_header_text,
+                # cannot be easily retrieved
+                # compression=reader.compression,
+            )
+            reader.close()
+            reader.__init__(fpath, **kwargs)
+            current_row = reader._current_row_in_file_index
+        expected_num_rows = v_stop - v_start
+        expected_num_cols = h_stop - h_start
+
+        # skip to v_start
+        num_rows_to_skip = v_start - self._chunk_size - current_row
+        if num_rows_to_skip > 0:
+            bytes_to_skip = num_rows_to_skip * reader.row_length
+            logger.debug(f"must skip {num_rows_to_skip} rows "
+                         f"(~{bytes_to_skip:_} bytes)")
+            if bytes_to_skip > self.MAX_BYTES_TO_SKIP:
+                # An exception would be eaten by the adapter so the user
+                # would never see it
+                msg = 'File is too large to display non top rows'
+                first_row = [msg] + [''] * (expected_num_cols - 1)
+                second_row = [''] * expected_num_cols
+                all_rows = [first_row, second_row] * (expected_num_rows // 2)
+                if expected_num_rows % 2 == 1:
+                    all_rows.append(first_row)
+                return all_rows
+
+        while current_row < v_start - self._chunk_size:
+            reader.read(self._chunk_size)
+            current_row = reader._current_row_in_file_index
+        # read up to v_stop
+        num_rows_to_read = v_stop - current_row
+        df = reader.read(num_rows_to_read)
+        logger.debug(f'{len(df)} rows read')
+        assert v_start >= current_row, f"{v_start} < {current_row}"
+        chunk = df.iloc[v_start - current_row:]
+        assert len(chunk) == expected_num_rows, \
+            f"{len(chunk)=} != {expected_num_rows=}"
+
+        chunk_columns = [chunk.iloc[:, i].values
+                         for i in range(h_start, h_stop)]
+        try:
+            return np.stack(chunk_columns, axis=1)
+        except np.exceptions.DTypePromotionError:
+            return np.stack(chunk_columns, axis=1, dtype=object)
+
+
+class PandasSAS7BDATPathAdapter(PandasSAS7BDATReaderAdapter):
+    @classmethod
+    def open(cls, fpath):
+        import pandas as pd
+        # * iterator=True so that Pandas returns a SAS7BDATReader instead of a
+        #   DataFrame
+        # * encoding='infer' to avoid having string columns returned
+        #   as raw bytes
+        return pd.read_sas(fpath, iterator=True, encoding='infer')
+
+
+@path_adapter_for('.sas7bdat')
+def dispatch_sas7bdat_path_adapter(fpath):
+    # the pandas adapter is first as it (much) faster for reading the first
+    # lines of large files. In practice, Pandas is always available
+    # because it is currently a hard dependency of larray-editor
+    return dispatch_file_suffix_by_available_module('sas7bat',{
+        'pandas': PandasSAS7BDATPathAdapter,
+        'pyreadstat': PyReadstatSas7BdatPathAdapter
+    })
 
 
 @adapter_for('pstats.Stats')
