@@ -31,7 +31,6 @@ import matplotlib.axes
 import matplotlib.figure
 
 import numpy as np
-import pandas as pd
 
 import larray as la
 
@@ -100,7 +99,6 @@ SUBSET_UPDATE_PATTERN = re.compile(r'(\w+)'
                                    r'([-+*/%&|^><]|//|\*\*|>>|<<)?'
                                    r'=\s*[^=].*')
 HISTORY_VARS_PATTERN = re.compile(r'_i?\d+')
-CAN_CONVERT_TO_LARRAY = (la.Array, np.ndarray, pd.DataFrame)
 
 opened_secondary_windows = []
 
