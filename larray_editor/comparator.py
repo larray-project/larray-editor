@@ -16,9 +16,8 @@ CAN_CONVERT_TO_LARRAY = (la.Array, np.ndarray, pd.DataFrame)
 
 class ComparatorWidget(QWidget):
     """Comparator Widget"""
-    # FIXME: rtol, atol are unused, and align and fill_value are only partially used
-    def __init__(self, parent=None, bg_gradient='red-white-blue', rtol=0, atol=0, nans_equal=True,
-                 align='outer', fill_value=np.nan):
+    def __init__(self, parent=None, bg_gradient='red-white-blue',
+                 nans_equal=True, fill_value=np.nan):
         QWidget.__init__(self, parent)
 
         layout = QVBoxLayout()
@@ -45,7 +44,6 @@ class ComparatorWidget(QWidget):
         self.stack_axis = None
 
         self.nans_equal = nans_equal
-        self.align_method = align
         self.fill_value = fill_value
 
     # TODO: we might want to use self.align_method, etc instead of using arguments?
@@ -104,6 +102,9 @@ class ComparatorWidget(QWidget):
         layout.addStretch()
         return layout
 
+    def get_align_method(self):
+        return self.align_method_combo.currentText()
+
     def _get_atol_rtol(self):
         try:
             tol_str = self.tolerance_line_edit.text()
@@ -141,15 +142,15 @@ class ComparatorWidget(QWidget):
         self._update_from_arrays()
 
     def update_align_method(self, align):
-        self.align_method = align
         self._update_from_arrays()
 
     def _update_from_arrays(self):
         # TODO: implement align in stack instead
         stack_axis = self.stack_axis
+        align_method = self.get_align_method()
         try:
             aligned_arrays = align_arrays(self.arrays,
-                                          join=self.align_method,
+                                          join=align_method,
                                           fill_value=self.fill_value)
             self._combined_array = la.stack(aligned_arrays, stack_axis)
             self._array0 = self._combined_array[stack_axis.i[0]]
@@ -305,9 +306,7 @@ class ArrayComparatorWindow(AbstractEditorWindow):
         widget.setLayout(layout)
 
         comparator_widget = ComparatorWidget(self, bg_gradient=bg_gradient,
-                                             rtol=rtol, atol=atol,
                                              nans_equal=nans_equal,
-                                             align=align,
                                              fill_value=fill_value)
         comparison_options_layout = (
             comparator_widget.get_comparison_options_layout(align=align,
@@ -389,9 +388,7 @@ class SessionComparatorWindow(AbstractEditorWindow):
         left_widget.setLayout(left_layout)
 
         comparator_widget = ComparatorWidget(self, bg_gradient=bg_gradient,
-                                             rtol=rtol, atol=atol,
                                              nans_equal=nans_equal,
-                                             align=align,
                                              fill_value=fill_value)
         # do not call set_data on the comparator_widget as it will be done by the setCurrentRow below
         self.comparator_widget = comparator_widget
@@ -426,13 +423,13 @@ class SessionComparatorWindow(AbstractEditorWindow):
     def update_listwidget_colors(self):
         atol, rtol = self.comparator_widget._get_atol_rtol()
         listwidget = self.listwidget
+        align_method = self.comparator_widget.get_align_method()
+        fill_value = self.comparator_widget.fill_value
+        nans_equal = self.comparator_widget.nans_equal
         # TODO: this functionality is super useful but can also be super slow
         #       when the sessions contain large arrays. It would be great if we
         #       could do this asynchronously
-        nans_equal = self.comparator_widget.nans_equal
         for i, name in enumerate(self.array_names):
-            align_method = self.comparator_widget.align_method
-            fill_value = self.comparator_widget.fill_value
             arrays = self.get_arrays(name)
             try:
                 aligned_arrays = align_arrays(arrays, join=align_method,
