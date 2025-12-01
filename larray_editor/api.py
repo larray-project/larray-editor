@@ -212,11 +212,10 @@ def create_debug_dialog(parent, stack_summary, title='Debugger', stack_pos=None)
 
 
 def create_compare_dialog(parent, *args, title='', names=None, depth=0, display_caller_info=True, **kwargs):
-    caller_frame = sys._getframe(depth + 1)
-    if display_caller_info:
-        caller_info = getframeinfo(caller_frame)
-    else:
-        caller_info = None
+    if len(args) == 1 and isinstance(args[0], dict):
+        if names is None:
+            names = list(args[0].keys())
+        args = list(args[0].values())
 
     compare_sessions = any(isinstance(a, (la.Session, str, Path)) for a in args)
     default_name = 'session' if compare_sessions else 'array'
@@ -232,13 +231,20 @@ def create_compare_dialog(parent, *args, title='', names=None, depth=0, display_
         # list comprehension used to create their own frame but are now
         # inlined in Python 3.12+
         extra_frame_for_comprehension = 0 if PY312 else 1
-        names = [get_name(i, a, depth=depth + 1 + extra_frame_for_comprehension) for i, a in enumerate(args)]
+        names = [get_name(i, a, depth=depth + 1 + extra_frame_for_comprehension)
+                 for i, a in enumerate(args)]
     else:
         assert isinstance(names, list) and len(names) == len(args)
 
     if compare_sessions:
         args = [la.Session(a) if not isinstance(a, la.Session) else a
                 for a in args]
+
+    if display_caller_info:
+        caller_frame = sys._getframe(depth + 1)
+        caller_info = getframeinfo(caller_frame)
+    else:
+        caller_info = None
 
     if compare_sessions:
         return SessionComparatorWindow(args, names=names, title=title,
@@ -470,8 +476,11 @@ def compare(*args, depth=0, **kwargs):
 
     Parameters
     ----------
-    *args : Arrays, Sessions, str or Path.
-        Arrays or sessions to compare. Strings or Path will be loaded as Sessions from the corresponding files.
+    *args : Arrays, Sessions, str or Path, or dict of them.
+        Arrays or sessions to compare. Strings or Path will be loaded as
+        Sessions from the corresponding files. If arrays or sessions are given
+        as a single dict, the keys of the dict will be used as names for the
+        arrays or sessions.
     title : str, optional
         Title for the window. Defaults to ''.
     names : list of str, optional
