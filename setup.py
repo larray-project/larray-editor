@@ -14,16 +14,24 @@ DESCRIPTION = "Graphical User Interface for LArray library"
 LONG_DESCRIPTION = readlocal("README.rst")
 LONG_DESCRIPTION_CONTENT_TYPE = "text/x-rst"
 SETUP_REQUIRES = []
-# FIXME: add numpy and matplotlib dependencies
-# pyqt cannot be installed via pypi. Dependencies (pyqt, qtpy and matplotlib) moved to conda recipe
-# TODO: add qtpy as dependency and mention pyqt or pyside
-#       when using pyqt, we require at least pyqt >= 4.6 (for API v2)
-# jedi >=0.18 to workaround incompatibility between jedi <0.18 and parso >=0.8 (see #220)
-# Technically, we should require larray >=0.35 because we need align_arrays for
-# compare(), but to make larray-editor releasable, we cannot depend on larray
-# X.Y when releasing larray-editor X.Y (see utils.py for more details)
-# TODO: require 0.35 for next larray-editor version and drop shim in utils.py
-INSTALL_REQUIRES = ['larray >=0.32', 'jedi >=0.18']
+
+# * jedi >=0.18 to workaround incompatibility between jedi <0.18 and
+#   parso >=0.8 (see #220)
+# * Technically, we should require larray >=0.35 because we need align_arrays
+#   for compare(), but to make larray-editor releasable, we cannot depend on
+#   larray X.Y when releasing larray-editor X.Y (see utils.py for more details)
+#   TODO: require 0.35 for next larray-editor version and drop shim in utils.py
+# * Pandas is required directly for a silly reason (to support converting
+#   pandas dataframes to arrays before comparing them). We could make it an
+#   optional dependency by lazily importing it but but since it is also
+#   indirectly required via larray, it does not really matter.
+# * we do not actually require PyQt6 but rather either PyQt5, PyQt6 or PySide6
+#   but I do not know how to specify this
+# * we also have optional dependencies (but I don't know how to specify them):
+#   - 'xlwings' for the "Copy to Excel" context-menu action
+#   - 'tables' (PyTables) to load the example datasets from larray
+INSTALL_REQUIRES = ['jedi >=0.18', 'larray >=0.32', 'matplotlib', 'numpy',
+                    'pandas', 'PyQt6', 'qtpy']
 TESTS_REQUIRE = ['pytest']
 
 LICENSE = 'GPLv3'
