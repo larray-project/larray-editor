@@ -1,5 +1,6 @@
 import numpy as np
 import larray as la
+import pandas as pd
 
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QHBoxLayout,
@@ -7,7 +8,10 @@ from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QHBoxL
 
 from larray_editor.utils import _, print_exception, align_arrays
 from larray_editor.arraywidget import ArrayEditorWidget
-from larray_editor.editor import AbstractEditorWindow, CAN_CONVERT_TO_LARRAY
+from larray_editor.editor import AbstractEditorWindow
+
+
+CAN_CONVERT_TO_LARRAY = (la.Array, np.ndarray, pd.DataFrame)
 
 
 class ComparatorWidget(QWidget):
