@@ -429,6 +429,7 @@ class SessionComparatorWindow(AbstractEditorWindow):
         # TODO: this functionality is super useful but can also be super slow
         #       when the sessions contain large arrays. It would be great if we
         #       could do this asynchronously
+        nans_equal = self.comparator_widget.nans_equal
         for i, name in enumerate(self.array_names):
             align_method = self.comparator_widget.align_method
             fill_value = self.comparator_widget.fill_value
@@ -438,7 +439,8 @@ class SessionComparatorWindow(AbstractEditorWindow):
                                               fill_value=fill_value)
                 first_array = aligned_arrays[0]
                 all_equal = all(a.equals(first_array,
-                                         rtol=rtol, atol=atol, nans_equal=True)
+                                         rtol=rtol, atol=atol,
+                                         nans_equal=nans_equal)
                                 for a in aligned_arrays[1:])
             except Exception:
                 # print_exception(e)
