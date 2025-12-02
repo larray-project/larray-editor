@@ -3617,8 +3617,7 @@ class PyReadstatSas7BdatPathAdapter(AbstractPyReadStatPathAdapter):
     READ_FUNC_NAME = 'read_sas7bdat'
 
 
-@path_adapter_for('.dta', 'pyreadstat')
-class DtaPathAdapter(AbstractPyReadStatPathAdapter):
+class PyReadstatDtaPathAdapter(AbstractPyReadStatPathAdapter):
     READ_FUNC_NAME = 'read_dta'
 
 
@@ -3716,6 +3715,75 @@ class PandasSAS7BDATPathAdapter(PandasSAS7BDATReaderAdapter):
         return pd.read_sas(fpath, iterator=True, encoding='infer')
 
 
+@adapter_for('pandas.io.stata.StataReader')
+class PandasStataReaderAdapter(AbstractColumnarAdapter):
+    def __init__(self, data, attributes=None):
+        super().__init__(data, attributes=attributes)
+        reader = data
+        reader._ensure_open()
+
+        # monkey-patch Pandas StataReader to fix column selection (only
+        # the first column selection of a reader works in the original version)
+        def _do_select_columns(self, data, columns):
+            if not hasattr(self, '_full_dtyplist'):
+                self._full_dtyplist = self._dtyplist
+                self._full_typlist = self._typlist
+                self._full_fmtlist = self._fmtlist
+                self._full_lbllist = self._lbllist
+
+            column_set = set(columns)
+            if len(column_set) != len(columns):
+                raise ValueError("columns contains duplicate entries")
+            unmatched = column_set.difference(data.columns)
+            if unmatched:
+                joined = ", ".join(list(unmatched))
+                raise ValueError(
+                    "The following columns were not "
+                    f"found in the Stata data set: {joined}"
+                )
+            # Copy information for retained columns for later processing
+            get_loc = data.columns.get_loc
+            col_indices = [get_loc(col) for col in columns]
+            self._dtyplist = [self._full_dtyplist[i] for i in col_indices]
+            self._typlist = [self._full_typlist[i] for i in col_indices]
+            self._fmtlist = [self._full_fmtlist[i] for i in col_indices]
+            self._lbllist = [self._full_lbllist[i] for i in col_indices]
+            self._column_selector_set = True
+            return data[columns]
+
+        reader.__class__._do_select_columns = _do_select_columns
+
+    def shape2d(self):
+        reader = self.data
+        return reader._nobs, reader._nvar
+
+    def get_hlabels_values(self, start, stop):
+        return [self.data._varlist[start:stop]]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        reader = self.data
+        columns = reader._varlist[h_start:h_stop]
+
+        reader._lines_read = v_start
+        chunk = reader.read(v_stop - v_start, columns=columns)
+
+        chunk_columns = [chunk.iloc[:, i].values
+                         for i in range(h_stop - h_start)]
+        try:
+            return np.stack(chunk_columns, axis=1)
+        except np.exceptions.DTypePromotionError:
+            return np.stack(chunk_columns, axis=1, dtype=object)
+
+
+class PandasDTAPathAdapter(PandasStataReaderAdapter):
+    @classmethod
+    def open(cls, fpath):
+        import pandas as pd
+        # iterator=True so that Pandas returns a StataReader instead of a
+        # DataFrame
+        return pd.read_stata(fpath, iterator=True)
+
+
 @path_adapter_for('.sas7bdat')
 def dispatch_sas7bdat_path_adapter(fpath):
     # the pandas adapter is first as it (much) faster for reading the first
@@ -3724,6 +3792,17 @@ def dispatch_sas7bdat_path_adapter(fpath):
     return dispatch_file_suffix_by_available_module('sas7bat',{
         'pandas': PandasSAS7BDATPathAdapter,
         'pyreadstat': PyReadstatSas7BdatPathAdapter
+    })
+
+
+@path_adapter_for('.dta')
+def dispatch_dta_path_adapter(fpath):
+    # the pandas adapter is first as it (much) faster for reading large files.
+    # In practice, Pandas is always available because it is currently a hard
+    # dependency of larray-editor
+    return dispatch_file_suffix_by_available_module('dta',{
+        'pandas': PandasDTAPathAdapter,
+        'pyreadstat': PyReadstatDtaPathAdapter
     })
 
 
