@@ -924,3 +924,18 @@ def timed(logger):
                 return func(*args, **kwargs)
         return new_func
     return decorator
+
+
+def list_drives():
+    if PY312:
+        return os.listdrives()
+    else:
+        try:
+            import win32api
+            drives_str = win32api.GetLogicalDriveStrings()
+            return [drivestr for drivestr in drives_str.split('\000')
+                    if drivestr]
+        except ImportError:
+            logger.warning("Unable to list drives: on Python < 3.12,"
+                           "this needs the 'win32api' module")
+            return []

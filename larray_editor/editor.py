@@ -37,7 +37,8 @@ import larray as la
 from qtpy.QtCore import Qt, QUrl, QSettings
 from qtpy.QtGui import QDesktopServices, QKeySequence
 from qtpy.QtWidgets import (QMainWindow, QWidget, QListWidget, QListWidgetItem, QSplitter, QFileDialog, QPushButton,
-                            QDialogButtonBox, QShortcut, QVBoxLayout, QGridLayout, QLineEdit,
+                            QDialogButtonBox, QShortcut,
+                            QHBoxLayout, QVBoxLayout, QGridLayout, QLineEdit,
                             QCheckBox, QComboBox, QMessageBox, QDialog,
                             QInputDialog, QLabel, QGroupBox, QRadioButton,
                             QTabWidget)
@@ -60,7 +61,7 @@ from larray_editor.utils import (_,
                                  get_documentation_url,
                                  URLS,
                                  RecentlyUsedList,
-                                 logger)
+                                 logger, list_drives)
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor import arrayadapter
 from larray_editor.commands import EditSessionArrayCommand, EditCurrentArrayCommand
@@ -117,6 +118,9 @@ class EditorWindow(QWidget):
         super().__init__(parent=None)
         layout = QVBoxLayout()
         self.setLayout(layout)
+        header_layout = self.setup_header_layout()
+        if header_layout is not None:
+            layout.addLayout(header_layout)
         array_widget = ArrayEditorWidget(self, data=data, readonly=readonly)
         self.array_widget = array_widget
         layout.addWidget(array_widget)
@@ -131,12 +135,46 @@ class EditorWindow(QWidget):
         # TODO: somehow determine better width
         self.resize(self.default_width, self.default_height)
 
+    def setup_header_layout(self):
+        return None
+
     def closeEvent(self, event):
         logger.debug('EditorWindow.closeEvent()')
         if self in opened_secondary_windows:
             opened_secondary_windows.remove(self)
         super().closeEvent(event)
         self.array_widget.close()
+
+
+class FileExplorerWindow(EditorWindow):
+    name = "File Explorer"
+
+    def create_drive_button_clicked_callback(self, drive):
+        def callback():
+            path = Path(drive)
+            if not path.exists():
+                msg = f"The {drive} drive is currently unavailable !"
+                QMessageBox.critical(self, "Error", msg)
+                return
+            self.array_widget.set_data(path)
+        return callback
+
+    def setup_header_layout(self):
+        drives = list_drives()
+        if not drives:
+            return None
+
+        layout = QHBoxLayout()
+        for drive in drives:
+            if drive.endswith('\\'):
+                drive = drive[:-1]
+            button = QPushButton(drive)
+            button.clicked.connect(
+                self.create_drive_button_clicked_callback(drive)
+            )
+            layout.addWidget(button)
+        layout.addStretch()
+        return layout
 
 
 class AbstractEditorWindow(QMainWindow):
@@ -818,10 +856,11 @@ class MappingEditorWindow(AbstractEditorWindow):
         assert isinstance(list_item, QListWidgetItem)
         varname = str(list_item.text())
         value = self.data[varname]
-        self.new_editor_window(value, varname)
+        self.new_editor_window(value, title=varname)
 
-    def new_editor_window(self, data, title: str, readonly: bool=False):
-        window = EditorWindow(data, title=title, readonly=readonly)
+    def new_editor_window(self, data, title: str=None, readonly: bool=False,
+                          cls=EditorWindow):
+        window = cls(data, title=title, readonly=readonly)
         window.show()
         # this is necessary so that the window does not disappear immediately
         opened_secondary_windows.append(window)
@@ -1477,7 +1516,7 @@ class MappingEditorWindow(AbstractEditorWindow):
                 self._open_file(filepath)
 
     def open_explorer(self):
-        self.new_editor_window(Path('.'), title="File Explorer", readonly=True)
+        self.new_editor_window(Path('.'), cls=FileExplorerWindow)
 
 
 class ArrayEditorWindow(AbstractEditorWindow):
