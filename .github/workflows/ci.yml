@@ -15,7 +15,7 @@ jobs:
         with:
           # Pin ruff version to make sure we do not break our builds at the
           # worst times
-          version: "0.14.0"
+          version: "0.14.7"
 
   test:
     # name: Test (${{ matrix.python-version }}, ${{ matrix.os }})
@@ -34,14 +34,14 @@ jobs:
         shell: bash -l {0}
 
     steps:
-    - uses: actions/checkout@v5
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        auto-update-conda: true
-        environment-file: environment.yml
-        python-version: ${{ matrix.python-version }}
-    - run: conda info
-    - run: conda list
-    - run: conda config --show
-    - run: pytest
+      - uses: actions/checkout@v5
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          environment-file: environment.yml
+          python-version: ${{ matrix.python-version }}
+      - run: conda info
+      - run: conda list
+      - run: conda config --show
+      - run: pytest
