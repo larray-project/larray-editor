@@ -50,7 +50,10 @@ New features
     - Parquet files: .parquet
     - Stata files: .dta
     - Feather files: .feather
-    - SAS files: .sas7bdat (slow on large files !)
+    - SAS files: .sas7bdat
+      It is limited to the first few thousand rows (the exact number depends on
+      the number of columns), because reading later rows get increasingly slow,
+      to the point of being unusable.
     - CSV files: .csv
     - Gzipped CSV files: .csv.gz
     - Excel files: .xls, .xlsx
