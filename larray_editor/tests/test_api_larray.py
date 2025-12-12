@@ -34,7 +34,7 @@ array_double = array.array('d', [1.0, 2.0, 3.14])
 array_signed_int = array.array('l', [1, 2, 3, 4, 5])
 array_signed_int_empty = array.array('l')
 # should show as hello alpha and omega
-array_unicode = array.array('u', 'hello \u03B1 and \u03C9')
+array_unicode = array.array('w', 'hello \u03B1 and \u03C9')
 
 # list
 list_empty = []
@@ -192,7 +192,7 @@ la_long_labels = la.zeros('a=a_long_label,another_long_label; b=this_is_a_label,
 la_long_axes_names = la.zeros('first_axis=a0,a1; second_axis=b0,b1')
 
 if importlib.util.find_spec('xlwings') is not None:
-    la_wb = la.open_excel('test.xlsx')
+    la_wb = la.open_excel('data/test.xlsx')
 else:
     print("skipping larray.Workbook test (xlwings not installed)")
     la_wb = None
@@ -231,13 +231,6 @@ else:
 # compare(la_int_2d, la_int_2d + 1.0, names=['la_int_2d', 'la_int_2d + 1.0'])
 # compare(np.random.normal(0, 1, size=(10, 2)), np.random.normal(0, 1, size=(10, 2)))
 
-# sess1 = la.Session(arr4=arr4, arr3=la_arr3, data=data3)
-# sess1.save('sess1.h5')
-# sess2 = la.Session(arr4=arr4 + 1.0, arr3=la_arr3 * 2.0, data=data3 * 1.05)
-# compare('sess1.h5', sess2)   # sess1.h5/data is nan because np arrays are not saved to H5
-# compare(Path('sess1.h5'), sess2)
-# compare(la.Session(arr2=arr2, arr3=la_arr3),
-#         la.Session(arr2=arr2 + 1.0, arr3=la_arr3 * 2.0))
 arr1 = la.ndtest((2, 3))
 arr2 = la.ndtest((3, 4))
 arr1bis = arr1.copy()
@@ -313,6 +306,24 @@ del arr1, arr2, arr1bis, arr2bis
 # compare(arr1, arr6)
 # compare(arr6, arr1)
 
+def test_compare_with_file_path():
+    from larray_editor.api import compare
+
+    sess1 = la.Session(arr4=la_int_2d, arr3=la_float_round_values,
+                       data=np_arr2d)
+    sess1.save('sess1.h5')
+    sess2 = la.Session(arr4=la_int_2d + 1.0, arr3=la_float_round_values * 2.0,
+                       data=np_arr2d * 1.05)
+    # sess1.h5/data is nan because np arrays are not saved to H5
+    # using a string path
+    compare('sess1.h5', sess2)
+    # using a Path object
+    compare(Path('sess1.h5'), sess2)
+    Path('sess1.h5').unlink()
+
+# test_compare_with_file_path()
+
+
 # test for arr.plot(show=True) which is the default
 # =================================================
 # arr = la.ndtest((20, 5)) + la.random.randint(0, 3, axes="a=a0..a19;b=b0..b4")
@@ -328,9 +339,9 @@ def test_run_editor_on_exception(local_arr):
 # run_editor_on_exception(usercode_traceback=False, usercode_frame=False)
 
 # test_run_editor_on_exception(arr2)
-def make_test_df(size):
+def make_test_df(size, offset=0):
     return pd.DataFrame({
-        'name': la.sequence(size).apply(lambda i: f'name{i}').to_series(),
+        'name': la.sequence(size, initial=offset).apply(lambda i: f'name{i}').to_series(),
         'age': la.random.randint(0, 105, axes=size).to_series(),
         'male': (la.random.randint(0, 2, axes=size) == 1).to_series(),
         'height': la.random.normal(1.75, 0.07, axes=size).to_series()
@@ -345,9 +356,61 @@ pd_df_str = pd_df2.astype(str)
 pd_series = pd_df2.stack()
 
 pd_df_big = la_big3d.df
-# _big_no_idx = pd_df_big.reset_index()
-# _big_no_idx.to_parquet('big.parquet')
-# _big_no_idx.to_feather('big.feather')
+
+if not Path('data/big.parquet').exists():
+    print("Generating big.parquet test files (this may take a while)...",
+          end=' ', flush=True)
+    _big_no_idx = pd_df_big.reset_index()
+    _big_no_idx.to_parquet('data/big.parquet')
+    # Polars seems to have issues with Feather files written by Pandas
+    # _big_no_idx.to_feather('data/big.feather')
+    del _big_no_idx
+    print("done.")
+
+if not Path('data/big.h5').exists():
+    print("Generating big.h5 test file...", end=' ', flush=True)
+    la_big3d.to_hdf('data/big.h5', key='data')
+    print("done.")
+
+if not Path('data/big.csv').exists():
+    print("Generating big.csv test file...", end=' ', flush=True)
+    la_big3d.to_csv('data/big.csv')
+    print("done.")
+
+try:
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    pyarrow_int_array = pa.array([2, 4, 5, 42])
+    pyarrow_str_array = pa.array(["Hello", "from", "Arrow", "!"])
+    pyarrow_table = pa.Table.from_arrays([pyarrow_int_array, pyarrow_str_array],
+                                         names=["int_col", "str_col"])
+
+    pyarrow_parquet_file = pq.ParquetFile('data/big.parquet')
+
+    def gen_feather_file(fpath):
+        print("Generating big.feather test file...", end=' ', flush=True)
+        BATCH_SIZE = 10_000
+        NUM_BATCHES = 10_000
+        schema = pa.schema([
+            pa.field('name', pa.string()),
+            pa.field('age', pa.int32()),
+            pa.field('male', pa.bool_()),
+            pa.field('height', pa.float32()),
+        ])
+        with pa.OSFile(fpath, 'wb') as sink:
+            with pa.ipc.new_file(sink, schema) as writer:
+                for batch_num in range(NUM_BATCHES):
+                    batch_df = make_test_df(BATCH_SIZE,
+                                            offset=batch_num * BATCH_SIZE)
+                    batch = pa.RecordBatch.from_pandas(batch_df, schema=schema)
+                    writer.write(batch)
+        print("done.")
+
+    if not Path('data/big.feather').exists():
+        gen_feather_file('data/big.feather')
+except ImportError:
+    print("skipping pyarrow tests (not installed)")
 
 try:
     import polars as pl
@@ -359,8 +422,8 @@ try:
     pl_df3 = pl_df1.select(pl.from_epoch(pl.col('M')).alias('datetime_col'), 'M').limit(5)
     pl_df_big = pl.from_pandas(pd_df_big, include_index=True)
     pl_df_mixed = pl.from_pandas(pd_df_mixed, include_index=False)
-    pl_lf_parquet = pl.scan_parquet('big.parquet')
-    pl_lf_feather = pl.scan_ipc('big.feather')
+    pl_lf_parquet = pl.scan_parquet('data/big.parquet')
+    pl_lf_feather = pl.scan_ipc('data/big.feather')
 
     try:
         import narwhals as nw
@@ -376,33 +439,7 @@ except ImportError:
 
 path_dir = Path('.')
 path_py = Path('test_adapter.py')
-path_csv = Path('be.csv')
-
-try:
-    import pyarrow as pa
-    import pyarrow.parquet as pq
-
-    pyarrow_int_array = pa.array([2, 4, 5, 42])
-    pyarrow_str_array = pa.array(["Hello", "from", "Arrow", "!"])
-    pyarrow_table = pa.Table.from_arrays([pyarrow_int_array, pyarrow_str_array],
-                                         names=["int_col", "str_col"])
-
-    pyarrow_parquet_file = pq.ParquetFile('c:/tmp/exiobase/full/L.parquet')
-
-    # to generate a big feather/arrow test file, use something like (just add more columns):
-    # BATCH_SIZE = 10000
-    # NUM_BATCHES = 1000
-    # schema = pa.schema([pa.field('nums', pa.int32())])
-    # with pa.OSFile('bigfile.arrow', 'wb') as sink:
-    #    with pa.ipc.new_file(sink, schema) as writer:
-    #       for row in range(NUM_BATCHES):
-    #             batch = pa.record_batch([pa.array(range(BATCH_SIZE), type=pa.int32())], schema)
-    #             writer.write(batch)
-    # from pyarrow.dataset import dataset
-
-    # d = dataset('OIN/data.feather', format='ipc')
-except ImportError:
-    print("skipping pyarrow tests (not installed)")
+path_csv = Path('data/big.csv')
 
 # import cProfile as profile
 # profile.runctx('edit(la.Session(arr2=arr2))', vars(), {},
@@ -419,18 +456,28 @@ cur.close()
 try:
     import duckdb
 
+    # in-memory duckdb database
     duckdb_con = duckdb.connect(":memory:")
     duckdb_con.execute("create table lang (name VARCHAR, first_appeared INTEGER)")
     duckdb_con.executemany("insert into lang values (?, ?)", list_mixed_tuples)
     duckdb_table = duckdb_con.table('lang')
+
+    if not Path('data/test.duckdb').exists():
+        print("Generating test.duckdb test file...", end=' ', flush=True)
+        duckdb_con.execute("""
+ATTACH 'data/test.duckdb' AS file_db;
+COPY FROM DATABASE memory TO file_db;
+DETACH file_db;""")
+        duckdb_file_con = duckdb.connect('data/test.duckdb')
+        duckdb_file_con.execute("CREATE TABLE big AS SELECT * FROM "
+                                "read_parquet('data/big.parquet')")
+        duckdb_file_con.close()
+        print("done.")
+
 except ImportError:
     print("skipping duckdb tests (not installed)")
 
-zipf = zipfile.ZipFile('c:/Users/gdm/Downloads/active_directory-0.6.7.zip')
-
-# from pandasgui.datasets import pokemon, titanic, mi_manufacturing, trump_tweets, all_datasets
-# from pandasgui import show
-# gui = show(pokemon, titanic, mi_manufacturing)
+zipf = zipfile.ZipFile('data/test.zip')
 
 edit()
 # debug()
