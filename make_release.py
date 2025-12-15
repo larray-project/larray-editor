@@ -22,7 +22,7 @@ TMP_PATH_CONDA = r"c:\tmp\editor_conda_new_release"
 PACKAGE_NAME = "larray-editor"
 SRC_CODE = "larray_editor"
 SRC_DOC = join('doc', 'source')
-CONDA_BUILD_ARGS = {'--user': 'larray-project'}
+ANACONDA_UPLOAD_ARGS = {'--user': 'larray-project'}
 
 GITHUB_REP = "https://github.com/larray-project/larray-editor"
 UPSTREAM_CONDAFORGE_FEEDSTOCK_REP = "https://github.com/conda-forge/larray-editor-feedstock.git"
@@ -69,5 +69,6 @@ if __name__ == '__main__':
                          SRC_CODE, *argv[2:], tmp_dir=TMP_PATH_CONDA)
     else:
         local_repository = abspath(dirname(__file__))
-        make_release(local_repository, PACKAGE_NAME, SRC_CODE, *argv[1:], src_documentation=SRC_DOC, tmp_dir=TMP_PATH,
-                     conda_build_args=CONDA_BUILD_ARGS)
+        make_release(local_repository, PACKAGE_NAME, SRC_CODE, *argv[1:],
+                     src_documentation=SRC_DOC, tmp_dir=TMP_PATH,
+                     anaconda_upload_args=ANACONDA_UPLOAD_ARGS)
