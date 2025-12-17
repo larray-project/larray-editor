@@ -1,3 +1,87 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools >= 77.0.3",
+]
+
+[project]
+name = "larray-editor"
+version = "0.35"
+description = "Graphical User Interface for LArray library"
+readme = { file = "README.rst", content-type = "text/x-rst" }
+
+authors = [
+  {name = "Gaetan de Menten", email = "gdementen@gmail.com"},
+  {name = "Alix Damman", email = "ald@plan.be"},
+  {name = "Geert Bryon"},
+  {name = "Yannick Van den Abbeel"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries",
+]
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
+
+requires-python = ">=3.9"
+dependencies = [
+    # jedi >=0.18 to workaround incompatibility between jedi <0.18 and
+    # parso >=0.8 (see #220)
+    "jedi >=0.18",
+    # Technically, we should require larray >=0.35 because we need align_arrays
+    # for compare(), but to make larray-editor releasable, we cannot depend on
+    # larray X.Y when releasing larray-editor X.Y (see utils.py for more
+    # details)
+    # TODO: require 0.35 for next larray-editor version and drop shim in
+    #       utils.pyk
+    "larray >=0.32",
+    "matplotlib",
+    "numpy",
+    # Pandas is required directly for a silly reason (to support converting
+    # pandas dataframes to arrays before comparing them). We could make it an
+    # optional dependency by lazily importing it but since it is also
+    # indirectly required via larray, it does not really matter.
+    "pandas",
+    # we do not actually require PyQt6 but rather either PyQt5, PyQt6 or
+    # PySide6 but I do not know how to specify this
+    "PyQt6",
+    "qtpy"
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+# for the "Copy to Excel" context-menu action
+excel = ["xlwings"]
+# (=PyTables) to load the example datasets from larray
+hdf5 = ["tables"]
+
+[project.gui-scripts]
+larray-editor = "larray_editor.start:main"
+
+[project.urls]
+homepage = "https://github.com/larray-project/larray-editor"
+repository = "https://github.com/larray-project/larray-editor"
+issues = "https://github.com/larray-project/larray-editor/issues"
+
+[tool.setuptools.package-data]
+larray_editor = ["images/*"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+namespaces = false
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 testpaths = [
