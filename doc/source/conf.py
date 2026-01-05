@@ -44,16 +44,17 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.doctest',
+    'sphinx.ext.extlinks',
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
-    'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
-    'sphinx.ext.extlinks',
     'numpydoc',
 ]
 
 extlinks = {
-    'issue': ('https://github.com/larray-project/larray-editor/issues/%s', 'issue '),
+    # needed even in larray-editor config to allow pointing to larray issues (this was done at least once)
+    'issue': ('https://github.com/larray-project/larray/issues/%s', 'issue %s'),
+    'editor_issue': ('https://github.com/larray-project/larray-editor/issues/%s', 'issue %s')
 }
 
 # scan all found documents for autosummary directives, and to generate stub pages for each.
@@ -83,7 +84,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+# language = None
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -110,7 +111,7 @@ html_theme = 'sphinx_rtd_theme'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+# html_static_path = ['_static']
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
@@ -179,28 +180,9 @@ texinfo_documents = [
      'Miscellaneous'),
 ]
 
-
-# -- Options for Epub output -------------------------------------------------
-
-# Bibliographic Dublin Core info.
-epub_title = project
-
-# The unique identifier of the text. This can be a ISBN number
-# or the project homepage.
-#
-# epub_identifier = ''
-
-# A unique identification for the text.
-#
-# epub_uid = ''
-
-# A list of files that should not be packed into the epub file.
-epub_exclude_files = ['search.html']
-
-
 # -- Extension configuration -------------------------------------------------
 
 # -- Options for intersphinx extension ---------------------------------------
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'https://docs.python.org/3': None}
+intersphinx_mapping = {'python': ('https://docs.python.org/3', None)}
