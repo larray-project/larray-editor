@@ -34,7 +34,8 @@ array_double = array.array('d', [1.0, 2.0, 3.14])
 array_signed_int = array.array('l', [1, 2, 3, 4, 5])
 array_signed_int_empty = array.array('l')
 # should show as hello alpha and omega
-array_unicode = array.array('w', 'hello \u03B1 and \u03C9')
+unicode_typecode = 'w' if sys.version_info >= (3, 13) else 'u'
+array_unicode = array.array(unicode_typecode, 'hello \u03B1 and \u03C9')
 
 # list
 list_empty = []
