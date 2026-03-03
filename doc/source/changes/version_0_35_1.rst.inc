@@ -15,4 +15,4 @@ Miscellaneous improvements
 Fixes
 ^^^^^
 
-* fixed something (closes :editor_issue:`1`).
+* fixed displaying DataFrames with Pandas >= 3 (closes :editor_issue:`308`).

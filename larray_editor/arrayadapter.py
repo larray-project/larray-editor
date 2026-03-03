@@ -1834,22 +1834,36 @@ class PandasDataFrameAdapter(AbstractColumnarAdapter):
     def get_vnames(self):
         return self.data.index.names
 
+    @staticmethod
+    def _ensure_numpy_array(data):
+        """Convert data to a numpy array if it is not already one."""
+        pd = sys.modules['pandas']
+        if isinstance(data, pd.arrays.ArrowStringArray):
+            return data.to_numpy()
+        else:
+            assert isinstance(data, np.ndarray)
+            return data
+
     def get_vlabels_values(self, start, stop):
         pd = sys.modules['pandas']
         index = self.sorted_data.index[start:stop]
         if isinstance(index, pd.MultiIndex):
+            # It seems like Pandas always returns a 1D array of tuples for
+            # MultiIndex.values, even if the MultiIndex has an homoneneous
+            # string type. That's why we do not need _ensure_numpy_array here
+            # list(row) because we want a list of list and not a list of tuples
             return [list(row) for row in index.values]
         else:
-            return index.values[:, np.newaxis]
+            return self._ensure_numpy_array(index.values)[:, np.newaxis]
 
     def get_hlabels_values(self, start, stop):
         pd = sys.modules['pandas']
         index = self.sorted_data.columns[start:stop]
         if isinstance(index, pd.MultiIndex):
-            return [index.get_level_values(i).values
+            return [self._ensure_numpy_array(index.get_level_values(i).values)
                     for i in range(index.nlevels)]
         else:
-            return [index.values]
+            return [self._ensure_numpy_array(index.values)]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
         # Sadly, as of Pandas 2.2.3, the previous version of this code:
