@@ -357,7 +357,7 @@ class BackButtonBar(QWidget):
 
     def on_clicked(self):
         if not len(self._back_data):
-            logger.warn("Back button has no target to go to")
+            logger.warning("Back button has no target to go to")
             return
         target_data = self._back_data.pop()
         data_adapter = self._back_data_adapters.pop()
@@ -1272,8 +1272,8 @@ class ScrollBar(QScrollBar):
             max_value = total_cols - buffer_ncols + hidden_hscroll_max
             logger.debug(f"update_range horizontal {total_cols=} {buffer_ncols=} {hidden_hscroll_max=} => {max_value=}")
             if total_cols == 0 and max_value != 0:
-                logger.warn(f"empty data but {max_value=}. We let it pass for "
-                            f"now (set it to 0).")
+                logger.warning(f"empty data but {max_value=}. We let it pass "
+                               "for now (set it to 0).")
                 max_value = 0
         else:
             buffer_nrows = self.model.nrows
@@ -1281,8 +1281,8 @@ class ScrollBar(QScrollBar):
             max_value = total_rows - buffer_nrows + hidden_vscroll_max
             logger.debug(f"update_range vertical {total_rows=} {buffer_nrows=} {hidden_vscroll_max=} => {max_value=}")
             if total_rows == 0 and max_value != 0:
-                logger.warn(f"empty data but {max_value=}. We let it pass for "
-                            f"now (set it to 0).")
+                logger.warning(f"empty data but {max_value=}. We let it pass "
+                               "for now (set it to 0).")
                 max_value = 0
         assert max_value >= 0, "max_value should not be negative"
         value_before = self.value()
