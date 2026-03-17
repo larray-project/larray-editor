@@ -1030,8 +1030,7 @@ class DirectoryPathAdapter(AbstractColumnarAdapter):
     def get_values(self, h_start, v_start, h_stop, v_stop):
         parent_dir = self.data.parent
 
-        def get_file_info(p: Path) -> tuple[str, str, str, str|int]:
-
+        def get_file_info(p: Path):
             is_dir = p.is_dir()
             if is_dir:
                 # do not strip suffixes for directories
