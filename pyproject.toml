@@ -67,7 +67,11 @@ excel = ["xlwings"]
 # (=PyTables) to load the example datasets from larray
 hdf5 = ["tables"]
 
+# project.gui-scripts create .exe files on Windows (like project.scripts would)
+# but which call pythonw.exe internally instead of python.exe and thus do not
+# open a console when launched
 [project.gui-scripts]
+# name_of_executable = "module:function"
 larray-editor = "larray_editor.start:main"
 
 [project.urls]
