@@ -94,11 +94,20 @@ except ImportError:
 REOPEN_LAST_FILE = object()
 
 ASSIGNMENT_PATTERN = re.compile(r'[^\[\]]+[^=]=[^=].+')
-SUBSET_UPDATE_PATTERN = re.compile(r'(\w+)'
-                                   r'(\.i|\.iflat|\.points|\.ipoints)?'
-                                   r'\[.+\]\s*'
-                                   r'([-+*/%&|^><]|//|\*\*|>>|<<)?'
-                                   r'=\s*[^=].*')
+# This will match for:
+#   * variable = expr
+#   * variable[key] = expr
+#   * variable.attribute = expr
+#   * variable.attribute[key] = expr
+# and their inplace ops counterpart
+UPDATE_VARIABLE_PATTERN = re.compile(
+    r'(?P<variable>\w+)'
+    r'(?P<attribute>\.\w+)?'
+    r'(?P<subset>\[.+\])?'
+    r'\s*'
+    r'(?P<inplaceop>[-+*/%&|^><]|//|\*\*|>>|<<)?'
+    r'=\s*[^=].*'
+)                   # = expr
 HISTORY_VARS_PATTERN = re.compile(r'_i?\d+')
 
 opened_secondary_windows = []
@@ -986,11 +995,22 @@ class MappingEditorWindow(AbstractEditorWindow):
         # It would be easier to use '_' instead but that refers to the last output, not the output of the
         # last command. Which means that if the last command did not produce any output, _ is not modified.
         cur_output = user_ns['_oh'].get(cur_input_num)
-        setitem_pattern_match = SUBSET_UPDATE_PATTERN.match(last_input_last_line)
-        # setitem
-        if setitem_pattern_match is not None:
-            varname = setitem_pattern_match.group(1)
-        # simple variable
+
+        # matches both setitem and setattr
+        update_variable_match = UPDATE_VARIABLE_PATTERN.match(last_input_last_line)
+        if update_variable_match is not None:
+            parts = update_variable_match.groupdict()
+            varname = parts['variable']
+            if all(parts[name] is None for name in ('attribute', 'subset', 'inplaceop')):
+                # simple variable assignment => could be a new variable
+                #                            => must update mapping and varlist
+                # this returns the changed variable. While in most cases this
+                # will be the same as varname, it can be different if the
+                # assignment failed (changed_var is None) or there were
+                # several changed variables
+                self.update_mapping_and_varlist(clean_ns)
+
+        # simple variable name (only)
         elif last_input_last_line in clean_ns:
             varname = last_input_last_line
         # any other statement
@@ -1018,7 +1038,7 @@ class MappingEditorWindow(AbstractEditorWindow):
             # For better or worse, _save_data() only saves "displayable data"
             # so changes to variables we cannot display do not concern us,
             # and this line should not be moved outside the if condition.
-            if setitem_pattern_match is not None:
+            if update_variable_match is not None:
                 self.unsaved_modifications = True
 
             # TODO: this completely refreshes the array, including detecting
