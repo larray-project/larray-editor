@@ -1,3 +1,3 @@
 from larray_editor.api import *  # noqa: F403
 
-__version__ = '0.35'
+__version__ = '0.35.1-dev'
