@@ -4,7 +4,7 @@ import traceback
 from inspect import getframeinfo
 from pathlib import Path
 
-from qtpy.QtWidgets import QApplication
+from qtpy.QtWidgets import QApplication, QMessageBox
 import larray as la
 
 from larray_editor.comparator import SessionComparatorWindow, ArrayComparatorWindow
@@ -277,7 +277,9 @@ def limit_lines(s, max_lines=10):
 
 
 def qt_display_exception(exception, parent=None):
-    from qtpy.QtWidgets import QMessageBox
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication(sys.argv)
 
     # TODO: after we drop Python3.9 support, use traceback.format_exception
     tb_lines = format_exception(exception)
@@ -290,7 +292,7 @@ def qt_display_exception(exception, parent=None):
     msg = f"<b>Oops, something went wrong</b><p>{exception_str}</p>"
     detailed_text = ''.join(tb_lines)
 
-    msg_box = QMessageBox(QMessageBox.Critical, title, msg, parent=parent)
+    msg_box = QMessageBox(QMessageBox.Critical, title, msg)
     msg_box.setDetailedText(detailed_text)
     msg_box.exec()
 
@@ -305,12 +307,24 @@ def _qt_except_hook(type_, value, tback):
         # BaseExceptionGroup and GeneratorExit), we only print the exception
         # and do *not* exit the program. For BaseExceptionGroup, this might
         # not be 100% correct but I have yet to encounter such a case.
+        display_exception(value)
+
+
+def display_exception(value):
+    # TODO: after we drop Python3.9 support, use traceback.print_exception
+    print_exception(value)
+    try:
+        qt_display_exception(value)
+    except Exception as e2:
+        err = sys.stderr
+        err.write('\n')
+        err.write('-----------------------------------------\n')
+        err.write('Error displaying the error in a Qt dialog\n')
+        err.write('-----------------------------------------\n')
+        err.write('\n')
         # TODO: after we drop Python3.9 support, use traceback.print_exception
-        print_exception(value)
-        try:
-            qt_display_exception(value)
-        except Exception:
-            pass
+        print_exception(e2)
+        err.flush()
 
 
 def install_except_hook():

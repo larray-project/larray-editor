@@ -939,3 +939,14 @@ def list_drives():
             logger.warning("Unable to list drives: on Python < 3.12,"
                            "this needs the 'win32api' module")
             return []
+
+
+def common_ancestor(paths):
+    """Compute the common ancestor directory of a iterable of Path objects."""
+    try:
+        absolute_paths = [p.resolve() for p in paths if p.exists()]
+        return Path(os.path.commonpath(absolute_paths))
+    except ValueError:
+        # This can happen if there aren't any existing path, or paths
+        # refer to different drives on Windows
+        return None
