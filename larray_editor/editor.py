@@ -867,7 +867,8 @@ class MappingEditorWindow(AbstractEditorWindow):
         value = self.data[varname]
         self.new_editor_window(value, title=varname)
 
-    def new_editor_window(self, data, title: str=None, readonly: bool=False,
+    @staticmethod
+    def new_editor_window(data, title: str=None, readonly: bool=False,
                           cls=EditorWindow):
         window = cls(data, title=title, readonly=readonly)
         window.show()
