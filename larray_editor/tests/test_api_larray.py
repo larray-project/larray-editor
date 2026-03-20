@@ -149,6 +149,7 @@ age = la.Axis('age=0..29')
 sex = la.Axis('sex=M,F')
 geo = la.Axis(['A11', 'A25', 'A51', 'A21'], 'geo')
 
+la_scalar_group = sex['M']
 la_float_4d_many_digits = la.random.normal(axes=(age, geo, sex, lipro))
 la_float_4d_many_digits['P01', 'A11', 0] = la.nan
 la_int_1d = la.ndtest(age)

@@ -36,6 +36,10 @@ Fixes
 
 * fixed File Explorer on Python 3.9 (closes :editor_issue:`300`).
 
+* fixed displaying "Collection" objects which raise an error on computing
+  their length and/or iterating them, such as scalar Groups (closes
+  :editor_issue:`313`).
+
 * fixed the mechanism writing warning/error messages happening during the
   editor initialization. The errors are now correctly written in the user
   TEMP directory / larray-editor-stderr.log

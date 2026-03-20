@@ -1273,7 +1273,14 @@ class MappingAdapter(AbstractAdapter):
 @adapter_for(collections.abc.Collection)
 class CollectionAdapter(AbstractAdapter):
     def shape2d(self):
-        return len(self.data), 1
+        # we need the try-except block because, even though Collection
+        # guarantees the presence of __len__, some instances (e.g. scalar
+        # np.array or our own scalar Groups) raise TypeError when calling it.
+        try:
+            length = len(self.data)
+        except TypeError:
+            length = 1
+        return length, 1
 
     def get_hlabels_values(self, start, stop):
         return [['value']]
@@ -1282,7 +1289,12 @@ class CollectionAdapter(AbstractAdapter):
         return [[''] for i in range(start, stop)]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        return [[v] for v in itertools.islice(self.data, v_start, v_stop)]
+        # like for len() above, we need to protect against instances having an
+        # __iter__ method but raising TypeError when calling it
+        try:
+            return [[v] for v in itertools.islice(self.data, v_start, v_stop)]
+        except TypeError:
+            return [[self.data]]
 
 
 # Specific adapter just to change the label
