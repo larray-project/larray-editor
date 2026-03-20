@@ -1327,7 +1327,7 @@ class ItemsViewAdapter(CollectionAdapter):
 
 
 def get_finite_numeric_values(array: np.ndarray) -> np.ndarray:
-    """return a copy of array with non numeric, -inf or inf values set to nan"""
+    """return a copy of array with non-numeric, -inf or inf values set to nan"""
     dtype = array.dtype
     finite_value = array
     # TODO: there are more complex dtypes than this. Is there a way to get them all in one shot?
@@ -1345,7 +1345,7 @@ def get_finite_numeric_values(array: np.ndarray) -> np.ndarray:
     elif np.issubdtype(dtype, np.bool_):
         finite_value = finite_value.astype(np.int8)
     elif not np.issubdtype(dtype, np.number):
-        # if the whole array is known to be non numeric, we do not need
+        # if the whole array is known to be non-numeric, we do not need
         # to compute anything
         return np.full(array.shape, np.nan, dtype=np.float64)
 
