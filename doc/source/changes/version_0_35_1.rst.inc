@@ -40,6 +40,9 @@ Fixes
   their length and/or iterating them, such as scalar Groups (closes
   :editor_issue:`313`).
 
+* avoid warnings when displaying data with any column entirely non-numeric
+  (including NaN). Closes :editor_issue:`311`.
+
 * fixed the mechanism writing warning/error messages happening during the
   editor initialization. The errors are now correctly written in the user
   TEMP directory / larray-editor-stderr.log

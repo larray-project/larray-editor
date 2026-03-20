@@ -34,6 +34,8 @@
 #       are probably the most likely to be re-visited) and read from the file
 #       if the user requests some data outside of those chunks
 import collections.abc
+import warnings
+
 import logging
 import sys
 import os
@@ -615,14 +617,16 @@ class AbstractAdapter:
                                      h_stop: int, v_stop: int):
         """can return either two floats or two arrays"""
 
-        # we need initial to support empty arrays
-        vmin = np.nanmin(finite_values, initial=np.nan)
-        vmax = np.nanmax(finite_values, initial=np.nan)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            # we need initial to support empty arrays
+            vmin = np.nanmin(finite_values, initial=np.nan)
+            vmax = np.nanmax(finite_values, initial=np.nan)
 
-        self.vmin = (
-            np.nanmin([self.vmin, vmin]) if self.vmin is not None else vmin)
-        self.vmax = (
-            np.nanmax([self.vmax, vmax]) if self.vmax is not None else vmax)
+            self.vmin = (
+                np.nanmin([self.vmin, vmin]) if self.vmin is not None else vmin)
+            self.vmax = (
+                np.nanmax([self.vmax, vmax]) if self.vmax is not None else vmax)
         return self.vmin, self.vmax
 
     def get_axes_area(self):
@@ -969,33 +973,38 @@ class AbstractColumnarAdapter(AbstractAdapter):
         assert isinstance(self.vmin, dict) and isinstance(self.vmax, dict)
         assert h_stop >= h_start
 
-        # per column => axis=0
-        local_vmin = np.nanmin(finite_values, axis=0, initial=np.nan)
-        local_vmax = np.nanmax(finite_values, axis=0, initial=np.nan)
         num_cols = h_stop - h_start
-        assert local_vmin.shape == (num_cols,), \
-            (f"unexpected shape: {local_vmin.shape} ({finite_values.shape=}) vs "
-             f"{(num_cols,)} ({h_start=} {h_stop=})")
         # vmin or self.vmin can both be nan (if the whole section data
         # is/was nan)
         global_vmin = self.vmin
         global_vmax = self.vmax
         vmin_slice = np.empty(num_cols, dtype=np.float64)
         vmax_slice = np.empty(num_cols, dtype=np.float64)
-        for global_col_idx in range(h_start, h_stop):
-            local_col_idx = global_col_idx - h_start
 
-            col_min = np.nanmin([global_vmin.get(global_col_idx, np.nan),
-                                 local_vmin[local_col_idx]])
-            # update the global vmin dict inplace
-            global_vmin[global_col_idx] = col_min
-            vmin_slice[local_col_idx] = col_min
+        # per column => axis=0
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
 
-            col_max = np.nanmax([global_vmax.get(global_col_idx, np.nan),
-                                 local_vmax[local_col_idx]])
-            # update the global vmax dict inplace
-            global_vmax[global_col_idx] = col_max
-            vmax_slice[local_col_idx] = col_max
+            local_vmin = np.nanmin(finite_values, axis=0, initial=np.nan)
+            local_vmax = np.nanmax(finite_values, axis=0, initial=np.nan)
+
+            assert local_vmin.shape == (num_cols,), \
+                (f"unexpected shape: {local_vmin.shape} ({finite_values.shape=}) vs "
+                 f"{(num_cols,)} ({h_start=} {h_stop=})")
+            for global_col_idx in range(h_start, h_stop):
+                local_col_idx = global_col_idx - h_start
+
+                col_min = np.nanmin([global_vmin.get(global_col_idx, np.nan),
+                                     local_vmin[local_col_idx]])
+                # update the global vmin dict inplace
+                global_vmin[global_col_idx] = col_min
+                vmin_slice[local_col_idx] = col_min
+
+                col_max = np.nanmax([global_vmax.get(global_col_idx, np.nan),
+                                     local_vmax[local_col_idx]])
+                # update the global vmax dict inplace
+                global_vmax[global_col_idx] = col_max
+                vmax_slice[local_col_idx] = col_max
         return vmin_slice, vmax_slice
 
 
@@ -1354,18 +1363,20 @@ def get_color_value(array, global_vmin, global_vmax, axis=None):
     try:
         finite_value = get_finite_numeric_values(array)
 
-        vmin = np.nanmin(finite_value, axis=axis)
-        if global_vmin is not None:
-            # vmin or global_vmin can both be nan (if the whole section data is/was nan)
-            global_vmin = np.nanmin([global_vmin, vmin], axis=axis)
-        else:
-            global_vmin = vmin
-        vmax = np.nanmax(finite_value, axis=axis)
-        if global_vmax is not None:
-            # vmax or global_vmax can both be nan (if the whole section data is/was nan)
-            global_vmax = np.nanmax([global_vmax, vmax], axis=axis)
-        else:
-            global_vmax = vmax
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            vmin = np.nanmin(finite_value, axis=axis)
+            if global_vmin is not None:
+                # vmin or global_vmin can both be nan (if the whole section data is/was nan)
+                global_vmin = np.nanmin([global_vmin, vmin], axis=axis)
+            else:
+                global_vmin = vmin
+            vmax = np.nanmax(finite_value, axis=axis)
+            if global_vmax is not None:
+                # vmax or global_vmax can both be nan (if the whole section data is/was nan)
+                global_vmax = np.nanmax([global_vmax, vmax], axis=axis)
+            else:
+                global_vmax = vmax
         color_value = scale_to_01range(finite_value, global_vmin, global_vmax)
     except (ValueError, TypeError):
         global_vmin = None

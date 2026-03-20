@@ -793,17 +793,22 @@ def num_int_digits(value):
 
     Examples
     --------
+    >>> num_int_digits(0)
+    1
     >>> num_int_digits(1)
     1
     >>> num_int_digits(99)
     2
     >>> num_int_digits(-99.1)
     2
-    >>> num_int_digits(np.array([1, 99, -99.1]))
-    array([1, 2, 2])
+    >>> num_int_digits(np.array([1, 99, 0, -99.1]))
+    array([1, 2, 1, 2])
     """
     value = abs(value)
-    log10 = np.where(value > 0, np.log10(value), 0)
+    # avoid a warning for log10(0) and log10(negative) because we will handle
+    # these cases with np.where anyway
+    with np.errstate(divide='ignore'):
+        log10 = np.where(value > 0, np.log10(value), 0)
     res = np.where(np.isinf(log10), MAX_INT_DIGITS,
                    # maximum(..., 1) because there must be at least one
                    # integer digit (the 0 in 0.00..X)
