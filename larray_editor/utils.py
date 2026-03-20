@@ -789,7 +789,7 @@ MAX_INT_DIGITS = 308
 def num_int_digits(value):
     """
     Number of integer digits. Completely ignores the fractional part.
-    Does not take sign into account.
+    Does not take the sign into account. Accepts scalar or array-like values.
 
     Examples
     --------
