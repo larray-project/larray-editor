@@ -1,25 +1,72 @@
 {
+    "$schema": "https://json-schema.org/draft-07/schema",
+    "$id": "https://schemas.conda.io/menuinst-1-1-3.schema.json",
     "menu_name": "LArray",
     "menu_items": [
         {
-            "name": "LArray Editor",
-            "pywscript": "${PYTHON_SCRIPTS}/larray-editor-script.py",
-            "icon": "${MENU_DIR}/larray.ico"
+            "name": {
+                "target_environment_is_base": "LArray Editor",
+                "target_environment_is_not_base": "LArray Editor ({{ ENV_NAME }})"
+            },
+            "description": "LArray Editor",
+            "activate": false,
+            "terminal": false,
+            "command": [
+                "{{ PYTHONW }}",
+                "{{ SCRIPTS_DIR }}/larray-editor-script.py",
+                "%*"
+            ],
+            "icon": "{{ MENU_DIR }}/larray.ico",
+            "platforms": {
+                "win": {
+                    "file_extensions": [
+                        ".h5",
+                        ".hdf",
+                        ".parquet",
+                        ".feather",
+                        ".ddb",
+                        ".duckdb"
+                    ]
+                }
+            }
         },
         {
-            "name": "LArray Documentation",
-            "webbrowser": "http://larray.readthedocs.io/en/0.35",
-            "icon": "${MENU_DIR}/larray-help.ico"
+            "name": {
+                "target_environment_is_base": "LArray Documentation",
+                "target_environment_is_not_base": "LArray Documentation ({{ ENV_NAME }})"
+            },
+            "description": "LArray Documentation",
+            "activate": false,
+            "terminal": false,
+            "command": [
+                "{{ BASE_PYTHONW }}",
+                "-m",
+                "webbrowser",
+                "http://larray.readthedocs.io/en/0.35"
+            ],
+            "icon": "{{ MENU_DIR }}/larray-help.ico",
+            "platforms": {
+              "win": {}
+            }
         },
         {
-            "name": "Update LArray",
-            "system": "${ROOT_PREFIX}/Scripts/conda.exe",
-            "scriptarguments": [
+            "name": {
+                "target_environment_is_base": "Update LArray",
+                "target_environment_is_not_base": "Update LArray ({{ ENV_NAME }})"
+            },
+            "description": "Update LArray",
+            "activate": false,
+            "terminal": false,
+            "command": [
+                "{{ BASE_PREFIX }}/Scripts/conda.exe",
                 "update",
                 "-p",
-                "${PREFIX}",
+                "{{ PREFIX }}",
                 "larrayenv"
-            ]
+            ],
+            "platforms": {
+              "win": {}
+            }
         }
     ]
 }
