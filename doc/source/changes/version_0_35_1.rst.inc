@@ -5,6 +5,24 @@ New features
 
 * added explicit support for Python 3.14.
 
+* the editor is now associated with some file extensions on Windows, which
+  means that double-clicking on files with these extensions in the Windows File
+  Explorer will open them in the editor. The following extensions are
+  associated: .h5, .hdf, .feather, .parquet, .ddb and .duckdb
+  (closes :editor_issue:`302`).
+
+  Known issues
+  ------------
+  * This does not work when multiple users share a single Python environment
+    because the file association is done only for the user which installed the
+    editor.
+  * The reported file type is very long and weird. For example, for .h5 files,
+    it is ".h5 larray-editor.AssocFile.h5 file" instead of just "H5 File". This
+    is harmless though.
+  * We choose not to associate the editor with file formats we support but
+    which likely have a better viewer installed on the computer (.xlsx, .csv,
+    .dta, .sas7bdat, text files, IODE files and zip files)
+
 
 Miscellaneous improvements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
