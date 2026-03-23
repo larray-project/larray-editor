@@ -6,6 +6,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QHBoxLayout,
                             QLabel, QCheckBox, QLineEdit, QComboBox, QMessageBox)
 
+from larray_editor.arrayadapter import ensure_numeric_array
 from larray_editor.utils import _, print_exception, align_arrays
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor.editor import AbstractEditorWindow
@@ -149,6 +150,9 @@ class ComparatorWidget(QWidget):
         stack_axis = self.stack_axis
         align_method = self.get_align_method()
         try:
+            # this also converts string arrays to object arrays because
+            # align_arrays computes the common dtype of the arrays *and* the
+            # fill_value, which is nan by default
             aligned_arrays = align_arrays(self.arrays,
                                           join=align_method,
                                           fill_value=self.fill_value)
@@ -179,66 +183,66 @@ class ComparatorWidget(QWidget):
             isclose = eq
         self._diff_below_tolerance = isclose
 
-        try:
-            with np.errstate(divide='ignore', invalid='ignore'):
-                diff = self._combined_array - self._array0
-                reldiff = diff / self._array0
-            # make reldiff 0 where the values are the same than array0 even for
-            # special values (0, nan, inf, -inf)
-            # at this point reldiff can still contain nan and infs
-            reldiff = la.where(eq, 0, reldiff)
+        # we cannot use raw numpy arrays yet because we need the arrays to
+        # broadcast properly to compute diff and reldiff
+        combined_array = ensure_numeric_array(self._combined_array)
+        array0 = ensure_numeric_array(self._array0)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            diff = combined_array - array0
+            reldiff = diff / array0
 
-            # 1) compute maxabsreldiff for the label
-            #    this should NOT exclude nans or infs
-            relmin = reldiff.min(skipna=False)
-            relmax = reldiff.max(skipna=False)
-            maxabsreldiff = max(abs(relmin), abs(relmax))
+        # make reldiff 0 where the values are the same than array0 even for
+        # special values (0, nan, inf, -inf)
+        # at this point reldiff can still contain nan and infs
+        reldiff = la.where(eq, 0, reldiff)
 
-            # 2) compute bg_value
-            # replace -inf by min(reldiff), +inf by max(reldiff)
-            reldiff_for_bg = reldiff.copy()
-            isneginf = reldiff == -np.inf
-            isposinf = reldiff == np.inf
-            isinf = isneginf | isposinf
+        # 1) compute maxabsreldiff for the label
+        #    this should NOT exclude nans or infs
+        relmin = reldiff.min(skipna=False)
+        relmax = reldiff.max(skipna=False)
+        maxabsreldiff = max(abs(relmin), abs(relmax))
 
-            # given the way reldiff is constructed, it cannot contain only infs
-            # (because inf/inf is nan) it can contain only infs and nans though,
-            # in which case finite_relXXX will be nan, so unless the array
-            # is empty, finite_relXXX should never be inf
-            finite_relmin = np.nanmin(reldiff, where=~isinf, initial=np.inf)
-            finite_relmax = np.nanmax(reldiff, where=~isinf, initial=-np.inf)
-            # special case when reldiff contains only 0 and infs (to avoid
-            # coloring the inf cells white in that case)
-            if finite_relmin == 0 and finite_relmax == 0 and isinf.any():
-                finite_relmin = -1
-                finite_relmax = 1
-            reldiff_for_bg[isneginf] = finite_relmin
-            reldiff_for_bg[isposinf] = finite_relmax
+        # 2) compute bg_value
+        # replace -inf by min(reldiff), +inf by max(reldiff)
+        reldiff_for_bg = reldiff.copy()
+        isneginf = reldiff == -np.inf
+        isposinf = reldiff == np.inf
+        isinf = isneginf | isposinf
 
-            # make sure that "acceptable" differences show as white
-            reldiff_for_bg = la.where(isclose, 0, reldiff_for_bg)
+        # given the way reldiff is constructed, it cannot contain only infs
+        # (because inf/inf is nan) it can contain only infs and nans though,
+        # in which case finite_relXXX will be nan, so unless the array
+        # is empty, finite_relXXX should never be inf
+        finite_relmin = np.nanmin(reldiff, where=~isinf, initial=np.inf)
+        finite_relmax = np.nanmax(reldiff, where=~isinf, initial=-np.inf)
 
-            # We need a separate version for bg and the label, so that when we
-            # modify atol/rtol, the background color is updated but not the
-            # maxreldiff label
-            maxabsreldiff_for_bg = max(abs(np.nanmin(reldiff_for_bg)),
-                                       abs(np.nanmax(reldiff_for_bg)))
-            if maxabsreldiff_for_bg:
-                # scale reldiff to range 0-1 with 0.5 for reldiff = 0
-                self._bg_value = (reldiff_for_bg / maxabsreldiff_for_bg) / 2 + 0.5
-            # if the only differences are nans on either side
-            elif not isclose.all():
-                # use white (0.5) everywhere except where reldiff is nan, so
-                # that nans are grey
-                self._bg_value = reldiff_for_bg + 0.5
-            else:
-                # do NOT use full_like as we don't want to inherit array dtype
-                self._bg_value = la.full(self._combined_array.axes, 0.5)
-        except TypeError:
-            # str/object array
-            maxabsreldiff = la.nan
+        # special case when reldiff contains only 0 and infs (to avoid
+        # coloring the inf cells white in that case)
+        if finite_relmin == 0 and finite_relmax == 0 and isinf.any():
+            finite_relmin = -1
+            finite_relmax = 1
+        reldiff_for_bg[isneginf] = finite_relmin
+        reldiff_for_bg[isposinf] = finite_relmax
+
+        # make sure that "acceptable" differences show as white
+        reldiff_for_bg = la.where(isclose, 0, reldiff_for_bg)
+
+        # We need a separate version for bg and the label, so that when we
+        # modify atol/rtol, the background color is updated but not the
+        # maxreldiff label
+        maxabsreldiff_for_bg = max(abs(np.nanmin(reldiff_for_bg)),
+                                   abs(np.nanmax(reldiff_for_bg)))
+        if maxabsreldiff_for_bg:
+            # scale reldiff to range 0-1 with 0.5 for reldiff = 0
+            self._bg_value = (reldiff_for_bg / maxabsreldiff_for_bg) / 2 + 0.5
+        # if the only differences are nans on either side
+        elif not isclose.all():
+            # use white (0.5) everywhere except where reldiff is nan, so
+            # that nans are grey
+            self._bg_value = reldiff_for_bg + 0.5
+        else:
             # do NOT use full_like as we don't want to inherit array dtype
-            self._bg_value = la.full(self._combined_array.axes, 0.5)
+            self._bg_value = la.full(combined_array.axes, 0.5)
 
         # using percents does not look good when the numbers are very small
         self.maxdiff_label.setText(str(maxabsreldiff))

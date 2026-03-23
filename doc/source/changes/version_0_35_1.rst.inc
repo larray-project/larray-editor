@@ -61,6 +61,11 @@ Fixes
 * avoid warnings when displaying data with any column entirely non-numeric
   (including NaN). Closes :editor_issue:`311`.
 
+* fixed `compare()` not working for object or string arrays (closes
+  :editor_issue:`163`). The background color and "maximum absolute
+  relative difference" label were always wrong and the comparison failed
+  completely when the first array was an object array containing any 0 value.
+
 * fixed the mechanism writing warning/error messages happening during the
   editor initialization. The errors are now correctly written in the user
   TEMP directory / larray-editor-stderr.log

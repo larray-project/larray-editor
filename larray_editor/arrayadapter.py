@@ -1337,11 +1337,7 @@ def get_finite_numeric_values(array: np.ndarray) -> np.ndarray:
         #        format (or plotting?)
         finite_value = np.abs(finite_value)
     elif dtype.type is np.object_:
-        # change non numeric to nan
-        finite_value = np.where(is_number_value_vectorized(finite_value),
-                                finite_value,
-                                np.nan)
-        finite_value = finite_value.astype(np.float64)
+        finite_value = non_numeric_to_nan(finite_value)
     elif np.issubdtype(dtype, np.bool_):
         finite_value = finite_value.astype(np.int8)
     elif not np.issubdtype(dtype, np.number):
@@ -1354,6 +1350,31 @@ def get_finite_numeric_values(array: np.ndarray) -> np.ndarray:
     # change inf and -inf to nan (setting them to 0 or to very large numbers is
     # not an option because it would "dampen" normal values)
     return np.where(np.isfinite(finite_value), finite_value, np.nan)
+
+
+def non_numeric_to_nan(array: np.ndarray) -> np.ndarray:
+    dtype = array.dtype
+    if np.issubdtype(dtype, np.number):
+        return array
+    elif dtype.type is np.object_:
+        array = np.where(is_number_value_vectorized(array),
+                         array,
+                         np.nan)
+        return array.astype(np.float64)
+    # not numeric nor object => all non-numeric
+    else:
+        return np.full(array.shape, np.nan, dtype=np.float64)
+
+
+def ensure_numeric_array(array: la.Array) -> la.Array:
+    dtype = array.dtype
+    if np.issubdtype(dtype, np.number):
+        return array
+    else:
+        return la.Array(
+            non_numeric_to_nan(array.data),
+            axes=array.axes
+        )
 
 
 # only used in LArray adapter. it should use the same code path as the rest
