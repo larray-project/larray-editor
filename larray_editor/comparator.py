@@ -1,13 +1,14 @@
 import numpy as np
-import larray as la
 import pandas as pd
+import larray as la
+from larray.core.array import align_arrays
 
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QSplitter, QHBoxLayout,
                             QLabel, QCheckBox, QLineEdit, QComboBox, QMessageBox)
 
 from larray_editor.arrayadapter import ensure_numeric_array
-from larray_editor.utils import _, print_exception, align_arrays
+from larray_editor.utils import _, print_exception
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor.editor import AbstractEditorWindow
 
