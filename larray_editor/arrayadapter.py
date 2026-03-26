@@ -1095,6 +1095,8 @@ class DirectoryPathAdapter(AbstractColumnarAdapter):
 @adapter_for('pathlib.Path')
 def get_path_suffix_adapter(fpath):
     logger.debug(f"get_path_suffix_adapter('{fpath}')")
+    if not fpath.exists():
+        return f"Path '{fpath}' does not exist"
     suffix = fpath.suffix.lower()
     if suffix in PATH_SUFFIX_ADAPTERS:
         path_adapter_cls, required_module = PATH_SUFFIX_ADAPTERS[suffix]

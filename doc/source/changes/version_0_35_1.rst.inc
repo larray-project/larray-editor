@@ -66,6 +66,9 @@ Fixes
   relative difference" label were always wrong and the comparison failed
   completely when the first array was an object array containing any 0 value.
 
+* do not try to display Path objects which point to a file or directory which
+  does not exist (closes :editor_issue:`317`).
+
 * fixed the mechanism writing warning/error messages happening during the
   editor initialization. The errors are now correctly written in the user
   TEMP directory / larray-editor-stderr.log
