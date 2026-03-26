@@ -2848,6 +2848,8 @@ class PyTablesFileAdapter(AbstractColumnarAdapter):
     _COLNAMES = ['Name']
 
     def __init__(self, data, attributes):
+        if not data.isopen:
+            raise ValueError('file is already closed')
         super().__init__(data=data, attributes=attributes)
 
     def shape2d(self):
