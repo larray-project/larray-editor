@@ -1805,8 +1805,11 @@ class XlsxPathAdapter(WorkbookAdapter):
     def close(self):
         self.data.close()
 
-
-none_to_empty_string = np.vectorize(lambda v: v if v is not None else '')
+# we need to specify otypes explicitly here because otherwise np.vectorize
+# will use the type of the first value (e.g. int64) for the resulting array and that breaks if it
+# cannot hold subsequent values
+none_to_empty_string = np.vectorize(lambda v: v if v is not None else '',
+                                    otypes=[object])
 
 
 @adapter_for('larray.inout.xw_excel.Sheet')

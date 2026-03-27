@@ -69,6 +69,9 @@ Fixes
 * do not try to display Path objects which point to a file or directory which
   does not exist (closes :editor_issue:`317`).
 
+* fixed (Excel) Sheet objects being only partially displayed when
+  the first value contains a number but other values contain text.
+
 * fixed the mechanism writing warning/error messages happening during the
   editor initialization. The errors are now correctly written in the user
   TEMP directory / larray-editor-stderr.log
