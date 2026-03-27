@@ -40,9 +40,13 @@ def update_version_in_json_used_by_menuinst(build_dir, release_name, package_nam
     with open(menuinst_file) as mf:
         data = json.load(mf)
     menu_items = data['menu_items']
-    for i, menu_item in enumerate(menu_items):
-        if 'webbrowser' in menu_item:
-            menu_items[i]['webbrowser'] = f'http://larray.readthedocs.io/en/{version}'
+    for menu_item in menu_items:
+        # command is required
+        command = menu_item['command']
+        for arg_num, arg_text in enumerate(command):
+            if arg_text.startswith('https://larray.readthedocs.io/en/'):
+                command[arg_num] = f'https://larray.readthedocs.io/en/{version}'
+                break
     with open(menuinst_file, mode='w') as mf:
         json.dump(data, mf, indent=4)
 
