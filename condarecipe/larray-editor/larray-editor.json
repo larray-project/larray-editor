@@ -42,7 +42,7 @@
                 "{{ BASE_PYTHONW }}",
                 "-m",
                 "webbrowser",
-                "http://larray.readthedocs.io/en/0.35"
+                "https://larray.readthedocs.io/en/0.35"
             ],
             "icon": "{{ MENU_DIR }}/larray-help.ico",
             "platforms": {
