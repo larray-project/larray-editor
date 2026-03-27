@@ -4,7 +4,7 @@ Change log
 Version 0.35.1
 ==============
 
-In development.
+Released on 2026-03-27.
 
 .. include:: ./changes/version_0_35_1.rst.inc
 
