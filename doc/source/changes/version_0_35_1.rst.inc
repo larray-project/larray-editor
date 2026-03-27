@@ -48,9 +48,10 @@ Fixes
 
 * fixed displaying DataFrames with Pandas >= 3 (closes :editor_issue:`308`).
 
-* fixed some objects not being updated immediately when updated. This includes
-  updates to Pandas DataFrames done via `df.loc[key] = value` and
-  `df.iloc[position] = value` (closes :editor_issue:`310`).
+* fixed some objects not being immediately visually updated after they are
+  modified in the console. This includes updates to Pandas DataFrames done via
+  `df.loc[key] = value` and `df.iloc[position] = value`
+  (closes :editor_issue:`310`).
 
 * fixed File Explorer on Python 3.9 (closes :editor_issue:`300`).
 
