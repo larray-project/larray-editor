@@ -46,7 +46,7 @@
             ],
             "icon": "{{ MENU_DIR }}/larray-help.ico",
             "platforms": {
-              "win": {}
+                "win": {}
             }
         },
         {
@@ -65,7 +65,7 @@
                 "larrayenv"
             ],
             "platforms": {
-              "win": {}
+                "win": {}
             }
         }
     ]
