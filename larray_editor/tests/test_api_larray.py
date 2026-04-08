@@ -1,5 +1,5 @@
 """Array editor test"""
-
+from datetime import date, time, datetime, timedelta
 import importlib
 import array
 import logging
@@ -342,11 +342,20 @@ def test_run_editor_on_exception(local_arr):
 
 # test_run_editor_on_exception(arr2)
 def make_test_df(size, offset=0):
+    one_minute = timedelta(minutes=1)
+    midnight_today = datetime.combine(date.today(), time(0, 0))
+    def int_to_dt(i):
+        return midnight_today + one_minute * i
+
+    def int_to_str(i):
+        return f'name{i}'
+
     return pd.DataFrame({
-        'name': la.sequence(size, initial=offset).apply(lambda i: f'name{i}').to_series(),
+        'name': la.sequence(size, initial=offset).apply(int_to_str).to_series(),
         'age': la.random.randint(0, 105, axes=size).to_series(),
         'male': (la.random.randint(0, 2, axes=size) == 1).to_series(),
-        'height': la.random.normal(1.75, 0.07, axes=size).to_series()
+        'height': la.random.normal(1.75, 0.07, axes=size).to_series(),
+        'date': la.random.randint(0, size, axes=size).apply(int_to_dt).to_series()
     })
 
 pd_df_mixed = make_test_df(100_000)
