@@ -1914,6 +1914,7 @@ class PandasDataFrameAdapter(AbstractColumnarAdapter):
             return [self._ensure_numpy_array(index.values)]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
+        pd = sys.modules['pandas']
         # Sadly, as of Pandas 2.2.3, the previous version of this code:
         #     df.iloc[v_start:v_stop, h_start:h_stop].values
         # first copies all mentioned columns in their entirety, then take the
@@ -1924,6 +1925,11 @@ class PandasDataFrameAdapter(AbstractColumnarAdapter):
         df = self.sorted_data
         columns = [df.iloc[:, i].values for i in range(h_start, h_stop)]
         chunks = [col[v_start:v_stop] for col in columns]
+        if any(chunk.dtype.kind == 'M' for chunk in chunks):
+            chunks = [pd.DatetimeIndex(chunk).to_pydatetime()
+                      if chunk.dtype.kind == 'M' else chunk
+                      for chunk in chunks]
+
         try:
             return np.stack(chunks, axis=1)
         except np.exceptions.DTypePromotionError:
@@ -2943,7 +2949,6 @@ class PyTablesPandasFrameAdapter(AbstractColumnarAdapter):
             self._cached_string_blocks = None
             self._column_source = None
             self._num_columns = data.block0_values.shape[1]
-
 
     def shape2d(self):
         return self._num_rows, self._num_columns

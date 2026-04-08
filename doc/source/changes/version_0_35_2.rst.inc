@@ -38,4 +38,5 @@ Miscellaneous improvements
 Fixes
 ^^^^^
 
-* fixed something (closes :editor_issue:`1`).
+* fixed displaying datetime columns in Pandas DataFrame
+  (closes :editor_issue:`328`).
