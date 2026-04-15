@@ -3044,6 +3044,8 @@ class PyTablesPandasFrameAdapter(AbstractColumnarAdapter):
 @adapter_for('tables.Group')
 def dispatch_pytables_group_to_adapter(data):
     # distinguish between "normal" pytables Group and Pandas frames
+    if not data._v_isopen:
+        return 'File is closed'
     attrs = data._v_attrs
     if hasattr(attrs, 'pandas_type') and attrs.pandas_type == 'frame':
         return PyTablesPandasFrameAdapter
