@@ -2314,6 +2314,22 @@ class PyArrowTableAdapter(AbstractColumnarAdapter):
             return np.stack(np_columns, axis=1, dtype=object)
 
 
+def _polars_frame_to_2d_seq(chunk):
+    # We do not go via Pandas, which is a tad easier because it requires both
+    # Pandas and pyarrow installed
+    dtypes = chunk.dtypes
+    dt0 = dtypes[0]
+    homogeneous_dtypes = all(dt == dt0 for dt in dtypes[1:])
+    if homogeneous_dtypes:
+        return chunk.to_numpy()
+    else:
+        # For mixed dtypes, we go via a structured array to avoid casting
+        # everything to a single type (e.g. datetime column to float)
+        struct_arr = chunk.to_numpy(structured=True)
+        assert struct_arr.ndim == 1
+        return [list(row_data) for row_data in struct_arr]
+
+
 @adapter_for('polars.DataFrame')
 @adapter_for('narwhals.DataFrame')
 class PolarsDataFrameAdapter(AbstractColumnarAdapter):
@@ -2330,11 +2346,8 @@ class PolarsDataFrameAdapter(AbstractColumnarAdapter):
         return [self.sorted_data.columns[start:stop]]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        # Going via Pandas instead of directly using to_numpy() because this
-        # has a better behavior for datetime columns (e.g. pl_df3).
-        # Otherwise, Polars converts datetimes to floats instead using a numpy
-        # object array
-        return self.sorted_data[v_start:v_stop, h_start:h_stop].to_pandas().values
+        chunk = self.sorted_data[v_start:v_stop, h_start:h_stop]
+        return _polars_frame_to_2d_seq(chunk)
 
     def can_sort_hlabel(self, row_idx, col_idx):
         return True
@@ -2425,13 +2438,9 @@ class PolarsLazyFrameAdapter(AbstractColumnarAdapter):
     def get_values(self, h_start, v_start, h_stop, v_stop):
         lf = self.sorted_data
         row_subset = lf[v_start:v_stop]
-        subset = row_subset.select(self._columns[h_start:h_stop])
-        df = subset.collect(engine='streaming')
-        # Going via Pandas instead of directly using to_numpy() because this
-        # has a better behavior for datetime columns (e.g. pl_df3).
-        # Otherwise, Polars converts datetimes to floats instead using a numpy
-        # object array
-        return df.to_pandas().values
+        subset_query = row_subset.select(self._columns[h_start:h_stop])
+        chunk = subset_query.collect(engine='streaming')
+        return _polars_frame_to_2d_seq(chunk)
 
     def can_sort_hlabel(self, row_idx, col_idx):
         return True
