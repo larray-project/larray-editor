@@ -2410,6 +2410,86 @@ class PolarsDataFrameAdapter(AbstractColumnarAdapter):
         return df
 
 
+@adapter_for('polars.Series')
+@adapter_for('narwhals.Series')
+class PolarsSeriesAdapter(AbstractAdapter):
+    def __init__(self, data, attributes):
+        super().__init__(data, attributes=attributes)
+        self.filtered_data = data
+        self.sorted_data = data
+        self._unq_values_per_column = {}
+
+    def shape2d(self):
+        return len(self.sorted_data), 1
+
+    def get_hlabels_values(self, start, stop):
+        return [[self.data.name]]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        return self.sorted_data[v_start:v_stop].to_numpy()[:, np.newaxis]
+
+    def can_sort_hlabel(self, row_idx, col_idx):
+        return True
+
+    def sort_hlabel(self, row_idx, col_idx, ascending):
+        self._current_sort = [(1, col_idx, ascending)]
+        self.sorted_data = self._sort_data(self.filtered_data)
+
+    def _sort_data(self, data):
+        for axis_idx, col_idx, ascending in self._current_sort:
+            assert axis_idx == 1
+            assert col_idx == 0
+            data = data.sort(descending=not ascending)
+        return data
+
+    def can_filter_hlabel(self, row_idx, col_idx) -> bool:
+        return True
+
+    def get_filter_options(self, filter_idx):
+        assert filter_idx == 0
+        if filter_idx in self._unq_values_per_column:
+            return self._unq_values_per_column[filter_idx]
+        else:
+            s = self.data
+            s.unique().top_k(MAX_FILTER_OPTIONS).sort().to_numpy()
+            unq_values = s.unique().sort().limit(MAX_FILTER_OPTIONS).to_numpy()
+            self._unq_values_per_column[filter_idx] = unq_values
+            return unq_values
+
+    def update_filter(self, filter_idx, indices):
+        """Update current filter for a given axis if labels selection from the array widget has changed
+
+        Parameters
+        ----------
+        filter_idx : int
+             Index of filter (axis) for which selection has changed.
+        indices: list of int
+            Indices of selected labels.
+        """
+        # only allow filtering a single columns for now (by not keeping previous
+        # filters)
+        if not indices:
+            indices = list(range(len(self.get_filter_options(filter_idx))))
+        self.current_filter = cur_filter = {filter_idx: indices}
+        self.filtered_data = self._filter_data(self.data, cur_filter)
+        self.sorted_data = self._sort_data(self.filtered_data)
+        if self.attributes is not None:
+            # FIXME: need to sort attributes too
+            self.filtered_attributes = {k: self._filter_data(v, cur_filter)
+                                        for k, v in self.attributes.items()}
+
+    def _filter_data(self, data, cur_filter):
+        s = data
+        if not cur_filter:
+            return s
+        assert len(cur_filter) == 1
+        assert 0 in cur_filter
+        filtered_indices = cur_filter[0]
+        col_unq_values = self._unq_values_per_column[0]
+        filtered_values = col_unq_values[filtered_indices]
+        return s.filter(s.is_in(filtered_values))
+
+
 @adapter_for('polars.LazyFrame')
 class PolarsLazyFrameAdapter(AbstractColumnarAdapter):
     def __init__(self, data, attributes):
