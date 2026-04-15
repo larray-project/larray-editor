@@ -47,3 +47,6 @@ Fixes
 
 * fixed displaying Pandas 3+ DataFrame and Series when pyarrow is not installed
   (closes :editor_issue:`322`).
+
+* fixed displaying Polars *Frame when pyarrow is not installed
+  (closes :editor_issue:`324`).
