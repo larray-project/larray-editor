@@ -896,15 +896,19 @@ class MappingEditorWindow(AbstractEditorWindow):
         # Inplace modified arrays should be already handled in ipython_cell_executed by the setitem_pattern.
         changed_keys = [k for k in keys_after if value[k] is not self.data.get(k)]
 
-        # when a key is re-assigned, it can switch from being displayable to non-displayable or vice versa
-        displayable_keys_before = {k for k in keys_before if self._display_in_varlist(k, self.data[k])}
+        # when a key is re-assigned, it can switch from being displayable to
+        # non-displayable or vice versa so computing displayable_keys_before via
+        # display_in_varlist() is NOT what we need. We need the keys which were
+        # actually displayed before
+        displayed_keys_before = {self._listwidget.item(i).text()
+                                 for i in range(self._listwidget.count())}
         displayable_keys_after = {k for k in keys_after if self._display_in_varlist(k, value[k])}
-        deleted_displayable_keys = displayable_keys_before - displayable_keys_after
-        new_displayable_keys = displayable_keys_after - displayable_keys_before
-        # this can contain more keys than new_displayble_keys (because of existing keys which changed value)
+        deleted_displayable_keys = displayed_keys_before - displayable_keys_after
+        new_displayable_keys = displayable_keys_after - displayed_keys_before
+        # this can contain more keys than new_displayable_keys (because of existing keys which changed value)
         changed_displayable_keys = [k for k in changed_keys if self._display_in_varlist(k, value[k])]
 
-        # 1) update session/mapping
+        # 1) update session/mapping (whether displayable or not)
         # a) deleted old keys
         for k in keys_before - keys_after:
             del self.data[k]
@@ -988,7 +992,7 @@ class MappingEditorWindow(AbstractEditorWindow):
         # anyway (any called function can modify any array), short of hashing
         # the content of all variables and checking which ones actually
         # changed, which would be too slow when working with large arrays.
-        # At least this is predicatable.
+        # At least this is predictable.
         # last_input can be an empty string (e.g. when running ipython_cell_executed() manually)
         last_input_last_line = last_input.splitlines()[-1].strip() if last_input else ''
 
