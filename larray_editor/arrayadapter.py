@@ -2852,13 +2852,12 @@ class IbisTableAdapter(AbstractColumnarAdapter):
 
 
 # TODO: reuse NumpyStructuredArrayAdapter
-@adapter_for('tables.File')
 class PyTablesFileAdapter(AbstractColumnarAdapter):
     _COLNAMES = ['Name']
 
     def __init__(self, data, attributes):
         if not data.isopen:
-            raise ValueError('file is already closed')
+            raise ValueError('File is already closed')
         super().__init__(data=data, attributes=attributes)
 
     def shape2d(self):
@@ -2875,6 +2874,13 @@ class PyTablesFileAdapter(AbstractColumnarAdapter):
     def cell_activated(self, row_idx, column_idx):
         groups = self.data.list_nodes('/')
         return groups[row_idx]
+
+
+@adapter_for('tables.File')
+def dispatch_pytables_file_adapter(data):
+    if not data.isopen:
+        return 'File is closed'
+    return PyTablesFileAdapter
 
 
 class PyTablesGroupAdapter(AbstractColumnarAdapter):
