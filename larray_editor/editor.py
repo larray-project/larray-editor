@@ -857,9 +857,14 @@ class MappingEditorWindow(AbstractEditorWindow):
 
     def delete_list_item(self, to_delete):
         deleted_items = self._listwidget.findItems(to_delete, Qt.MatchExactly)
-        if len(deleted_items) == 1:
-            deleted_item_idx = self._listwidget.row(deleted_items[0])
-            self._listwidget.takeItem(deleted_item_idx)
+        # normally there should be exactly one item to delete (and we initially
+        # tested for len == 1) because there should not be any duplicate named
+        # items but if, for some reason, we do have some duplicates, it is
+        # better to delete them all than not delete any
+        if len(deleted_items) >= 1:
+            for deleted_item in deleted_items:
+                item_idx = self._listwidget.row(deleted_item)
+                self._listwidget.takeItem(item_idx)
 
     def display_item_in_new_window(self, list_item):
         assert isinstance(list_item, QListWidgetItem)
