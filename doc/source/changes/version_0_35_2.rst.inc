@@ -40,3 +40,7 @@ Fixes
 
 * fixed displaying datetime columns in Pandas DataFrame
   (closes :editor_issue:`328`).
+
+* remove no longer displayable variables from the variable list (for example,
+  when a variable represents an open file and the file is closed).
+  Closes :editor_issue:`327`).
