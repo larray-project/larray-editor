@@ -1094,6 +1094,16 @@ class MappingEditorWindow(AbstractEditorWindow):
             assert isinstance(selected_item, QListWidgetItem)
             name = str(selected_item.text())
             array = self.data[name]
+
+            # This test is only necessary for the very rare case where several
+            # items in the list become undisplayable by the same console
+            # command. Since the selection_changed signal is fired for each of
+            # them, it tries to select the next item, which could be one of
+            # the newly undisplayable item, which results in an error if we
+            # try to display it.
+            if not self._display_in_grid(array):
+                return
+
             self.set_current_array(array, name)
             expr = self.expressions.get(name, name)
             if qtconsole_available:
