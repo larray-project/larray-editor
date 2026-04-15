@@ -69,6 +69,8 @@ name).
         self.update_completer_options({})
 
     def update_completer_options(self, data=None, selected=None):
+        import polars as pl
+
         if data is not None:
             data = self._filter_data_for_sql(data)
             if selected is not None and self._handled_by_polars_sql(selected):
@@ -101,7 +103,13 @@ name).
         # add column names from all the used tables or self, if present
         col_names_set = set()
         for table_name in table_names_to_fetch_columns:
-            col_names_set.update(set(data[table_name].collect_schema().names()))
+            table = data[table_name]
+            if isinstance(table, (pl.DataFrame, pl.LazyFrame)):
+                col_names_set.update(set(table.collect_schema().names()))
+            elif isinstance(table, pl.Series):
+                # series act as a single column tables
+                if table.name:
+                    col_names_set.add(table.name)
         col_names = sorted(col_names_set)
 
         logger.debug(f"available columns for SQL queries: {col_names}")
