@@ -1964,7 +1964,12 @@ class PandasDataFrameAdapter(AbstractColumnarAdapter):
             assert isinstance(df, pd.DataFrame)
 
             col_values = df.iloc[:, filter_idx]
+            assert isinstance(col_values, pd.Series)
             unique_values = col_values.unique()
+            if not isinstance(unique_values, np.ndarray):
+                # for some kinds of columns (eg. datetime), unique() returns a
+                # pandas ExtensionArray instead of a numpy array
+                unique_values = unique_values.to_numpy()
             unique_values.sort()
             unq_values = unique_values[:MAX_FILTER_OPTIONS]
             self._unq_values_per_column[filter_idx] = unq_values

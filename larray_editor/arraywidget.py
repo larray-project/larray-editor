@@ -157,7 +157,17 @@ class FilterBar(QWidget):
             self.change_filter(filter_idx, checked_items)
 
         combo = FilterComboBox(self)
-        combo.addItems([str(label) for label in filter_labels])
+        # TODO: mandate/assert that get_filter_options returns
+        #       a sequence of strings instead of doing the conversion here.
+        #       we use indices/positions to filter anyway
+        if (isinstance(filter_labels, np.ndarray) and
+                filter_labels.dtype.kind == 'M'):
+            # for datetime labels str(label) returns the integer
+            filter_labels = filter_labels.astype(str).tolist()
+        else:
+            filter_labels = [str(label) for label in filter_labels]
+
+        combo.addItems(filter_labels)
         combo.checked_items_changed.connect(filter_changed)
         return combo
 
@@ -826,8 +836,15 @@ class LabelsView(AbstractView):
 
         if filtrable:
             filter_labels = adapter.get_filter_options(global_col_idx)
-            if len(filter_labels) == MAX_FILTER_OPTIONS:
+            # TODO: mandate/assert that get_filter_options returns
+            #       a sequence of strings instead of doing the conversion here.
+            #       we use indices/positions to filter anyway
+            if isinstance(filter_labels, np.ndarray):
+                if filter_labels.dtype.kind == 'M':
+                    # for datetime labels str(label) returns the integer
+                    filter_labels = filter_labels.astype(str)
                 filter_labels = filter_labels.tolist()
+            if len(filter_labels) == MAX_FILTER_OPTIONS:
                 filter_labels[-1] = MORE_OPTIONS_NOT_SHOWN
             filter_indices = adapter.get_current_filter_indices(global_col_idx)
             def filter_changed(checked_items):

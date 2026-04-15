@@ -38,7 +38,7 @@ Miscellaneous improvements
 Fixes
 ^^^^^
 
-* fixed displaying datetime columns in Pandas DataFrame
+* fixed displaying and filtering datetime columns in Pandas DataFrame
   (closes :editor_issue:`328`).
 
 * remove no longer displayable variables from the variable list (for example,
