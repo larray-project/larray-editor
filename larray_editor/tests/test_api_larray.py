@@ -431,6 +431,8 @@ try:
     # test with a datetime column and another column
     # the Arrow table has the same problem (e.g. pl_df3.to_arrow())
     pl_df3 = pl_df1.select(pl.from_epoch(pl.col('M')).alias('datetime_col'), 'M').limit(5)
+    pl_series = pl_df1['M']
+
     # these 4 tests require pyarrow but thanks to the ImportError catch below
     # we will not run them if pyarrow is not installed
     pl_df_big = pl.from_pandas(pd_df_big, include_index=True)
