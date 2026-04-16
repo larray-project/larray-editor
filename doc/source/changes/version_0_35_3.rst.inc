@@ -17,14 +17,7 @@ Backward incompatible changes
 New features
 ^^^^^^^^^^^^
 
-* added a feature (see the :ref:`miscellaneous section <misc_editor>` for details).
-
-* added another feature in the editor (closes :editor_issue:`1`).
-
-  .. note::
-
-     - It works for foo bar !
-     - It does not work for foo baz !
+* .json files are now displayed as text.
 
 
 .. _misc_editor:

@@ -3604,6 +3604,7 @@ TEXT_FILE_SUFFIXES = (
     '.htm',   # web
     '.html',  # web
     '.ini',
+    '.json',
     '.log',
     '.md',
     '.py',
