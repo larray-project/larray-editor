@@ -38,4 +38,5 @@ Miscellaneous improvements
 Fixes
 ^^^^^
 
-* fixed something (closes :editor_issue:`1`).
+* fixed displaying arrays and DataFrames stored in HDF (.h5) files when their labels
+  are of mixed types (e.g. both strings and numbers) (closes :editor_issue:`330`).

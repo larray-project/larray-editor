@@ -3006,6 +3006,9 @@ class PyTablesPandasFrameAdapter(AbstractColumnarAdapter):
         # data.block0_values.shape[0] is not always correct (if multiblocks)
         if attrs.axis1_variety == 'multi':
             self._num_rows = data.axis1_label0.shape[0]
+        elif data.axis1._v_attrs.kind == 'object':
+            # stored as a (pickled) single-element list of numpy array
+            self._num_rows = len(data.axis1.read()[0])
         else:
             self._num_rows = data.axis1.shape[0]
 
@@ -3067,8 +3070,16 @@ class PyTablesPandasFrameAdapter(AbstractColumnarAdapter):
         attrs = group._v_attrs
         if getattr(attrs, f'axis{axis_num}_variety') == 'regular':
             axis_node = group._f_get_child(f'axis{axis_num}')
-            labels = axis_node[start:stop].reshape(1, -1)
             kind = axis_node._v_attrs.kind
+            if kind == 'object':
+                # assume it was saved as a (pickled) single-element list of
+                # numpy array
+                obj_data = axis_node.read()
+                assert len(obj_data) == 1
+                labels = obj_data[0][start:stop]
+            else:
+                labels = axis_node[start:stop]
+            labels = labels.reshape(1, -1)
             if kind == 'string' and self._encoding is not None:
                 labels = np.char.decode(labels, encoding=self._encoding)
         else:
