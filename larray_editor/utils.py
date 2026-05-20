@@ -328,7 +328,7 @@ class LinearGradient:
         else:
             key = np.asarray(key)
 
-            # this should never happen, but lets be robust to buggy code
+            # this should never happen, but let us be robust to buggy code
             key = np.where((key < 0) | (key > 1), np.nan, key)
 
             # for positions [0, 0.5, 1], this will yield:
@@ -623,7 +623,7 @@ def _allow_interrupt(prepare_notifier, handle_sigint):
     from running and processing signals (i.e., to raise a KeyboardInterrupt).
     To solve this, one needs to somehow wake up the interpreter and make it
     close the plot window.  We do this by using the signal.set_wakeup_fd()
-    function which organizes a write of the signal number into a socketpair.
+    function which organizes writing the signal number into a socketpair.
     A backend-specific function, *prepare_notifier*, arranges to listen to
     the pair's read socket while the event loop is running.  (If it returns a
     notifier object, that object is kept alive while the context manager runs.)
@@ -923,7 +923,7 @@ def list_drives():
 
 
 def common_ancestor(paths):
-    """Compute the common ancestor directory of a iterable of Path objects."""
+    """Compute the common ancestor directory of an iterable of Path objects."""
     try:
         absolute_paths = [p.resolve() for p in paths if p.exists()]
         return Path(os.path.commonpath(absolute_paths))
