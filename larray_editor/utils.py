@@ -39,7 +39,7 @@ except ImportError:
 from larray.util.misc import Product
 
 # field is field_name + conversion if any
-M_SPECIFIER_PATTERN = re.compile(r'\{(?P<field>[^:}]*):(?P<format_spec>[^m}]*)m\}')
+M_SPECIFIER_PATTERN = re.compile(r'\{(?P<field>[^:}]*):(?P<format_spec>[^m}]*)m}')
 ICON_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'images')
 
 logger = logging.getLogger("editor")
@@ -94,14 +94,13 @@ def get_versions(package):
     module_with_version = {'editor': 'larray_editor', 'qt': 'qtpy.QtCore', 'pytables': 'tables'}
 
     versions = {
-        'system': platform.system() if sys.platform != 'darwin' else 'Darwin',
-        'python': platform.python_version(),
-        'bitness': 64 if sys.maxsize > 2**32 else 32,
+        "system": (platform.system() if sys.platform != "darwin" else "Darwin"),
+        "python": platform.python_version(),
+        "bitness": (64 if sys.maxsize > 2**32 else 32),
     }
 
-    versions[package] = get_module_version(module_with_version.get(package, package))
-    for dep in DEPENDENCIES[package]:
-        versions[dep] = get_module_version(module_with_version.get(dep, dep))
+    for pkg in [package] + DEPENDENCIES[package]:
+        versions[pkg] = get_module_version(module_with_version.get(pkg, pkg))
 
     return versions
 
