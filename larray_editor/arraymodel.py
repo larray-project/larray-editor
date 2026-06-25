@@ -487,11 +487,16 @@ class AbstractArrayModel(QAbstractTableModel):
             decoration_data = map_nested_sequence(make_icon, raw_data['decoration'], 2)
             self.processed_data[Qt.DecorationRole] = decoration_data
 
-    def _fetch_data(self, h_start, v_start, h_stop, v_stop):
+    def _fetch_data(self, h_start, v_start, h_stop, v_stop,
+                    shape_rows, shape_cols):
         raise NotImplementedError()
 
     def _get_current_data(self):
-        max_row, max_col = self.adapter.shape2d()
+        # TODO: I think we should make sure all adapters support being asked
+        #       too many rows or columns (and move _check_size on the 
+        #       (abstract)adapters themselves. This would allow us to avoid 
+        #       doing this call (which can be costly in some cases)
+        shape_rows, shape_cols = self.adapter.shape2d()
 
         # TODO: I don't think we should ever *ask* for more rows or columns
         #       than the default, but we should support *receiving* more,
@@ -500,12 +505,17 @@ class AbstractArrayModel(QAbstractTableModel):
         #       is included in what we receive.
         rows_to_ask = max(self.nrows, self.default_buffer_rows)
         cols_to_ask = max(self.ncols, self.default_buffer_cols)
-        h_stop = min(self.h_offset + cols_to_ask, max_col)
-        v_stop = min(self.v_offset + rows_to_ask, max_row)
+
+        # it is NOT correct to do h_stop = min(h_stop, shape_cols) and 
+        # v_stop = min(v_stop, shape_rows) here because it is only valid for 
+        # DataArrayModel
+        h_stop = self.h_offset + cols_to_ask
+        v_stop = self.v_offset + rows_to_ask
         # print(f"asking {rows_to_ask} rows / {cols_to_ask} columns of data ({self.__class__.__name__})")
         try:
             raw_data = self._fetch_data(self.h_offset, self.v_offset,
-                                        h_stop, v_stop)
+                                        h_stop, v_stop,
+                                        shape_rows, shape_cols)
         except Exception as e:
             try:
                 logger.error(f"could not fetch data from adapter:\n"
@@ -529,10 +539,10 @@ class AbstractArrayModel(QAbstractTableModel):
         first_row = values[0] if len(values) else []
         self.ncols = len(first_row) if isinstance(first_row, (tuple, list, np.ndarray)) else 1
         # print(f" > received {self.nrows} rows / {self.ncols} cols")
-        if self.nrows > max_row:
-            print(f"WARNING: received too many rows ({self.nrows} > {max_row})!")
-        if self.ncols > max_col:
-            print(f"WARNING: received too many columns ({self.ncols} > {max_col})!")
+        self._check_size(shape_rows, shape_cols)
+
+    def _check_size(self, shape_rows, shape_cols):
+        raise NotImplementedError("Model must implement _check_size")
 
     def set_bg_gradient(self, bg_gradient):
         if bg_gradient is not None and not isinstance(bg_gradient, LinearGradient):
@@ -627,10 +637,13 @@ class AxesArrayModel(AbstractArrayModel):
         }
         self.flags_defaults = Qt.ItemIsEnabled
 
-    def _fetch_data(self, h_start, v_start, h_stop, v_stop):
-        axes_area = self.adapter.get_axes_area()
-        # print(f"{axes_area=}")
-        return axes_area
+    def _fetch_data(self, h_start, v_start, h_stop, v_stop,
+                    shape_rows, shape_cols):
+        return self.adapter.get_axes_area()
+
+    def _check_size(self, shape_rows, shape_cols):
+        # nothing to check
+        pass
 
     def _value_to_h_align(self, elem_value):
         return Qt.AlignCenter
@@ -682,13 +695,25 @@ class LabelsArrayModel(AbstractArrayModel):
 
 
 class VLabelsArrayModel(LabelsArrayModel):
-    def _fetch_data(self, h_start, v_start, h_stop, v_stop):
+    def _fetch_data(self, h_start, v_start, h_stop, v_stop,
+                    shape_rows, shape_cols):
+        v_stop = min(v_stop, shape_rows)
         return self.adapter.get_vlabels(v_start, v_stop)
+
+    def _check_size(self, shape_rows, shape_cols):
+        if self.nrows > shape_rows:
+            logger.warning(f"received more rows than expected ({self.nrows} > {shape_rows})!")
 
 
 class HLabelsArrayModel(LabelsArrayModel):
-    def _fetch_data(self, h_start, v_start, h_stop, v_stop):
+    def _fetch_data(self, h_start, v_start, h_stop, v_stop,
+                    shape_rows, shape_cols):
+        h_stop = min(h_stop, shape_cols)
         return self.adapter.get_hlabels(h_start, h_stop)
+
+    def _check_size(self, shape_rows, shape_cols):
+        if self.ncols > shape_cols:
+            logger.warning(f"received more columns than expected ({self.ncols} > {shape_cols})!")
 
 
 def seq_broadcast(*seqs):
@@ -828,9 +853,18 @@ class DataArrayModel(AbstractArrayModel):
             # Qt.ToolTipRole:
         }
 
-    def _fetch_data(self, h_start, v_start, h_stop, v_stop):
+    def _fetch_data(self, h_start, v_start, h_stop, v_stop,
+                    shape_rows, shape_cols):
+        h_stop = min(h_stop, shape_cols)
+        v_stop = min(v_stop, shape_rows)
         return self.adapter.get_data_values_and_attributes(h_start, v_start,
                                                            h_stop, v_stop)
+
+    def _check_size(self, shape_rows, shape_cols):
+        if self.nrows > shape_rows:
+            logger.warning(f"received more rows than expected ({self.nrows} > {shape_rows})!")
+        if self.ncols > shape_cols:
+            logger.warning(f"received more columns than expected ({self.ncols} > {shape_cols})!")
 
     # TODO: use ast.literal_eval instead of convert_value?
     # TODO: do this in the adapter
