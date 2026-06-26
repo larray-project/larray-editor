@@ -20,12 +20,14 @@ New features
 * .json files are now displayed as text.
 
 
-.. _misc_editor:
-
 Miscellaneous improvements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* improved something.
+* when hovering over a plot made from the editor interface, the X coordinate shown in the
+  plot window is now the corresponding label(s) (closes :editor_issue:`336`).
+
+* when zooming on such plots, X axis tick labels which were hidden for lack of space can now
+  be shown on the zoomed plot.
 
 
 Fixes

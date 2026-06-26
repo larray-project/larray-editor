@@ -894,6 +894,7 @@ class AbstractAdapter:
         A matplotlib.Figure object.
         """
         from matplotlib.figure import Figure
+        from matplotlib import ticker
 
         # we do not use the axes_names part because the position of axes names is up to the adapter
         _, vlabels, hlabels, raw_data = self.get_axes_labels_and_data_values(row_min, row_max, col_min, col_max)
@@ -918,35 +919,57 @@ class AbstractAdapter:
         ylabels = vlabels
 
         xlabel = self.get_hname()
+        hnames = self.get_hnames()
         ylabel = self.get_vname()
+        vnames = self.get_vnames()
 
         height, width = finite_values.shape
         if width == 1:
             # plot one column
             xlabels, ylabels = ylabels, xlabels
             xlabel, ylabel = ylabel, xlabel
+            hnames, vnames = vnames, hnames
             height, width = width, height
             finite_values = finite_values.T
-
-        # plot each row as a line
-        xticklabels = ['\n'.join(str(label) for label in label_col)
-                       for label_col in xlabels]
-        xdata = np.arange(width)
-        for data_row, ylabels_row in zip(finite_values, ylabels):
-            row_label = ' '.join(str(label) for label in ylabels_row)
-            ax.plot(xdata, data_row, label=row_label)
 
         # set x axis
         if xlabel:
             ax.set_xlabel(xlabel)
+
+        if len(xlabels) == 0:
+            return figure
+
+        xdata = np.arange(width)
+        # plot each row as a line
+        for data_row, ylabels_row in zip(finite_values, ylabels):
+            row_label = " ".join(str(label) for label in ylabels_row)
+            ax.plot(xdata, data_row, label=row_label)
+
         ax.set_xlim((0, width - 1))
-        # we need to do that because matplotlib is smart enough to
-        # not show all ticks but a selection. However, that selection
-        # may include ticks outside the range of x axis
-        xticks = [t for t in ax.get_xticks().astype(int) if t < len(xticklabels)]
-        xticklabels = [xticklabels[t] for t in xticks]
-        ax.set_xticks(xticks)
-        ax.set_xticklabels(xticklabels)
+        tick_locator = ticker.MaxNLocator(integer=True, min_n_ticks=1)
+        ax.xaxis.set_major_locator(tick_locator)
+
+        def format_tick_label(val, pos):
+            idx = int(round(val))
+            if 0 <= idx < len(xlabels):
+                # xlabel is a "column" of labels
+                x_label = xlabels[idx]
+                return "\n".join(str(label) for label in x_label)
+            return ""
+
+        tick_formatter = ticker.FuncFormatter(format_tick_label)
+        ax.xaxis.set_major_formatter(tick_formatter)
+
+        # use custom formatter so that the x coordinate shown when hovering
+        # on the plot window is the x label
+        def format_coord(x_val, y_val):
+            idx = int(round(x_val))
+            xlabel = xlabels[idx] if 0 <= idx < len(xlabels) else []
+            formatted_xlabel = ", ".join(f"{str(hname)}={str(label)}"
+                                         for hname, label
+                                         in zip(hnames, xlabel))
+            return f"{formatted_xlabel}, y={y_val:g}"
+        ax.format_coord = format_coord
 
         # add legend
         all_empty_labels = all(not label for yrow in ylabels for label in yrow)
