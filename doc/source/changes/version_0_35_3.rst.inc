@@ -38,3 +38,7 @@ Fixes
 
 * fixed displaying arrays and DataFrames stored in HDF (.h5) files when their labels
   are of mixed types (e.g. both strings and numbers) (closes :editor_issue:`330`).
+
+* fixed variables defined in a multi-line console command not appearing in the variable
+  list when the last line of that command modified an existing variable
+  (closes :editor_issue:`334`).

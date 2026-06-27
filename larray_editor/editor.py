@@ -1006,31 +1006,24 @@ class MappingEditorWindow(AbstractEditorWindow):
         # last command. Which means that if the last command did not produce any output, _ is not modified.
         cur_output = user_ns['_oh'].get(cur_input_num)
 
-        # matches both setitem and setattr
+        # We check for mapping updates systematically since this is a
+        # relatively cheap operation and we can have new variables even in the
+        # "update variable" or "simple variable name" cases because of multi
+        # line inputs
+        varname = self.update_mapping_and_varlist(clean_ns)
+
+        # matches simple assignments, setitem and setattr
         update_variable_match = UPDATE_VARIABLE_PATTERN.match(last_input_last_line)
         if update_variable_match is not None:
             parts = update_variable_match.groupdict()
             varname = parts['variable']
-            if all(parts[name] is None for name in ('attribute', 'subset', 'inplaceop')):
-                # simple variable assignment => could be a new variable
-                #                            => must update mapping and varlist
-                # this returns the changed variable. While in most cases this
-                # will be the same as varname, it can be different if the
-                # assignment failed (changed_var is None) or there were
-                # several changed variables
-                self.update_mapping_and_varlist(clean_ns)
-
         # simple variable name (only)
         elif last_input_last_line in clean_ns:
             varname = last_input_last_line
-        # any other statement
+        # for any other statement, we rely on update_mapping_and_varlist
+        # above to give us the changed variable
         else:
-            # any statement can contain a call to a function which adds or
-            # removes globals.
-            # This gives the name of the first changed array. Changed in this
-            # context is either newly defined, or assigned to a new object
-            # (arrays changed via setitem are *NOT* picked up here).
-            varname = self.update_mapping_and_varlist(clean_ns)
+            pass
 
         # Can we display the output?
         if (varname is not None and
