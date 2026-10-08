@@ -1,3 +1,6 @@
+import datetime as dt
+import warnings
+
 from larray_editor.arrayadapter import get_adapter
 from larray_editor.tests.adapters.common import adapter_values, needs_polars
 
@@ -13,3 +16,23 @@ def test_polars_lazyframe_filter():
     assert adapter_values(adapter) == [['', 'a'],
                                        [0, 1],
                                        [1, 1]]
+
+
+@needs_polars
+def test_polars_filter_datetime_column():
+    import polars
+
+    jan1 = dt.datetime(2024, 1, 1)
+    df = polars.DataFrame({'d': [jan1, dt.datetime(2024, 1, 2), jan1]})
+    for obj in [df, df.lazy()]:
+        adapter = get_adapter(obj)
+        assert len(adapter.get_filter_options(0)) == 2
+        # polars emits some warnings from Rust code which cannot be turned
+        # into errors, so we need to record them
+        with warnings.catch_warnings(record=True) as recorded_warnings:
+            warnings.simplefilter('always')
+            adapter.update_filter(0, [0])
+        assert not recorded_warnings
+        assert adapter_values(adapter) == [['', 'd'],
+                                           [0, jan1],
+                                           [1, jan1]]

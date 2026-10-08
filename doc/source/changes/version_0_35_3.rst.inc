@@ -55,6 +55,9 @@ Fixes
 * the results of expressions are now displayed read-only. Modifying their values failed
   (closes :editor_issue:`155`).
 
+* fixed filtering date and time columns of Polars DataFrames and LazyFrames (e.g. Parquet
+  files) (closes :editor_issue:`292`).
+
 * fixed displaying DuckDB connections and relations with DuckDB 1.4 or later.
 
 * fixed Polars DataFrames and Series being displayed as generic collections when passed directly

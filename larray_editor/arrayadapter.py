@@ -2436,14 +2436,14 @@ class PolarsDataFrameAdapter(AbstractColumnarAdapter):
         return True
 
     def get_filter_options(self, filter_idx):
-        if filter_idx in self._unq_values_per_column:
-            return self._unq_values_per_column[filter_idx]
-        else:
+        if filter_idx not in self._unq_values_per_column:
             df = self.data
             column = df.get_column(df.columns[filter_idx])
-            unq_values = column.unique().sort().limit(MAX_FILTER_OPTIONS).to_numpy()
+            # keep polars values (and convert them on each call) because
+            # numpy datetimes cannot be used to filter (with is_in)
+            unq_values = column.unique().sort().limit(MAX_FILTER_OPTIONS)
             self._unq_values_per_column[filter_idx] = unq_values
-            return unq_values
+        return self._unq_values_per_column[filter_idx].to_numpy()
 
     def update_filter(self, filter_idx, indices):
         """Update current filter for a given axis if labels selection from the array widget has changed
@@ -2475,7 +2475,8 @@ class PolarsDataFrameAdapter(AbstractColumnarAdapter):
             col_name = columns[col_idx]
             col_unq_values = self._unq_values_per_column[col_idx]
             filtered_values = col_unq_values[filtered_indices]
-            df = df.filter(pl.col(col_name).is_in(filtered_values))
+            # is_in with a Series of the same type is deprecated in polars
+            df = df.filter(pl.col(col_name).is_in(filtered_values.to_list()))
         return df
 
 
@@ -2516,14 +2517,13 @@ class PolarsSeriesAdapter(AbstractAdapter):
 
     def get_filter_options(self, filter_idx):
         assert filter_idx == 0
-        if filter_idx in self._unq_values_per_column:
-            return self._unq_values_per_column[filter_idx]
-        else:
+        if filter_idx not in self._unq_values_per_column:
             s = self.data
             s.unique().top_k(MAX_FILTER_OPTIONS).sort().to_numpy()
-            unq_values = s.unique().sort().limit(MAX_FILTER_OPTIONS).to_numpy()
-            self._unq_values_per_column[filter_idx] = unq_values
-            return unq_values
+            # keep polars values (and convert them on each call) because
+            # numpy datetimes cannot be used to filter (with is_in)
+            self._unq_values_per_column[filter_idx] = s.unique().sort().limit(MAX_FILTER_OPTIONS)
+        return self._unq_values_per_column[filter_idx].to_numpy()
 
     def update_filter(self, filter_idx, indices):
         """Update current filter for a given axis if labels selection from the array widget has changed
@@ -2556,7 +2556,8 @@ class PolarsSeriesAdapter(AbstractAdapter):
         filtered_indices = cur_filter[0]
         col_unq_values = self._unq_values_per_column[0]
         filtered_values = col_unq_values[filtered_indices]
-        return s.filter(s.is_in(filtered_values))
+        # is_in with a Series of the same type is deprecated in polars
+        return s.filter(s.is_in(filtered_values.to_list()))
 
 
 @adapter_for('polars.LazyFrame')
@@ -2609,9 +2610,7 @@ class PolarsLazyFrameAdapter(AbstractColumnarAdapter):
         return True
 
     def get_filter_options(self, filter_idx):
-        if filter_idx in self._unq_values_per_column:
-            return self._unq_values_per_column[filter_idx]
-        else:
+        if filter_idx not in self._unq_values_per_column:
             lf = self.data
             colname = self._columns[filter_idx]
             query = (lf.select(colname)
@@ -2619,9 +2618,10 @@ class PolarsLazyFrameAdapter(AbstractColumnarAdapter):
                        .sort(colname)
                        .limit(MAX_FILTER_OPTIONS))
             unq_values_df = query.collect(engine='streaming')
-            unq_values = unq_values_df[:, 0].to_numpy()
-            self._unq_values_per_column[filter_idx] = unq_values
-            return unq_values
+            # keep polars values (and convert them on each call) because
+            # numpy datetimes cannot be used to filter (with is_in)
+            self._unq_values_per_column[filter_idx] = unq_values_df[:, 0]
+        return self._unq_values_per_column[filter_idx].to_numpy()
 
     def update_filter(self, filter_idx, indices):
         """Update current filter for a given axis if labels selection from the array widget has changed
@@ -2658,7 +2658,8 @@ class PolarsLazyFrameAdapter(AbstractColumnarAdapter):
             col_name = columns[col_idx]
             col_unq_values = self._unq_values_per_column[col_idx]
             filtered_values = col_unq_values[filtered_indices]
-            df = df.filter(pl.col(col_name).is_in(filtered_values))
+            # is_in with a Series of the same type is deprecated in polars
+            df = df.filter(pl.col(col_name).is_in(filtered_values.to_list()))
         return df
 
 
@@ -2730,9 +2731,7 @@ class NarwhalsLazyFrameAdapter(PolarsLazyFrameAdapter):
         return data.with_row_index('_index', order_by=None)
 
     def get_filter_options(self, filter_idx):
-        if filter_idx in self._unq_values_per_column:
-            return self._unq_values_per_column[filter_idx]
-        else:
+        if filter_idx not in self._unq_values_per_column:
             lf = self.data
             colname = self._columns[filter_idx]
             query = (lf.select(colname)
@@ -2741,9 +2740,10 @@ class NarwhalsLazyFrameAdapter(PolarsLazyFrameAdapter):
                        # narwhals does not support .limit() on LazyFrame
                        .head(MAX_FILTER_OPTIONS))
             unq_values_df = query.collect(engine='streaming')
-            unq_values = unq_values_df[:, 0].to_numpy()
-            self._unq_values_per_column[filter_idx] = unq_values
-            return unq_values
+            # keep narwhals values (and convert them on each call) because
+            # numpy datetimes cannot be used to filter (with is_in)
+            self._unq_values_per_column[filter_idx] = unq_values_df[:, 0]
+        return self._unq_values_per_column[filter_idx].to_numpy()
 
     # overridden just to use nw.len() instead of pl.len()
     def update_filter(self, filter_idx, indices):
@@ -2769,7 +2769,8 @@ class NarwhalsLazyFrameAdapter(PolarsLazyFrameAdapter):
             col_name = columns[col_idx]
             col_unq_values = self._unq_values_per_column[col_idx]
             filtered_values = col_unq_values[filtered_indices]
-            df = df.filter(nw.col(col_name).is_in(filtered_values))
+            # is_in with a Series of the same type is deprecated in polars
+            df = df.filter(nw.col(col_name).is_in(filtered_values.to_list()))
         return df
 
 
