@@ -1052,20 +1052,13 @@ class DataView(AbstractView):
 
     def selectNewRow(self, buffer_v_pos: int):
         assert isinstance(buffer_v_pos, int)
-        # if not MultiSelection mode activated, selectRow will unselect previously
-        # selected rows (unless SHIFT or CTRL key is pressed)
-
-        # this produces a selection with multiple QItemSelectionRange.
-        # We could merge them here, but it is easier to handle in selection_bounds
-        self.setSelectionMode(QTableView.MultiSelection)
-        # do not call self.selectRow to avoid updating first_selection_corner
-        super().selectRow(buffer_v_pos)
-        self.setSelectionMode(QTableView.ContiguousSelection)
-
         model = self.model()
         total_v_size, total_h_size = model.adapter.shape2d()
         global_v_pos = model.v_offset + buffer_v_pos
         self.second_selection_corner = (global_v_pos, total_h_size - 1)
+        # selecting the new row alone (in MultiSelection mode) would toggle it
+        # instead of deselecting rows when going back
+        self._select_between_corners()
 
     def selectColumn(self, buffer_h_pos: int):
         assert isinstance(buffer_h_pos, int)
@@ -1078,20 +1071,27 @@ class DataView(AbstractView):
 
     def selectNewColumn(self, buffer_h_pos: int):
         assert isinstance(buffer_h_pos, int)
-
-        # if not MultiSelection mode activated, selectColumn will unselect previously
-        # selected columns (unless SHIFT or CTRL key is pressed)
-        # this produces a selection with multiple QItemSelectionRange. We could merge them here, but it is
-        # easier to handle in selection_bounds
-        self.setSelectionMode(QTableView.MultiSelection)
-        # do not call self.selectColumn to avoid updating first_selection_corner
-        super().selectColumn(buffer_h_pos)
-        self.setSelectionMode(QTableView.ContiguousSelection)
-
         model = self.model()
         total_v_size, total_h_size = model.adapter.shape2d()
         global_h_pos = model.h_offset + buffer_h_pos
         self.second_selection_corner = (total_v_size - 1, global_h_pos)
+        # selecting the new column alone (in MultiSelection mode) would toggle
+        # it instead of deselecting columns when going back
+        self._select_between_corners()
+
+    def _select_between_corners(self):
+        """Select the (buffer) cells between the two selection corners"""
+        model = self.model()
+        v_pos1, h_pos1 = self.first_selection_corner
+        v_pos2, h_pos2 = self.second_selection_corner
+        # we need to clip local coordinates in case the selection corners are outside the viewport
+        local_top = max(min(v_pos1, v_pos2) - model.v_offset, 0)
+        local_left = max(min(h_pos1, h_pos2) - model.h_offset, 0)
+        local_bottom = min(max(v_pos1, v_pos2) - model.v_offset, model.nrows - 1)
+        local_right = min(max(h_pos1, h_pos2) - model.h_offset, model.ncols - 1)
+        selection = QItemSelection(model.index(local_top, local_left),
+                                   model.index(local_bottom, local_right))
+        self.selectionModel().select(selection, QItemSelectionModel.ClearAndSelect)
 
     def selectAll(self):
         super().selectAll()

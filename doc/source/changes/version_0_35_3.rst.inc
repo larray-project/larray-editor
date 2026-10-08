@@ -88,6 +88,9 @@ Fixes
   object is displayed. They were kept open, which prevented renaming or deleting them on
   Windows while the editor was open.
 
+* fixed the selection when dragging the mouse on row or column labels and going back
+  (closes :editor_issue:`107`).
+
 * groups are now displayed as their labels. In particular, a group with a single string
   label was displayed as a sequence of characters (closes :editor_issue:`314`).
 
