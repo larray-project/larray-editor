@@ -72,3 +72,6 @@ Fixes
   without any row.
 
 * fixed displaying DataFrames (and other tables) without any column.
+
+* the labels of arrays with an empty axis are now displayed (the labels of all axes were
+  missing).

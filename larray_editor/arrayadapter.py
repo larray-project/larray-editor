@@ -1705,10 +1705,9 @@ class LArrayArrayAdapter(AbstractAdapter):
 
     def get_vlabels_values(self, start, stop):
         axes = self.filtered_data.axes
-        # test data.size == 0 is required in case an instance built as Array([]) is passed
         # test len(axes) == 0 is required when a user filters until getting a scalar (because in that case size is 1)
         # TODO: store this in the adapter
-        if axes.size == 0 or len(axes) == 0:
+        if len(axes) == 0:
             return [[]]
         elif len(axes) <= self.num_axes_to_display_horizontally:
             # all axes are horizontal => a single empty vlabel
@@ -1724,10 +1723,9 @@ class LArrayArrayAdapter(AbstractAdapter):
 
     def get_hlabels_values(self, start, stop):
         axes = self.filtered_data.axes
-        # test data.size == 0 is required in case an instance built as Array([]) is passed
         # test len(axes) == 0 is required when a user filters until to get a scalar
         # TODO: store this in the adapter
-        if axes.size == 0 or len(axes) == 0:
+        if len(axes) == 0:
             return [[]]
         elif not self.num_axes_to_display_horizontally:
             # all axes are vertical => a single empty hlabel
