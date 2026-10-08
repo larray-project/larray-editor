@@ -78,6 +78,14 @@ def test_edit_without_console():
     assert editor.data['arr'].i[0, 0] == 100
 
 
+def test_edit_string_value():
+    editor = create_editor(la.Session(arr=la.Array(['a', 'b'], 'x=x0,x1')))
+    editor.select_list_item('arr')
+    model = editor.array_widget.model_data
+    model.setData(model.index(0, 0), 'c')
+    assert editor.data['arr'].i[0] == 'c'
+
+
 @needs_qtconsole
 def test_undo_updates_color_scale():
     editor = create_editor(la.Session(arr=la.ndtest((2, 3))))

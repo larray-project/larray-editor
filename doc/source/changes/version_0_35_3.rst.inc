@@ -49,6 +49,8 @@ Fixes
   another object, because the command (e.g. a function call) could have modified it
   (closes :editor_issue:`335`).
 
+* fixed modifying string values with numpy >= 2 (an error was displayed).
+
 * fixed modifying values when the Python console is disabled or unavailable (the editor
   crashed).
 

@@ -887,7 +887,7 @@ class DataArrayModel(AbstractArrayModel):
                 return bool(float(value))
             except ValueError:
                 return value.lower() == "true"
-        elif dtype.name.startswith("string") or dtype.name.startswith("unicode"):
+        elif dtype.kind in "SU":
             return str(value)
         elif is_float_dtype(dtype):
             return float(value)
