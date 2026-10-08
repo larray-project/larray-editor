@@ -4,9 +4,9 @@ import types
 import numpy as np
 import pandas as pd
 
-from larray_editor.arrayadapter import (AbstractAdapter, get_adapter_creator, register_adapter,
-                                        update_registered_adapter_types, REGISTERED_ADAPTERS,
-                                        REGISTERED_ADAPTERS_USING_STRINGS)
+from larray_editor.arrayadapter import (AbstractAdapter, get_adapter, get_adapter_creator,
+                                        register_adapter, update_registered_adapter_types,
+                                        REGISTERED_ADAPTERS, REGISTERED_ADAPTERS_USING_STRINGS)
 from larray_editor.tests.adapters.common import adapter_values
 
 
@@ -60,3 +60,18 @@ def test_no_column():
     assert adapter_values(df_without_column) == [[None],
                                                  [1],
                                                  [2]]
+
+
+def test_close_opened_file(tmp_path):
+    fpath = tmp_path / 'test.txt'
+    fpath.write_text('a')
+
+    # files the adapter itself opens must be closed
+    adapter = get_adapter(fpath)
+    adapter.close()
+    assert adapter.data.closed
+
+    # files given (already opened) to the adapter must be left open
+    with open(fpath) as f:
+        get_adapter(f).close()
+        assert not f.closed

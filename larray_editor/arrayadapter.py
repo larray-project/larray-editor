@@ -272,8 +272,7 @@ def get_adapter(data, attributes=None):
     assert adapter_creator is not None
     if isinstance(adapter_creator, str):
         raise TypeError(adapter_creator)
-    resource_handle = adapter_creator.open(data)
-    return adapter_creator(resource_handle, attributes)
+    return adapter_creator.create(data, attributes)
 
 
 def nd_shape_to_2d(shape, num_h_axes=1):
@@ -338,6 +337,9 @@ def nd_shape_to_2d(shape, num_h_axes=1):
 #     pass
 
 class AbstractAdapter:
+    # whether close() must close data (see create)
+    _must_close_data = False
+
     # TODO: we should have a way to provide other attributes: format, readonly, font (problematic for colwidth),
     #       align, tooltips, flags?, min_value, max_value (for the delegate), ...
     #       I guess data itself will need to be a dict: {'values': ...}
@@ -414,6 +416,15 @@ class AbstractAdapter:
         return self.get_values(h_start, v_start, h_stop, v_stop)
 
     @classmethod
+    def create(cls, data, attributes=None):
+        """Create an adapter for data, opening the resources it needs"""
+        resource_handle = cls.open(data)
+        adapter = cls(resource_handle, attributes)
+        # the adapter must close what it opened (but not what it was given)
+        adapter._must_close_data = resource_handle is not data
+        return adapter
+
+    @classmethod
     def open(cls, data):
         """Open the ressources used by the adapter
 
@@ -423,7 +434,8 @@ class AbstractAdapter:
 
     def close(self):
         """Close the ressources used by the adapter"""
-        pass
+        if self._must_close_data and hasattr(self.data, 'close'):
+            self.data.close()
 
     def _is_chunk_cached(self, h_start, v_start, h_stop, v_stop):
         cached_fragment = self._cached_fragment
@@ -1839,9 +1851,6 @@ class XlsxPathAdapter(WorkbookAdapter):
     @classmethod
     def open(cls, fpath):
         return la.open_excel(fpath)
-
-    def close(self):
-        self.data.close()
 
 # we need to specify otypes explicitly here because otherwise np.vectorize
 # will use the type of the first value (e.g. int64) for the resulting array and that breaks if it
@@ -3331,9 +3340,6 @@ class H5PathAdapter(PyTablesFileAdapter):
     def open(cls, fpath):
         tables = sys.modules['tables']
         return tables.open_file(fpath)
-
-    def close(self):
-        self.data.close()
 
 
 # TODO: options to display as hex or decimal

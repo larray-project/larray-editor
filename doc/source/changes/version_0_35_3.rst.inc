@@ -73,5 +73,9 @@ Fixes
 
 * fixed displaying DataFrames (and other tables) without any column.
 
+* files opened to display them (text, CSV, zip, DuckDB, ... files) are now closed when another
+  object is displayed. They were kept open, which prevented renaming or deleting them on
+  Windows while the editor was open.
+
 * the labels of arrays with an empty axis are now displayed (the labels of all axes were
   missing).
