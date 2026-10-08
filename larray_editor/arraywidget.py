@@ -1892,7 +1892,7 @@ class ArrayEditorWidget(QWidget):
         self.model_vlabels.set_adapter(self.data_adapter)
         self.model_data.set_adapter(self.data_adapter)
 
-    def set_data(self, data, attributes=None, frac_digits=None):
+    def set_data(self, data, attributes=None, frac_digits=None, readonly=False):
         # get new adapter instance + set data
         # TODO: add a mechanism that adapters can use to tell whether they support a
         #       particular *instance* of a data structure. This should probably be a
@@ -1903,6 +1903,7 @@ class ArrayEditorWidget(QWidget):
         if data_adapter is None:
             return
         self.data = data
+        self.model_data.readonly = self.readonly or readonly
         self.set_data_adapter(data_adapter, frac_digits)
 
     def close(self):

@@ -1147,7 +1147,10 @@ class MappingEditorWindow(AbstractEditorWindow):
         self.current_array = array
         array_widget = self.array_widget
         array_widget.back_button_bar.clear()
-        array_widget.set_data(array)
+        # only variables can be modified: the result of an expression has
+        # nowhere to store the modifications
+        readonly = self.data.get(expr_text) is not array
+        array_widget.set_data(array, readonly=readonly)
         self.current_expr_text = expr_text
         self.update_title()
 

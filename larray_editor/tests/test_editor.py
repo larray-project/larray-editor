@@ -58,3 +58,12 @@ def test_readonly_editor():
     assert not model.flags(index) & Qt.ItemIsEditable
     assert not model.setData(index, '42')
     assert editor.data['arr'].i[0, 0] == 0
+
+
+def test_expression_readonly():
+    editor = create_editor(la.Session(arr=la.ndtest((2, 3))))
+    model = editor.array_widget.model_data
+    editor.view_expr(editor.data['arr'] + 1, 'arr + 1')
+    assert not model.flags(model.index(0, 0)) & Qt.ItemIsEditable
+    editor.select_list_item('arr')
+    assert model.flags(model.index(0, 0)) & Qt.ItemIsEditable
