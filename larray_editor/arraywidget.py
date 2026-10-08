@@ -1892,6 +1892,18 @@ class ArrayEditorWidget(QWidget):
         self.model_vlabels.set_adapter(self.data_adapter)
         self.model_data.set_adapter(self.data_adapter)
 
+    def refresh_data(self):
+        """Fetch and display the data again (e.g. after it was modified)"""
+        # the modified values can change the color scale
+        self.data_adapter.reset_min_max()
+        self.model_data._get_current_data()
+        # FIXME: a full reset is both wasteful, and causes hidden scrollbars
+        #        to jump back to 0 after each cell change, which is very
+        #        annoying. We have an awful workaround for this in
+        #        ArrayDelegate.setModelData but the issue should still be fixed
+        #        properly
+        self.model_data.reset()
+
     def set_data(self, data, attributes=None, frac_digits=None, readonly=False):
         # get new adapter instance + set data
         # TODO: add a mechanism that adapters can use to tell whether they support a

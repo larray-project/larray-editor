@@ -67,3 +67,16 @@ def test_expression_readonly():
     assert not model.flags(model.index(0, 0)) & Qt.ItemIsEditable
     editor.select_list_item('arr')
     assert model.flags(model.index(0, 0)) & Qt.ItemIsEditable
+
+
+@needs_qtconsole
+def test_undo_updates_color_scale():
+    editor = create_editor(la.Session(arr=la.ndtest((2, 3))))
+    editor.select_list_item('arr')
+    model = editor.array_widget.model_data
+    max_cell = model.index(1, 2)
+    max_cell_color = model.data(max_cell, Qt.BackgroundRole)
+    model.setData(model.index(0, 0), '100')
+    assert model.data(max_cell, Qt.BackgroundRole) != max_cell_color
+    editor.edit_undo_stack.undo()
+    assert model.data(max_cell, Qt.BackgroundRole) == max_cell_color

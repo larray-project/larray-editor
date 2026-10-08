@@ -432,6 +432,11 @@ class AbstractAdapter:
         attribute and passed as argument to the adapter class"""
         return data
 
+    def reset_min_max(self):
+        """Forget the minimum and maximum values seen so far (which define colors)"""
+        self.vmin = None
+        self.vmax = None
+
     def close(self):
         """Close the ressources used by the adapter"""
         if self._must_close_data and hasattr(self.data, 'close'):
@@ -1014,6 +1019,10 @@ class AbstractColumnarAdapter(AbstractAdapter):
 
     def __init__(self, data, attributes=None):
         super().__init__(data, attributes)
+        self.vmin = {}
+        self.vmax = {}
+
+    def reset_min_max(self):
         self.vmin = {}
         self.vmax = {}
 

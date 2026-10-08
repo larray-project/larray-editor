@@ -49,6 +49,9 @@ Fixes
   another object, because the command (e.g. a function call) could have modified it
   (closes :editor_issue:`335`).
 
+* background colors are now updated when values are modified, including by undo/redo
+  (closes :editor_issue:`159`).
+
 * the results of expressions are now displayed read-only. Modifying their values failed
   (closes :editor_issue:`155`).
 

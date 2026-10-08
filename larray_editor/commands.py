@@ -62,18 +62,15 @@ class EditObjectCommand(QUndoCommand):
     def undo(self):
         for change in self.changes:
             self.apply_change(change.key, change.old_value)
-        # FIXME: a full reset is bad, see comment below
-        self.editor.array_widget.model_data.reset()
+        self.refresh_data()
 
     def redo(self):
         for change in self.changes:
             self.apply_change(change.key, change.new_value)
-        # FIXME: a full reset is both wasteful, and causes hidden scrollbars
-        #        to jump back to 0 after each cell change, which is very
-        #        annoying. We have an awful workaround for this in
-        #        ArrayDelegate.setModelData but the issue should still be fixed
-        #        properly
-        self.editor.array_widget.model_data.reset()
+        self.refresh_data()
+
+    def refresh_data(self):
+        self.editor.array_widget.refresh_data()
 
     def get_description(self, target, changes):
         raise NotImplementedError()
