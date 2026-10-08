@@ -1048,9 +1048,12 @@ class MappingEditorWindow(AbstractEditorWindow):
             #       scientific & ndigits, which is not always what we want for
             #       setitem on the current array.
             self.select_list_item(varname)
-        elif cur_output is not None:
-            if self._display_in_grid(cur_output):
-                self.view_expr(cur_output, last_input_last_line)
+        elif cur_output is not None and self._display_in_grid(cur_output):
+            self.view_expr(cur_output, last_input_last_line)
+        # any command (e.g. a function call) can modify the current object
+        elif (self.current_array is not None and
+                self._display_in_grid(self.current_array)):
+            self.set_current_array(self.current_array, self.current_expr_text)
 
         # This should *NOT* be combined in the "elif cur_output is not None"
         # block above because this can happen in the first "if" branch too

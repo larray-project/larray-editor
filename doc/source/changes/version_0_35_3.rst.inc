@@ -42,6 +42,10 @@ Fixes
 * fixed spurious "received too many columns" warnings displayed in the console, notably
   when using :py:obj:`compare()` (closes :editor_issue:`333`).
 
+* the displayed object is now refreshed after any console command which does not display
+  another object, because the command (e.g. a function call) could have modified it
+  (closes :editor_issue:`335`).
+
 * fixed displaying arrays and DataFrames stored in HDF (.h5) files when their labels
   are of mixed types (e.g. both strings and numbers) (closes :editor_issue:`330`).
 
