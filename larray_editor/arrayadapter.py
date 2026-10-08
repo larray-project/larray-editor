@@ -397,15 +397,15 @@ class AbstractAdapter:
         """
         Return the values of the cells in the given range (*_stop are excluded).
 
-        Adapters do not need to support being asked for zero rows (see
-        _fetch_values).
+        Adapters do not need to support being asked for zero rows or columns
+        (see _fetch_values).
         """
         return self.get_chunk_from_data(self.data, h_start, v_start, h_stop, v_stop)
 
     def _fetch_values(self, h_start, v_start, h_stop, v_stop):
-        """get_values, without asking it for zero rows"""
-        if v_stop == v_start:
-            return np.empty((0, h_stop - h_start), dtype=object)
+        """get_values, without asking it for zero rows or columns"""
+        if v_stop == v_start or h_stop == h_start:
+            return np.empty((v_stop - v_start, h_stop - h_start), dtype=object)
         return self.get_values(h_start, v_start, h_stop, v_stop)
 
     @classmethod

@@ -58,3 +58,5 @@ Fixes
 
 * fixed displaying empty HDF (.h5) files (closes :editor_issue:`325`) and Feather files
   without any row.
+
+* fixed displaying DataFrames (and other tables) without any column.
