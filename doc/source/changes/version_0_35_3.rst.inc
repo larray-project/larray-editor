@@ -46,6 +46,9 @@ Fixes
   another object, because the command (e.g. a function call) could have modified it
   (closes :editor_issue:`335`).
 
+* fixed displaying DataFrames stored in HDF (.h5) files which contain only string columns, or
+  which contain string columns and were written using Pandas >= 3.
+
 * fixed displaying arrays and DataFrames stored in HDF (.h5) files when their labels
   are of mixed types (e.g. both strings and numbers) (closes :editor_issue:`330`).
 

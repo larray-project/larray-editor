@@ -3085,6 +3085,8 @@ class AbstractPyTablesPandasAdapter(AbstractColumnarAdapter):
 
 class PyTablesPandasFrameAdapter(AbstractPyTablesPandasAdapter):
     def __init__(self, data, attributes):
+        import tables
+
         super().__init__(data=data, attributes=attributes)
         attrs = data._v_attrs
         assert hasattr(attrs, 'nblocks')
@@ -3108,36 +3110,47 @@ class PyTablesPandasFrameAdapter(AbstractPyTablesPandasAdapter):
         else:
             self._num_rows = data.axis1.shape[0]
 
-        if nblocks > 1:
-            import tables
+        # This is very unfortunate but we cannot slice VLArray blocks (object
+        # or string columns) on disk because they are stored as a single blob.
+        # We load the full block and keep it cached in memory so that we do
+        # not reload the whole block on each scroll.
+        # Blocks are 2D (rows x columns), except string columns stored by
+        # Pandas >= 3, which use one 1D block per column.
+        self._blocks = [node.read()[0] if isinstance(node, tables.VLArray) else node
+                        for node in self._block_values_nodes]
 
-            axis_node = data._f_get_child('axis0')
-            col_names = axis_node.read().tolist()
+        if nblocks > 1:
+            col_names = self._read_items(data.axis0).tolist()
             # {col_idx: (block_idx, idx_in_block)}
             column_source = {}
-            cached_string_blocks = {}
             for block_idx in range(nblocks):
-                block_values_node = data._f_get_child(f'block{block_idx}_values')
-                block_items = data._f_get_child(f'block{block_idx}_items').read()
-
-                if isinstance(block_values_node, tables.VLArray):
-                    # This is very unfortunate but we cannot slice those blocks
-                    # on disk because they are stored as a single blob
-                    # We load the full block and kept it cached in
-                    # memory so that we do not reload the whole block on each
-                    # scroll
-                    block_values = block_values_node.read()[0]
-                    cached_string_blocks[block_idx] = block_values
-                for idx_in_block, col_name in enumerate(block_items):
+                block_items_node = data._f_get_child(f'block{block_idx}_items')
+                block_items = self._read_items(block_items_node)
+                for idx_in_block, col_name in enumerate(block_items.tolist()):
                     col_idx = col_names.index(col_name)
                     column_source[col_idx] = (block_idx, idx_in_block)
-            self._cached_string_blocks = cached_string_blocks
             self._column_source = column_source
             self._num_columns = len(column_source)
         else:
-            self._cached_string_blocks = None
             self._column_source = None
-            self._num_columns = data.block0_values.shape[1]
+            block = self._blocks[0]
+            self._num_columns = block.shape[1] if block.ndim == 2 else 1
+
+    def _read_items(self, node) -> np.ndarray:
+        """
+        Read all items (labels) stored by Pandas in a PyTables node of the group.
+
+        Object items are stored as a (pickled) single-element list of numpy array
+        and string items as bytes.
+        """
+        import tables
+
+        if isinstance(node, tables.VLArray):
+            return node.read()[0]
+        items = node.read()
+        if node._v_attrs.kind == 'string' and self._encoding is not None:
+            items = np.char.decode(items, encoding=self._encoding)
+        return items
 
     def shape2d(self):
         return self._num_rows, self._num_columns
@@ -3155,22 +3168,22 @@ class PyTablesPandasFrameAdapter(AbstractPyTablesPandasAdapter):
         return self._get_index_labels('axis1', start, stop).transpose()
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        data = self.data
-        attrs = data._v_attrs
-        if attrs.nblocks == 1:
-            return data.block0_values[v_start:v_stop, h_start:h_stop]
+        if self._column_source is None:
+            block = self._blocks[0]
+            if block.ndim == 1:
+                return block[v_start:v_stop].reshape(-1, 1)[:, h_start:h_stop]
+            return block[v_start:v_stop, h_start:h_stop]
         else:
-            import tables
-            block_nodes = self._block_values_nodes
             # TODO: for performance, we should probably read all columns from
             #       the same block at once
             np_columns = []
             for col_idx in range(h_start, h_stop):
                 block_idx, idx_in_block = self._column_source[col_idx]
-                block_node = block_nodes[block_idx]
-                if isinstance(block_node, tables.VLArray):
-                    block_node = self._cached_string_blocks[block_idx]
-                chunk = block_node[v_start:v_stop, idx_in_block]
+                block = self._blocks[block_idx]
+                if block.ndim == 1:
+                    chunk = block[v_start:v_stop]
+                else:
+                    chunk = block[v_start:v_stop, idx_in_block]
                 np_columns.append(chunk)
 
             return np.stack(np_columns, axis=1, dtype=object)
