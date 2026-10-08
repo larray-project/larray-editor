@@ -47,3 +47,14 @@ def test_refresh_current_object_modified_by_function():
     run_command(editor, "def update():\n    arr['a1'] = 0")
     run_command(editor, "update()")
     assert displayed_value(editor, 1, 0) == '0'
+
+
+def test_readonly_editor():
+    session = la.Session(arr=la.ndtest((2, 3)))
+    editor = create_editor(session, readonly=True)
+    editor.select_list_item('arr')
+    model = editor.array_widget.model_data
+    index = model.index(0, 0)
+    assert not model.flags(index) & Qt.ItemIsEditable
+    assert not model.setData(index, '42')
+    assert editor.data['arr'].i[0, 0] == 0

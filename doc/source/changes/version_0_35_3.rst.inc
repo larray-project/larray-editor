@@ -39,6 +39,9 @@ Fixes
 * fixed opening files whose path contains spaces via the Windows file association
   (closes :editor_issue:`332`).
 
+* read-only editor windows, such as those opened by :py:obj:`view()`, are read-only again
+  (values could be modified since version 0.35).
+
 * fixed spurious "received too many columns" warnings displayed in the console, notably
   when using :py:obj:`compare()` (closes :editor_issue:`333`).
 

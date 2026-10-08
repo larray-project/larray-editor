@@ -1410,7 +1410,8 @@ class ArrayEditorWidget(QWidget):
         self.model_vlabels = VLabelsArrayModel(parent=self) #, readonly=readonly)
         self.view_vlabels = LabelsView(parent=self, model=self.model_vlabels, hpos=LEFT, vpos=BOTTOM)
 
-        self.model_data = DataArrayModel(parent=self) #, readonly=readonly, minvalue=minvalue, maxvalue=maxvalue)
+        self.model_data = DataArrayModel(parent=self, readonly=readonly)
+                                         #, minvalue=minvalue, maxvalue=maxvalue)
         self.view_data = DataView(parent=self, model=self.model_data)
 
         self.font_metrics = FontMetrics(self.model_data)

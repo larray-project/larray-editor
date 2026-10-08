@@ -181,6 +181,7 @@ class AbstractArrayModel(QAbstractTableModel):
     """
     default_buffer_rows = 40
     default_buffer_cols = 40
+    readonly = False
 
     def __init__(self, parent=None, adapter=None):
         QAbstractTableModel.__init__(self)
@@ -444,7 +445,10 @@ class AbstractArrayModel(QAbstractTableModel):
                                                format_and_values,
                                                ndim=2)
 
-        editable = raw_data.get('editable', [[False]])
+        # self.readonly is about the window (e.g. opened by view() or displaying
+        # an expression), while 'editable' is about the data (whether the adapter
+        # can modify it), so values are only editable if both allow it
+        editable = [[False]] if self.readonly else raw_data.get('editable', [[False]])
 
         assert_at_least_2d_or_empty(editable)
 
@@ -843,9 +847,10 @@ class DataArrayModel(AbstractArrayModel):
 
     newChanges = Signal(dict)
 
-    def __init__(self, parent=None, adapter=None):
-        # readonly=False, format="%.3f", font=None):
+    def __init__(self, parent=None, adapter=None, readonly=False):
+        # format="%.3f", font=None):
         AbstractArrayModel.__init__(self, parent, adapter)
+        self.readonly = readonly
         default_font = get_default_font()
         self.role_defaults = {
             Qt.TextAlignmentRole: int(Qt.AlignRight | Qt.AlignVCenter),
@@ -954,6 +959,8 @@ class DataArrayModel(AbstractArrayModel):
             actual bounds (end bound is inclusive) if update was successful,
             None otherwise
         """
+        if self.readonly:
+            return None
         values = self.convert_values(values)
         if values is None:
             return
