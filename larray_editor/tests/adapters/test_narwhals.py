@@ -15,3 +15,22 @@ def test_narwhals_series_filter():
     assert adapter_values(adapter) == [['', 'a'],
                                        [0, 3],
                                        [1, 3]]
+
+
+@needs_narwhals
+@needs_polars
+def test_narwhals_dataframe():
+    import narwhals
+    import polars
+
+    df = narwhals.from_native(polars.DataFrame({'a': [3, 1, 3], 'b': ['x', 'y', 'z']}))
+    adapter = get_adapter(df)
+    assert adapter_values(adapter) == [['', 'a', 'b'],
+                                       [0, 3, 'x'],
+                                       [1, 1, 'y'],
+                                       [2, 3, 'z']]
+    assert adapter.get_filter_options(0).tolist() == [1, 3]
+    adapter.update_filter(0, [1])
+    assert adapter_values(adapter) == [['', 'a', 'b'],
+                                       [0, 3, 'x'],
+                                       [1, 3, 'z']]

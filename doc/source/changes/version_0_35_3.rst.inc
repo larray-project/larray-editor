@@ -107,6 +107,8 @@ Fixes
 
 * filtering Polars objects on missing values (null) now works (it selected nothing).
 
+* fixed displaying narwhals DataFrames with columns of different types and filtering them.
+
 * fixed filtering narwhals Series.
 
 * fixed a performance warning displayed when filtering Polars LazyFrames (e.g. Parquet

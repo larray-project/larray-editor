@@ -2401,7 +2401,6 @@ def _polars_frame_to_2d_seq(chunk):
 
 
 @adapter_for('polars.DataFrame')
-@adapter_for('narwhals.DataFrame')
 class PolarsDataFrameAdapter(AbstractColumnarAdapter):
     def __init__(self, data, attributes):
         super().__init__(data, attributes=attributes)
@@ -2442,7 +2441,7 @@ class PolarsDataFrameAdapter(AbstractColumnarAdapter):
             column = df.get_column(df.columns[filter_idx])
             # keep polars values (and convert them on each call) because
             # numpy datetimes cannot be used to filter (with is_in)
-            unq_values = column.unique().sort().limit(MAX_FILTER_OPTIONS)
+            unq_values = column.unique().sort().head(MAX_FILTER_OPTIONS)
             self._unq_values_per_column[filter_idx] = unq_values
         return self._unq_values_per_column[filter_idx].to_numpy()
 
@@ -2481,6 +2480,37 @@ class PolarsDataFrameAdapter(AbstractColumnarAdapter):
             # is_in does not match nulls
             if filtered_values.null_count():
                 expr |= pl.col(col_name).is_null()
+            df = df.filter(expr)
+        return df
+
+
+@adapter_for('narwhals.DataFrame')
+class NarwhalsDataFrameAdapter(PolarsDataFrameAdapter):
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        chunk = self.sorted_data[v_start:v_stop, h_start:h_stop]
+        dtypes = list(chunk.schema.values())
+        if all(dtype == dtypes[0] for dtype in dtypes[1:]):
+            return chunk.to_numpy()
+        # narwhals does not support converting to a structured array, so we
+        # convert each column separately (to avoid casting all values to a
+        # single type)
+        columns = [chunk.get_column(name).to_numpy() for name in chunk.columns]
+        return np.stack(columns, axis=1, dtype=object)
+
+    # overridden just to use nw.col() instead of pl.col()
+    def _filter_data(self, data, cur_filter):
+        nw = sys.modules['narwhals']
+        df = data
+        columns = df.columns
+        for col_idx, filtered_indices in cur_filter.items():
+            col_name = columns[col_idx]
+            col_unq_values = self._unq_values_per_column[col_idx]
+            filtered_values = col_unq_values[filtered_indices]
+            # is_in with a Series of the same type is deprecated in polars
+            expr = nw.col(col_name).is_in(filtered_values.to_list())
+            # is_in does not match nulls
+            if filtered_values.null_count():
+                expr |= nw.col(col_name).is_null()
             df = df.filter(expr)
         return df
 
