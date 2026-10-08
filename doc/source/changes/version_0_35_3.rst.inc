@@ -58,6 +58,9 @@ Fixes
 * fixed filtering date and time columns of Polars DataFrames and LazyFrames (e.g. Parquet
   files) (closes :editor_issue:`292`).
 
+* the scrollbars of filtered Pandas DataFrames now take the filter into account (it was
+  possible to scroll past the filtered rows, to empty rows).
+
 * fixed displaying DuckDB connections and relations with DuckDB 1.4 or later.
 
 * fixed Polars DataFrames and Series being displayed as generic collections when passed directly

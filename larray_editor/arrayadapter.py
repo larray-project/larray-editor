@@ -1940,7 +1940,7 @@ class PandasDataFrameAdapter(AbstractColumnarAdapter):
         self._unq_values_per_column = {}
 
     def shape2d(self):
-        return self.data.shape
+        return self.sorted_data.shape
 
     def num_v_axes(self):
         return self.data.index.nlevels
