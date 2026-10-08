@@ -49,6 +49,10 @@ Fixes
 * fixed Polars DataFrames and Series being displayed as generic collections when passed directly
   to :py:obj:`edit()` or :py:obj:`view()` (e.g. ``edit(df)``).
 
+* fixed displaying pyarrow Tables. They could not be displayed at all unless the pyarrow.parquet
+  module was imported, and even then, not the first time one was passed directly to
+  :py:obj:`edit()` or :py:obj:`view()`.
+
 * subclasses of supported types (e.g. of numpy arrays) are now displayed like their parent class
   instead of as generic collections.
 

@@ -31,6 +31,8 @@ def test_adapter_registered_using_string():
     fake_lib.Table = FakeTable
     sys.modules['fake_lib'] = fake_lib
     try:
+        # a type in a submodule which is not loaded must not prevent finding the others
+        register_adapter('fake_lib.not_loaded.Other', AbstractAdapter)
         register_adapter('fake_lib.Table', FakeTableAdapter)
         table = FakeTable()
         assert get_adapter_creator(table) is FakeTableAdapter

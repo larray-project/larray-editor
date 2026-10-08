@@ -195,11 +195,12 @@ def get_adapter_creator_for_type(data_type): # -> AbstractAdapter | func | None:
     # handle string types
     if data_type_top_module_name in REGISTERED_ADAPTERS_USING_STRINGS:
         assert data_type_top_module_name in sys.modules
-        module = sys.modules[data_type_top_module_name]
+        top_module = sys.modules[data_type_top_module_name]
         module_adapters = REGISTERED_ADAPTERS_USING_STRINGS[data_type_top_module_name]
         # register all adapters for that module using concrete types (instead
         # of string types)
         for str_adapter_type, adapter in list(module_adapters.items()):
+            module = top_module
             # submodule
             type_name = str_adapter_type
             while '.' in type_name and module is not None:
