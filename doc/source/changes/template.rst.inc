@@ -17,7 +17,7 @@ Backward incompatible changes
 New features
 ^^^^^^^^^^^^
 
-* added a feature (see the :ref:`miscellaneous section <misc_editor>` for details).
+* added a feature (see the :ref:`miscellaneous section <misc_editor_for_this_version>` for details).
 
 * added another feature in the editor (closes :editor_issue:`1`).
 
@@ -27,7 +27,7 @@ New features
      - It does not work for foo baz !
 
 
-.. _misc_editor:
+.. _misc_editor_for_this_version:
 
 Miscellaneous improvements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
