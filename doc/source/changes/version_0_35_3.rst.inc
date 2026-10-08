@@ -83,6 +83,8 @@ Fixes
   list when the last line of that command modified an existing variable
   (closes :editor_issue:`334`).
 
+* fixed displaying time durations (timedelta), e.g. columns of DataFrames.
+
 * fixed displaying empty HDF (.h5) files (closes :editor_issue:`325`) and Feather files
   without any row.
 

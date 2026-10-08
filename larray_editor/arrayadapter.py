@@ -1403,7 +1403,8 @@ def get_finite_numeric_values(array: np.ndarray) -> np.ndarray:
         finite_value = non_numeric_to_nan(finite_value)
     elif np.issubdtype(dtype, np.bool_):
         finite_value = finite_value.astype(np.int8)
-    elif not np.issubdtype(dtype, np.number):
+    # timedelta64 is a numpy number (an integer) but cannot be mixed with nan
+    elif not np.issubdtype(dtype, np.number) or dtype.kind == 'm':
         # if the whole array is known to be non-numeric, we do not need
         # to compute anything
         return np.full(array.shape, np.nan, dtype=np.float64)
