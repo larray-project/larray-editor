@@ -85,5 +85,8 @@ Fixes
   object is displayed. They were kept open, which prevented renaming or deleting them on
   Windows while the editor was open.
 
+* groups are now displayed as their labels. In particular, a group with a single string
+  label was displayed as a sequence of characters (closes :editor_issue:`314`).
+
 * the labels of arrays with an empty axis are now displayed (the labels of all axes were
   missing).

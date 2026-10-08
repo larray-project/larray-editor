@@ -1797,6 +1797,19 @@ class LArrayAxisAdapter(NumpyHomogeneousArrayAdapter):
         super().__init__(data.labels, attributes)
 
 
+@adapter_for(la.Group)
+class LArrayGroupAdapter(NumpyHomogeneousArrayAdapter):
+    def __init__(self, data, attributes):
+        try:
+            labels = data.eval()
+        # positional groups cannot be evaluated without axis
+        except ValueError:
+            labels = data.key
+        if np.isscalar(labels) or isinstance(labels, slice):
+            labels = [labels]
+        super().__init__(np.asarray(labels), attributes)
+
+
 @adapter_for('array.array')
 class ArrayArrayAdapter(AbstractAdapter):
     def shape2d(self):
