@@ -181,7 +181,8 @@ def path_adapter_for(suffixes, required_module=None):
 
 
 def get_adapter_creator_for_type(data_type): # -> AbstractAdapter | func | None:
-    # first check precise type
+    # fast path for the most common case: an exact type match. The __mro__ loop
+    # below would find it too
     if data_type in REGISTERED_ADAPTERS:
         return REGISTERED_ADAPTERS[data_type]
 
@@ -223,7 +224,16 @@ def get_adapter_creator_for_type(data_type): # -> AbstractAdapter | func | None:
             if not module_adapters:
                 del REGISTERED_ADAPTERS_USING_STRINGS[data_type_top_module_name]
 
-    # then check subclasses
+    # check the classes data_type inherits from (for subclasses of supported types), most
+    # specific first. This must be done before checking "virtual" subclasses (below) because
+    # many types (e.g. numpy arrays or Polars DataFrames) are also virtual subclasses of
+    # collections.abc.Collection, and must use the adapter of their actual parent class instead.
+    for cls in data_type.__mro__:
+        if cls in REGISTERED_ADAPTERS:
+            return REGISTERED_ADAPTERS[cls]
+
+    # then check "virtual" subclasses (of abstract classes like
+    # collections.abc.Collection, which do not appear in __mro__)
     if REGISTERED_ADAPTER_TYPES is None:
         update_registered_adapter_types()
 

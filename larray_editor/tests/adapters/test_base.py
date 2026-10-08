@@ -1,6 +1,55 @@
+import sys
+import types
+
+import numpy as np
 import pandas as pd
 
+from larray_editor.arrayadapter import (AbstractAdapter, get_adapter_creator, register_adapter,
+                                        update_registered_adapter_types, REGISTERED_ADAPTERS,
+                                        REGISTERED_ADAPTERS_USING_STRINGS)
 from larray_editor.tests.adapters.common import adapter_values
+
+
+def test_adapter_registered_using_string():
+    # Mimics libraries like polars (whose DataFrame is also a Collection)
+    class FakeTable:
+        __module__ = 'fake_lib'
+
+        def __len__(self):
+            return 0
+
+        def __iter__(self):
+            return iter([])
+
+        def __contains__(self, item):
+            return False
+
+    class FakeTableAdapter(AbstractAdapter):
+        pass
+
+    fake_lib = types.ModuleType('fake_lib')
+    fake_lib.Table = FakeTable
+    sys.modules['fake_lib'] = fake_lib
+    try:
+        register_adapter('fake_lib.Table', FakeTableAdapter)
+        table = FakeTable()
+        assert get_adapter_creator(table) is FakeTableAdapter
+    finally:
+        del sys.modules['fake_lib']
+        REGISTERED_ADAPTERS_USING_STRINGS.pop('fake_lib', None)
+        REGISTERED_ADAPTERS.pop(FakeTable, None)
+        update_registered_adapter_types()
+
+
+def test_adapter_for_subclass():
+    class ArraySubclass(np.ndarray):
+        pass
+
+    array_adapter_creator = get_adapter_creator(np.zeros(2))
+    subclass_array = np.zeros(2).view(ArraySubclass)
+    # the adapter of the parent class must be used, not the one of an abstract
+    # class (Collection) the subclass is a "virtual" subclass of
+    assert get_adapter_creator(subclass_array) is array_adapter_creator
 
 
 def test_no_column():

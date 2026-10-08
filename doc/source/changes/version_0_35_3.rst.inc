@@ -46,6 +46,12 @@ Fixes
   another object, because the command (e.g. a function call) could have modified it
   (closes :editor_issue:`335`).
 
+* fixed Polars DataFrames and Series being displayed as generic collections when passed directly
+  to :py:obj:`edit()` or :py:obj:`view()` (e.g. ``edit(df)``).
+
+* subclasses of supported types (e.g. of numpy arrays) are now displayed like their parent class
+  instead of as generic collections.
+
 * fixed displaying DataFrames stored in HDF (.h5) files which contain only string columns, or
   which contain string columns and were written using Pandas >= 3.
 
