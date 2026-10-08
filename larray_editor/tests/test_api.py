@@ -461,7 +461,7 @@ except ImportError:
 
 
 path_dir = Path('.')
-path_py = Path('test_adapter.py')
+path_py = Path('test_api.py')
 path_csv = Path('data/big.csv')
 path_hdf_objects = Path('data/hdf_objects.h5')
 
