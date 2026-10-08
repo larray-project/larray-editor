@@ -394,7 +394,19 @@ class AbstractAdapter:
         return None
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
+        """
+        Return the values of the cells in the given range (*_stop are excluded).
+
+        Adapters do not need to support being asked for zero rows (see
+        _fetch_values).
+        """
         return self.get_chunk_from_data(self.data, h_start, v_start, h_stop, v_stop)
+
+    def _fetch_values(self, h_start, v_start, h_stop, v_stop):
+        """get_values, without asking it for zero rows"""
+        if v_stop == v_start:
+            return np.empty((0, h_stop - h_start), dtype=object)
+        return self.get_values(h_start, v_start, h_stop, v_stop)
 
     @classmethod
     def open(cls, data):
@@ -463,7 +475,7 @@ class AbstractAdapter:
             assert h_start < width, f"h_start ({h_start}) is out of bounds (should be < {width})"
         assert v_stop <= height, f"v_stop ({v_stop}) is out of bounds (should be <= {height})"
         assert h_stop <= width, f"h_stop ({h_stop}) is out of bounds (should be <= {width})"
-        chunk_values = self.get_values(h_start, v_start, h_stop, v_stop)
+        chunk_values = self._fetch_values(h_start, v_start, h_stop, v_stop)
         if isinstance(chunk_values, np.ndarray):
             assert chunk_values.ndim == 2
             logger.debug(f"    {chunk_values.shape=}")
@@ -504,7 +516,7 @@ class AbstractAdapter:
         axes_names = axes_names['values'] if isinstance(axes_names, dict) else axes_names
         hlabels = self.get_hlabels_values(col_min, col_max)
         vlabels = self.get_vlabels_values(row_min, row_max)
-        raw_data = self.get_values(col_min, row_min, col_max, row_max)
+        raw_data = self._fetch_values(col_min, row_min, col_max, row_max)
         if isinstance(raw_data, list) and len(raw_data) == 0:
             raw_data = [[]]
         return axes_names, vlabels, hlabels, raw_data

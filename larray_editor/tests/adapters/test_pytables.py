@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from larray.tests.common import needs_pytables
 
-from larray_editor.tests.adapters.common import hdf_adapter_values
+from larray_editor.tests.adapters.common import adapter_values, hdf_adapter_values
 
 
 @needs_pytables
@@ -79,3 +79,13 @@ def test_pytables_larray_axis_and_group(tmp_path):
     assert hdf_adapter_values(slice_group, tmp_path) == [[None, ''],
                                                          [0, 'a1'],
                                                          [1, 'a2']]
+
+
+@needs_pytables
+def test_pytables_empty_file(tmp_path):
+    import tables
+
+    fpath = tmp_path / 'empty.h5'
+    tables.open_file(fpath, 'w').close()
+    # a file is displayed as one row per node, in a single (Name) column
+    assert adapter_values(fpath) == [['', 'Name']]

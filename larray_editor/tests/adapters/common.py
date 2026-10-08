@@ -1,6 +1,18 @@
 import numpy as np
+import pytest
 
 from larray_editor.arrayadapter import AbstractAdapter, get_adapter
+
+try:
+    import pyarrow
+except ImportError:
+    pyarrow = None
+
+
+needs_pyarrow = (
+    pytest.mark.skipif(pyarrow is None,
+                       reason="pyarrow is required for this test")
+)
 
 
 def adapter_values(obj_or_adapter):

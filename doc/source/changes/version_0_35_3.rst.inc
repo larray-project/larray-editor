@@ -55,3 +55,6 @@ Fixes
 * fixed variables defined in a multi-line console command not appearing in the variable
   list when the last line of that command modified an existing variable
   (closes :editor_issue:`334`).
+
+* fixed displaying empty HDF (.h5) files (closes :editor_issue:`325`) and Feather files
+  without any row.
