@@ -3791,8 +3791,8 @@ class CsvFileAdapter(TextFileAdapter):
 
     # for large files, this is approximate
     def shape2d(self):
-        # - 1 for header row
-        return self._num_lines - 1, len(self._colnames)
+        # - 1 for header row (if any)
+        return max(self._num_lines - 1, 0), len(self._colnames)
 
     def get_hlabels_values(self, start, stop):
         return [self._colnames[start:stop]]
