@@ -4,11 +4,19 @@ import pytest
 from larray_editor.arrayadapter import AbstractAdapter, get_adapter
 
 try:
+    import polars
+except ImportError:
+    polars = None
+try:
     import pyarrow
 except ImportError:
     pyarrow = None
 
 
+needs_polars = (
+    pytest.mark.skipif(polars is None,
+                       reason="polars is required for this test")
+)
 needs_pyarrow = (
     pytest.mark.skipif(pyarrow is None,
                        reason="pyarrow is required for this test")

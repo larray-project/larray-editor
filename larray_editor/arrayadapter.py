@@ -2653,7 +2653,7 @@ class PolarsLazyFrameAdapter(AbstractColumnarAdapter):
     def _filter_data(self, data, cur_filter):
         import polars as pl
         df = data
-        columns = df.columns
+        columns = self._columns
         for col_idx, filtered_indices in cur_filter.items():
             col_name = columns[col_idx]
             col_unq_values = self._unq_values_per_column[col_idx]
@@ -2764,7 +2764,7 @@ class NarwhalsLazyFrameAdapter(PolarsLazyFrameAdapter):
     def _filter_data(self, data, cur_filter):
         nw = sys.modules['narwhals']
         df = data
-        columns = df.columns
+        columns = self._columns
         for col_idx, filtered_indices in cur_filter.items():
             col_name = columns[col_idx]
             col_unq_values = self._unq_values_per_column[col_idx]
