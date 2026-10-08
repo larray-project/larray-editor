@@ -3009,7 +3009,81 @@ class PyTablesGroupAdapter(AbstractColumnarAdapter):
         return subnodes[row_idx]
 
 
-class PyTablesPandasFrameAdapter(AbstractColumnarAdapter):
+class AbstractPyTablesPandasAdapter(AbstractColumnarAdapter):
+    """Base class for Pandas objects stored (in fixed format) in a PyTables group"""
+
+    def __init__(self, data, attributes):
+        super().__init__(data=data, attributes=attributes)
+        self._encoding = getattr(data._v_attrs, 'encoding', None)
+
+    def _get_index_names(self, prefix: str) -> list[str]:
+        """
+        Return the names of an index.
+
+        prefix is the name of the index node(s) ('axis0' or 'axis1' for a frame,
+        'index' for a series).
+        """
+        group = self.data
+        attrs = group._v_attrs
+        if getattr(attrs, f'{prefix}_variety') == 'regular':
+            return [group._f_get_child(prefix)._v_attrs.name]
+        else:
+            nlevels = getattr(attrs, f'{prefix}_nlevels')
+            return [group._f_get_child(f'{prefix}_level{i}')._v_attrs.name
+                    for i in range(nlevels)]
+
+    def _get_index_labels(self, prefix: str, start: int, stop: int) -> np.ndarray:
+        """
+        Return the labels of an index.
+
+        The result has one row per index level. See _get_index_names for prefix.
+        """
+        group = self.data
+        attrs = group._v_attrs
+        if getattr(attrs, f'{prefix}_variety') == 'regular':
+            index_node = group._f_get_child(prefix)
+            kind = index_node._v_attrs.kind
+            if kind == 'object':
+                # assume it was saved as a (pickled) single-element list of
+                # numpy array
+                obj_data = index_node.read()
+                assert len(obj_data) == 1
+                stored_labels = obj_data[0][start:stop]
+            else:
+                stored_labels = index_node[start:stop]
+            if kind == 'string' and self._encoding is not None:
+                index_labels = np.char.decode(stored_labels, encoding=self._encoding)
+            else:
+                index_labels = stored_labels
+            labels = index_labels.reshape(1, -1)
+        else:
+            chunks = []
+            has_strings = False
+            has_non_strings = False
+            nlevels = getattr(attrs, f'{prefix}_nlevels')
+            for i in range(nlevels):
+                label_node = group._f_get_child(f'{prefix}_label{i}')
+                chunk_label_x = label_node[start:stop]
+                max_label_x = chunk_label_x.max()
+                level_node = group._f_get_child(f'{prefix}_level{i}')
+                index_level_x = level_node[:max_label_x + 1]
+                chunk_level_x = index_level_x[chunk_label_x]
+                kind = level_node._v_attrs.kind
+                if kind == 'string':
+                    has_strings = True
+                    if self._encoding is not None:
+                        chunk_level_x = np.char.decode(chunk_level_x, encoding=self._encoding)
+                else:
+                    has_non_strings = True
+                chunks.append(chunk_level_x)
+            if has_strings and has_non_strings:
+                labels = np.stack(chunks, axis=0, dtype=object)
+            else:
+                labels = np.stack(chunks, axis=0)
+        return labels
+
+
+class PyTablesPandasFrameAdapter(AbstractPyTablesPandasAdapter):
     def __init__(self, data, attributes):
         super().__init__(data=data, attributes=attributes)
         attrs = data._v_attrs
@@ -3018,7 +3092,6 @@ class PyTablesPandasFrameAdapter(AbstractColumnarAdapter):
         assert hasattr(attrs, 'axis1_variety') and attrs.axis1_variety in {'regular', 'multi'}
         self._axis0_variety = attrs.axis0_variety
         self._axis1_variety = attrs.axis1_variety
-        self._encoding = getattr(attrs, 'encoding', None)
         nblocks = attrs.nblocks
         self._block_values_nodes = [data._f_get_child(f'block{i}_values')
                                     for i in range(nblocks)]
@@ -3069,73 +3142,17 @@ class PyTablesPandasFrameAdapter(AbstractColumnarAdapter):
     def shape2d(self):
         return self._num_rows, self._num_columns
 
-    def _get_axis_names(self, axis_num: int) -> list[str]:
-        group = self.data
-        attrs = group._v_attrs
-        if getattr(attrs, f'axis{axis_num}_variety') == 'regular':
-            axis_node = group._f_get_child(f'axis{axis_num}')
-            return [axis_node._v_attrs.name]
-        else:
-            nlevels = getattr(attrs, f'axis{axis_num}_nlevels')
-            return [
-                group._f_get_child(f'axis{axis_num}_level{i}')._v_attrs.name
-                for i in range(nlevels)
-            ]
-
     def get_hnames(self):
-        return self._get_axis_names(0)
+        return self._get_index_names('axis0')
 
     def get_vnames(self):
-        return self._get_axis_names(1)
-
-    def _get_axis_labels(self, axis_num: int, start: int, stop: int) -> np.ndarray:
-        group = self.data
-        attrs = group._v_attrs
-        if getattr(attrs, f'axis{axis_num}_variety') == 'regular':
-            axis_node = group._f_get_child(f'axis{axis_num}')
-            kind = axis_node._v_attrs.kind
-            if kind == 'object':
-                # assume it was saved as a (pickled) single-element list of
-                # numpy array
-                obj_data = axis_node.read()
-                assert len(obj_data) == 1
-                labels = obj_data[0][start:stop]
-            else:
-                labels = axis_node[start:stop]
-            labels = labels.reshape(1, -1)
-            if kind == 'string' and self._encoding is not None:
-                labels = np.char.decode(labels, encoding=self._encoding)
-        else:
-            chunks = []
-            has_strings = False
-            has_non_strings = False
-            nlevels = getattr(attrs, f'axis{axis_num}_nlevels')
-            for i in range(nlevels):
-                label_node = group._f_get_child(f'axis{axis_num}_label{i}')
-                chunk_label_x = label_node[start:stop]
-                max_label_x = chunk_label_x.max()
-                level_node = group._f_get_child(f'axis{axis_num}_level{i}')
-                axis_level_x = level_node[:max_label_x + 1]
-                chunk_level_x = axis_level_x[chunk_label_x]
-                kind = level_node._v_attrs.kind
-                if kind == 'string':
-                    has_strings = True
-                    if self._encoding is not None:
-                        chunk_level_x = np.char.decode(chunk_level_x, encoding=self._encoding)
-                else:
-                    has_non_strings = True
-                chunks.append(chunk_level_x)
-            if has_strings and has_non_strings:
-                labels = np.stack(chunks, axis=0, dtype=object)
-            else:
-                labels = np.stack(chunks, axis=0)
-        return labels
+        return self._get_index_names('axis1')
 
     def get_hlabels_values(self, start, stop):
-        return self._get_axis_labels(0, start, stop)
+        return self._get_index_labels('axis0', start, stop)
 
     def get_vlabels_values(self, start, stop):
-        return self._get_axis_labels(1, start, stop).transpose()
+        return self._get_index_labels('axis1', start, stop).transpose()
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
         data = self.data
