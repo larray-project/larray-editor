@@ -4,6 +4,10 @@ import pytest
 from larray_editor.arrayadapter import AbstractAdapter, get_adapter
 
 try:
+    import narwhals
+except ImportError:
+    narwhals = None
+try:
     import polars
 except ImportError:
     polars = None
@@ -13,6 +17,10 @@ except ImportError:
     pyarrow = None
 
 
+needs_narwhals = (
+    pytest.mark.skipif(narwhals is None,
+                       reason="narwhals is required for this test")
+)
 needs_polars = (
     pytest.mark.skipif(polars is None,
                        reason="polars is required for this test")

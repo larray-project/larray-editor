@@ -2524,10 +2524,9 @@ class PolarsSeriesAdapter(AbstractAdapter):
         assert filter_idx == 0
         if filter_idx not in self._unq_values_per_column:
             s = self.data
-            s.unique().top_k(MAX_FILTER_OPTIONS).sort().to_numpy()
             # keep polars values (and convert them on each call) because
             # numpy datetimes cannot be used to filter (with is_in)
-            self._unq_values_per_column[filter_idx] = s.unique().sort().limit(MAX_FILTER_OPTIONS)
+            self._unq_values_per_column[filter_idx] = s.unique().sort().head(MAX_FILTER_OPTIONS)
         return self._unq_values_per_column[filter_idx].to_numpy()
 
     def update_filter(self, filter_idx, indices):

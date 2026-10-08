@@ -107,5 +107,7 @@ Fixes
 
 * filtering Polars objects on missing values (null) now works (it selected nothing).
 
+* fixed filtering narwhals Series.
+
 * fixed a performance warning displayed when filtering Polars LazyFrames (e.g. Parquet
   files).
