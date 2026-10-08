@@ -69,6 +69,15 @@ def test_expression_readonly():
     assert model.flags(model.index(0, 0)) & Qt.ItemIsEditable
 
 
+def test_edit_without_console():
+    session = la.Session(arr=la.ndtest((2, 3)))
+    editor = create_editor(session, python_console=False)
+    editor.select_list_item('arr')
+    model = editor.array_widget.model_data
+    model.setData(model.index(0, 0), '100')
+    assert editor.data['arr'].i[0, 0] == 100
+
+
 @needs_qtconsole
 def test_undo_updates_color_scale():
     editor = create_editor(la.Session(arr=la.ndtest((2, 3))))

@@ -49,6 +49,9 @@ Fixes
   another object, because the command (e.g. a function call) could have modified it
   (closes :editor_issue:`335`).
 
+* fixed modifying values when the Python console is disabled or unavailable (the editor
+  crashed).
+
 * background colors are now updated when values are modified, including by undo/redo
   (closes :editor_issue:`159`).
 
