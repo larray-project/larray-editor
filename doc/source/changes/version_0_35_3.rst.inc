@@ -105,5 +105,7 @@ Fixes
 * the labels of arrays with an empty axis are now displayed (the labels of all axes were
   missing).
 
+* filtering Polars objects on missing values (null) now works (it selected nothing).
+
 * fixed a performance warning displayed when filtering Polars LazyFrames (e.g. Parquet
   files).

@@ -36,3 +36,16 @@ def test_polars_filter_datetime_column():
         assert adapter_values(adapter) == [['', 'd'],
                                            [0, jan1],
                                            [1, jan1]]
+
+
+@needs_polars
+def test_polars_filter_null():
+    import polars
+
+    series = polars.Series('a', [1, None, 1])
+    for obj in [series, series.to_frame(), series.to_frame().lazy()]:
+        adapter = get_adapter(obj)
+        # nulls are sorted first
+        assert len(adapter.get_filter_options(0)) == 2
+        adapter.update_filter(0, [0])
+        assert adapter.shape2d() == (1, 1)

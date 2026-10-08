@@ -2477,7 +2477,11 @@ class PolarsDataFrameAdapter(AbstractColumnarAdapter):
             col_unq_values = self._unq_values_per_column[col_idx]
             filtered_values = col_unq_values[filtered_indices]
             # is_in with a Series of the same type is deprecated in polars
-            df = df.filter(pl.col(col_name).is_in(filtered_values.to_list()))
+            expr = pl.col(col_name).is_in(filtered_values.to_list())
+            # is_in does not match nulls
+            if filtered_values.null_count():
+                expr |= pl.col(col_name).is_null()
+            df = df.filter(expr)
         return df
 
 
@@ -2558,7 +2562,11 @@ class PolarsSeriesAdapter(AbstractAdapter):
         col_unq_values = self._unq_values_per_column[0]
         filtered_values = col_unq_values[filtered_indices]
         # is_in with a Series of the same type is deprecated in polars
-        return s.filter(s.is_in(filtered_values.to_list()))
+        mask = s.is_in(filtered_values.to_list())
+        # is_in does not match nulls
+        if filtered_values.null_count():
+            mask |= s.is_null()
+        return s.filter(mask)
 
 
 @adapter_for('polars.LazyFrame')
@@ -2660,7 +2668,11 @@ class PolarsLazyFrameAdapter(AbstractColumnarAdapter):
             col_unq_values = self._unq_values_per_column[col_idx]
             filtered_values = col_unq_values[filtered_indices]
             # is_in with a Series of the same type is deprecated in polars
-            df = df.filter(pl.col(col_name).is_in(filtered_values.to_list()))
+            expr = pl.col(col_name).is_in(filtered_values.to_list())
+            # is_in does not match nulls
+            if filtered_values.null_count():
+                expr |= pl.col(col_name).is_null()
+            df = df.filter(expr)
         return df
 
 
@@ -2771,7 +2783,11 @@ class NarwhalsLazyFrameAdapter(PolarsLazyFrameAdapter):
             col_unq_values = self._unq_values_per_column[col_idx]
             filtered_values = col_unq_values[filtered_indices]
             # is_in with a Series of the same type is deprecated in polars
-            df = df.filter(nw.col(col_name).is_in(filtered_values.to_list()))
+            expr = nw.col(col_name).is_in(filtered_values.to_list())
+            # is_in does not match nulls
+            if filtered_values.null_count():
+                expr |= nw.col(col_name).is_null()
+            df = df.filter(expr)
         return df
 
 
