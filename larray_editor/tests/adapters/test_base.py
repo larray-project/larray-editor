@@ -11,9 +11,10 @@ from larray_editor.tests.adapters.common import adapter_values
 
 
 def test_adapter_registered_using_string():
-    # Mimics libraries like polars (whose DataFrame is also a Collection)
+    # Mimics libraries like duckdb (whose types are defined in a module with
+    # another name) and polars (whose DataFrame is also a Collection)
     class FakeTable:
-        __module__ = 'fake_lib'
+        __module__ = '_fake_lib_impl'
 
         def __len__(self):
             return 0

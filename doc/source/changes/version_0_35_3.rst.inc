@@ -46,6 +46,8 @@ Fixes
   another object, because the command (e.g. a function call) could have modified it
   (closes :editor_issue:`335`).
 
+* fixed displaying DuckDB connections and relations with DuckDB 1.4 or later.
+
 * fixed Polars DataFrames and Series being displayed as generic collections when passed directly
   to :py:obj:`edit()` or :py:obj:`view()` (e.g. ``edit(df)``).
 

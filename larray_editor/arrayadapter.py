@@ -186,17 +186,14 @@ def get_adapter_creator_for_type(data_type): # -> AbstractAdapter | func | None:
     if data_type in REGISTERED_ADAPTERS:
         return REGISTERED_ADAPTERS[data_type]
 
-    data_type_full_module_name = data_type.__module__
-    if '.' in data_type_full_module_name:
-        data_type_top_module_name, _ = data_type_full_module_name.split('.', maxsplit=1)
-    else:
-        data_type_top_module_name = data_type_full_module_name
-
-    # handle string types
-    if data_type_top_module_name in REGISTERED_ADAPTERS_USING_STRINGS:
-        assert data_type_top_module_name in sys.modules
-        top_module = sys.modules[data_type_top_module_name]
-        module_adapters = REGISTERED_ADAPTERS_USING_STRINGS[data_type_top_module_name]
+    # handle string types. We cannot only consider the module of data_type
+    # because some types are defined in a module with another name (e.g.
+    # duckdb.DuckDBPyConnection is defined in _duckdb)
+    for top_module_name in list(REGISTERED_ADAPTERS_USING_STRINGS):
+        if top_module_name not in sys.modules:
+            continue
+        top_module = sys.modules[top_module_name]
+        module_adapters = REGISTERED_ADAPTERS_USING_STRINGS[top_module_name]
         # register all adapters for that module using concrete types (instead
         # of string types)
         for str_adapter_type, adapter in list(module_adapters.items()):
@@ -220,7 +217,7 @@ def get_adapter_creator_for_type(data_type): # -> AbstractAdapter | func | None:
             # remove string form from adapters mapping
             del module_adapters[str_adapter_type]
             if not module_adapters:
-                del REGISTERED_ADAPTERS_USING_STRINGS[data_type_top_module_name]
+                del REGISTERED_ADAPTERS_USING_STRINGS[top_module_name]
 
     # check the classes data_type inherits from (for subclasses of supported types), most
     # specific first. This must be done before checking "virtual" subclasses (below) because
