@@ -33,6 +33,9 @@ Miscellaneous improvements
 Fixes
 ^^^^^
 
+* fixed opening files whose path contains spaces via the Windows file association
+  (closes :editor_issue:`332`).
+
 * fixed spurious "received too many columns" warnings displayed in the console, notably
   when using :py:obj:`compare()` (closes :editor_issue:`333`).
 

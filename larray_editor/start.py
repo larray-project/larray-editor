@@ -9,8 +9,25 @@ from larray_editor.api import (create_edit_dialog, _show_dialog,
 from larray_editor.utils import common_ancestor
 
 
+def join_split_path(args):
+    """
+    Join arguments which are the pieces of a single path containing spaces.
+
+    The Windows file association created by menuinst < 2.5.0 passes the path
+    of the file to open unquoted (fixed in conda/menuinst#404), so a path
+    containing spaces is split into several arguments, e.g.
+    ['C:/my', 'file.h5'] => ['C:/my file.h5'] (if that file exists).
+    Arguments are left untouched if they are all existing paths. Paths
+    containing several consecutive spaces cannot be recovered.
+    """
+    if len(args) < 2 or all(Path(arg).exists() for arg in args):
+        return args
+    joined_path = ' '.join(args)
+    return [joined_path] if Path(joined_path).exists() else args
+
+
 def protected_main():
-    args = sys.argv[1:]
+    args = join_split_path(sys.argv[1:])
 
     # Note that we do not check for --help or --version (which would have been
     # nice) because we cannot output anything to the console anyway. This is
