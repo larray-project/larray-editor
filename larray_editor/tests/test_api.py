@@ -383,6 +383,14 @@ if not Path('data/big.h5').exists():
     la_big3d.to_hdf('data/big.h5', key='data')
     print("done.")
 
+if not Path('data/hdf_objects.h5').exists():
+    print("Generating hdf_objects.h5 test file...", end=' ', flush=True)
+    geo.to_hdf('data/hdf_objects.h5', key='la_axis')
+    geo['A11,A51'].to_hdf('data/hdf_objects.h5', key='la_group')
+    lipro['P02':'P05'].to_hdf('data/hdf_objects.h5', key='la_slice_group')
+    pd_series.to_hdf('data/hdf_objects.h5', key='pd_series')
+    print("done.")
+
 if not Path('data/big.csv').exists():
     print("Generating big.csv test file...", end=' ', flush=True)
     la_big3d.to_csv('data/big.csv')
@@ -455,6 +463,7 @@ except ImportError:
 path_dir = Path('.')
 path_py = Path('test_adapter.py')
 path_csv = Path('data/big.csv')
+path_hdf_objects = Path('data/hdf_objects.h5')
 
 # import cProfile as profile
 # profile.runctx('edit(la.Session(arr2=arr2))', vars(), {},

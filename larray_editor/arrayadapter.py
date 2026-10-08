@@ -3176,14 +3176,66 @@ class PyTablesPandasFrameAdapter(AbstractPyTablesPandasAdapter):
             return np.stack(np_columns, axis=1, dtype=object)
 
 
+class PyTablesPandasSeriesAdapter(AbstractPyTablesPandasAdapter):
+    def __init__(self, data, attributes):
+        import tables
+
+        super().__init__(data=data, attributes=attributes)
+        values_node = data._f_get_child('values')
+        if isinstance(values_node, tables.VLArray):
+            # stored as a single blob (which we cannot slice on disk) so we
+            # load it once
+            self._values = values_node.read()[0]
+        else:
+            self._values = values_node
+
+    def shape2d(self):
+        return len(self._values), 1
+
+    def get_vnames(self):
+        return self._get_index_names('index')
+
+    def get_vlabels_values(self, start, stop):
+        return self._get_index_labels('index', start, stop).transpose()
+
+    def get_hlabels_values(self, start, stop):
+        return [['']]
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        return self._values[v_start:v_stop].reshape(-1, 1)
+
+
+# larray stores Axis and Group objects as series
+class PyTablesLArraySeriesAdapter(PyTablesPandasSeriesAdapter):
+    def __init__(self, data, attributes):
+        super().__init__(data=data, attributes=attributes)
+        # larray stores labels (of an Axis or of a Group defined by a slice or by
+        # positions) as bytes, even when they are str, and their original dtype
+        # kind in dtype_kind
+        self._decode_values = (getattr(data._v_attrs, 'dtype_kind', None) == 'U' and
+                               self._encoding is not None)
+
+    def get_values(self, h_start, v_start, h_stop, v_stop):
+        values = super().get_values(h_start, v_start, h_stop, v_stop)
+        if self._decode_values:
+            values = np.char.decode(values, encoding=self._encoding)
+        return values
+
+
 @adapter_for('tables.Group')
 def dispatch_pytables_group_to_adapter(data):
-    # distinguish between "normal" pytables Group and Pandas frames
+    # distinguish between "normal" pytables Group and Pandas frames/series
     if not data._v_isopen:
         return 'File is closed'
     attrs = data._v_attrs
-    if hasattr(attrs, 'pandas_type') and attrs.pandas_type == 'frame':
+    pandas_type = getattr(attrs, 'pandas_type', None)
+    if pandas_type == 'frame':
         return PyTablesPandasFrameAdapter
+    # larray tags the objects it stores with their type
+    elif pandas_type == 'series' and getattr(attrs, 'type', None) in {'Axis', 'Group'}:
+        return PyTablesLArraySeriesAdapter
+    elif pandas_type == 'series':
+        return PyTablesPandasSeriesAdapter
     else:
         return PyTablesGroupAdapter
 

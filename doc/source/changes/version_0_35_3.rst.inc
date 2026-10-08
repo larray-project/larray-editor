@@ -17,6 +17,9 @@ Backward incompatible changes
 New features
 ^^^^^^^^^^^^
 
+* Axis and Group objects (and Pandas Series) stored in HDF (.h5) files can now be
+  displayed (closes :editor_issue:`326`).
+
 * .json files are now displayed as text.
 
 
