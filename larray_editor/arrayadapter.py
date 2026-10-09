@@ -671,14 +671,15 @@ class AbstractAdapter:
         # if axes.size == 0 or len(axes) == 0:
         #     return [[]]
         # else:
-        shape = self.shape2d()
         row_idx_names = [name if name is not None else ''
                          for name in self.get_vnames()]
         num_v_axes = len(row_idx_names)
         col_idx_names = [name if name is not None else ''
                          for name in self.get_hnames()]
         num_h_axes = len(col_idx_names)
-        if (not len(row_idx_names) and not len(col_idx_names)) or any(d == 0 for d in shape):
+        # the names must be displayed even if there is no row or column, because
+        # the label columns are sized (and the labels displayed) according to them
+        if not len(row_idx_names) and not len(col_idx_names):
             return [[]]
         names = np.full((max(num_h_axes, 1), max(num_v_axes, 1)), '', dtype=object)
         if len(row_idx_names) > 1:

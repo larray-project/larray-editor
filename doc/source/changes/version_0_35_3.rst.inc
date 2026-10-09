@@ -117,6 +117,10 @@ Fixes
 * the labels of arrays with an empty axis are now displayed (the labels of all axes were
   missing).
 
+* fixed row labels of arrays and tables without any column (e.g. a 2D array whose last axis
+  is empty) being only partially displayed (their column was not resized to fit them). The
+  names of their axes are now displayed too.
+
 * filtering Polars objects on missing values (null) now works (it selected nothing).
 
 * fixed displaying narwhals DataFrames with columns of different types and filtering them.

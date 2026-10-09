@@ -51,3 +51,10 @@ def test_pandas_series_datetime():
     displayed_text = model.data(model.index(0, 0), Qt.DisplayRole)
     # like a DataFrame column (and Pandas), not like a numpy datetime64
     assert displayed_text == '2024-01-01 00:00:00'
+
+
+def test_row_labels_column_fits_labels_without_column():
+    df_without_column = pd.DataFrame(index=['a_long_row_label', 'another_long_row_label'])
+    view = create_array_widget(df_without_column).view_vlabels
+    labels_width = view.sizeHintForColumn(0)
+    assert view.columnWidth(0) >= labels_width
