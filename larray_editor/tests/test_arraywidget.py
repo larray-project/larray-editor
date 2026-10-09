@@ -1,7 +1,10 @@
+import datetime as dt
 import os
 
 import larray as la
+import pandas as pd
 import pytest
+from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QApplication
 
 from larray_editor.arraywidget import ArrayEditorWidget
@@ -40,3 +43,11 @@ def test_drag_selection_on_labels_going_back():
     for column in [1, 2, 1]:
         view.selectNewColumn(column)
     assert [col for col in range(3) if selection_model.isColumnSelected(col)] == [0, 1]
+
+
+def test_pandas_series_datetime():
+    series = pd.Series([dt.datetime(2024, 1, 1)])
+    model = create_array_widget(series).model_data
+    displayed_text = model.data(model.index(0, 0), Qt.DisplayRole)
+    # like a DataFrame column (and Pandas), not like a numpy datetime64
+    assert displayed_text == '2024-01-01 00:00:00'

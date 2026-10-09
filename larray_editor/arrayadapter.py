@@ -1930,6 +1930,20 @@ class RangeAdapter(AbstractAdapter):
         return np_data
 
 
+def _pandas_to_numpy(values):
+    """
+    Convert pandas values (Series or array) to a numpy array to display them.
+
+    Contrary to the default conversion, datetimes are converted to Python
+    datetime objects.
+    """
+    pd = sys.modules['pandas']
+    values = np.asarray(values)
+    if values.dtype.kind == 'M':
+        return pd.DatetimeIndex(values).to_pydatetime()
+    return values
+
+
 @adapter_for('pandas.DataFrame')
 class PandasDataFrameAdapter(AbstractColumnarAdapter):
     def __init__(self, data, attributes):
@@ -1974,7 +1988,6 @@ class PandasDataFrameAdapter(AbstractColumnarAdapter):
             return [index.to_numpy()]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        pd = sys.modules['pandas']
         # Sadly, as of Pandas 2.2.3, the previous version of this code:
         #     df.iloc[v_start:v_stop, h_start:h_stop].values
         # first copies all mentioned columns in their entirety, then take the
@@ -1984,11 +1997,7 @@ class PandasDataFrameAdapter(AbstractColumnarAdapter):
         # (then recombine using numpy stack)
         df = self.sorted_data
         columns = [df.iloc[:, i].values for i in range(h_start, h_stop)]
-        chunks = [col[v_start:v_stop] for col in columns]
-        if any(chunk.dtype.kind == 'M' for chunk in chunks):
-            chunks = [pd.DatetimeIndex(chunk).to_pydatetime()
-                      if chunk.dtype.kind == 'M' else chunk
-                      for chunk in chunks]
+        chunks = [_pandas_to_numpy(col[v_start:v_stop]) for col in columns]
 
         try:
             return np.stack(chunks, axis=1)
@@ -2084,7 +2093,7 @@ class PandasSeriesAdapter(AbstractAdapter):
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
         assert h_start == 0
-        return self.data.iloc[v_start:v_stop].to_numpy().reshape(-1, 1)
+        return _pandas_to_numpy(self.data.iloc[v_start:v_stop]).reshape(-1, 1)
 
 
 @adapter_for('pandas.core.groupby.generic.DataFrameGroupBy')

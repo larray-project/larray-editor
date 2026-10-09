@@ -88,6 +88,9 @@ Fixes
   list when the last line of that command modified an existing variable
   (closes :editor_issue:`334`).
 
+* datetimes in Pandas Series are now displayed like in Pandas DataFrames (e.g.
+  2024-01-01 00:00:00 instead of 2024-01-01T00:00:00.000000).
+
 * fixed displaying time durations (timedelta), e.g. columns of DataFrames.
 
 * fixed displaying empty HDF (.h5) files (closes :editor_issue:`325`) and Feather files
