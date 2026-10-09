@@ -1602,7 +1602,7 @@ class ArrayEditorWidget(QWidget):
         self.model_data.set_bg_gradient(gradient_map[bg_gradient])
 
         # TODO: store detected_column_widths too so that it does not vary so
-        #       much on scroll. Viewing test_api_larray.py is a good test for
+        #       much on scroll. Viewing test_api.py is a good test for
         #       this.
         self.user_defined_hlabels_column_widths = {}
         self.user_defined_axes_column_widths = {}

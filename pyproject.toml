@@ -95,7 +95,7 @@ addopts = [
     "-v",
     "--doctest-modules",
     # this test is not automation-friendly
-    "--ignore=larray_editor/tests/test_api_larray.py",
+    "--ignore=larray_editor/tests/test_api.py",
     # this test cannot be run with pytest (must be run from within PyCharm)
     "--ignore=larray_editor/tests/run_with_console.py",
 #    "--cov",
