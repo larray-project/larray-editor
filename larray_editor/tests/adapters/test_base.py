@@ -75,3 +75,10 @@ def test_close_opened_file(tmp_path):
     with open(fpath) as f:
         get_adapter(f).close()
         assert not f.closed
+
+
+def test_vlabels_without_row():
+    adapter = get_adapter(np.zeros((0, 3)))
+    vlabels = adapter.get_vlabels(0, 0)['values']
+    # there must not be a row (without any label)
+    assert vlabels == []

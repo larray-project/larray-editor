@@ -753,10 +753,7 @@ class AbstractAdapter:
 
     @timed(logger)
     def get_vlabels(self, start, stop) -> dict:
-        chunk_values = self.get_vlabels_values(start, stop)
-        if isinstance(chunk_values, list) and len(chunk_values) == 0:
-            chunk_values = [[]]
-        return {'values': chunk_values}
+        return {'values': self.get_vlabels_values(start, stop)}
 
     def get_vlabels_values(self, start, stop):
         # Note that using some kind of lazy object here is pointless given that

@@ -121,6 +121,9 @@ Fixes
   is empty) being only partially displayed (their column was not resized to fit them). The
   names of their axes are now displayed too.
 
+* fixed a spurious "received more rows than expected" warning when displaying arrays and
+  tables without any row.
+
 * filtering Polars objects on missing values (null) now works (it selected nothing).
 
 * fixed displaying narwhals DataFrames with columns of different types and filtering them.
