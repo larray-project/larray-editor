@@ -3250,6 +3250,9 @@ class PyTablesPandasFrameAdapter(AbstractPyTablesPandasAdapter):
             ("loading mixed type DataFrames with a multi-index in columns "
              "from HDF5 is not implemented yet")
 
+        # The axes are stored in the order of the Pandas internal block manager
+        # (columns first), so axis0 contains the column labels and axis1 the
+        # row labels (the index).
         # data.block0_values.shape[0] is not always correct (if multiblocks)
         if attrs.axis1_variety == 'multi':
             self._num_rows = data.axis1_label0.shape[0]
