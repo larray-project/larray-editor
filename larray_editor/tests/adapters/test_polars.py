@@ -48,4 +48,21 @@ def test_polars_filter_null():
         # nulls are sorted first
         assert len(adapter.get_filter_options(0)) == 2
         adapter.update_filter(0, [0])
-        assert adapter.shape2d() == (1, 1)
+        assert adapter_values(adapter) == [['', 'a'],
+                                           [0, None]]
+
+
+@needs_polars
+def test_polars_missing_integers():
+    import polars
+
+    # integers with missing values must not be displayed as floats
+    df = polars.DataFrame({'i': [1, None], 's': ['a', 'b']})
+    for obj in [df, df.lazy()]:
+        assert adapter_values(obj) == [['', 'i', 's'],
+                                       [0, 1, 'a'],
+                                       [1, None, 'b']]
+    series = polars.Series('i', [1, None])
+    assert adapter_values(series) == [['', 'i'],
+                                      [0, 1],
+                                      [1, None]]

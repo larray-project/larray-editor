@@ -1,5 +1,6 @@
 from larray_editor.arrayadapter import get_adapter
-from larray_editor.tests.adapters.common import adapter_values, needs_narwhals, needs_polars
+from larray_editor.tests.adapters.common import (adapter_values, needs_narwhals, needs_polars,
+                                                 needs_pyarrow)
 
 
 @needs_narwhals
@@ -34,3 +35,19 @@ def test_narwhals_dataframe():
     assert adapter_values(adapter) == [['', 'a', 'b'],
                                        [0, 3, 'x'],
                                        [1, 3, 'z']]
+
+
+@needs_narwhals
+@needs_polars
+# the adapter converts to Pandas, which needs pyarrow for Polars-backed objects
+@needs_pyarrow
+def test_narwhals_missing_integers():
+    import narwhals
+    import polars
+
+    # integers with missing values must not be displayed as floats
+    df = polars.DataFrame({'i': [1, None], 's': ['a', 'b']})
+    for obj in [narwhals.from_native(df), narwhals.from_native(df.lazy())]:
+        assert adapter_values(obj) == [['', 'i', 's'],
+                                       [0, 1, 'a'],
+                                       [1, None, 'b']]

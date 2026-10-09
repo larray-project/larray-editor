@@ -1934,10 +1934,15 @@ def _pandas_to_numpy(values):
     """
     Convert pandas values (Series or array) to a numpy array to display them.
 
-    Contrary to the default conversion, datetimes are converted to Python
-    datetime objects.
+    Contrary to the default conversion, integers with missing values stay
+    integers (with None for missing values) instead of being converted to
+    floats (with nan), and datetimes are converted to Python datetime objects.
     """
     pd = sys.modules['pandas']
+    dtype = values.dtype
+    if (isinstance(dtype, pd.api.extensions.ExtensionDtype) and dtype.kind in 'iu' and
+            values.isna().any()):
+        return values.to_numpy(dtype=object, na_value=None)
     values = np.asarray(values)
     if values.dtype.kind == 'M':
         return pd.DatetimeIndex(values).to_pydatetime()
@@ -2113,6 +2118,19 @@ class PandasDataFrameGroupByAdapter(PandasDataFrameAdapter):
         return label_rows[:-1] + [last_row]
 
 
+def _arrow_to_numpy(array):
+    """
+    Convert a pyarrow (Chunked)Array to a numpy array.
+
+    Contrary to to_numpy, integers with missing values stay integers (with
+    None for missing values) instead of being converted to floats (with nan).
+    """
+    pyarrow = sys.modules['pyarrow']
+    if pyarrow.types.is_integer(array.type) and array.null_count > 0:
+        return np.array(array.to_pylist(), dtype=object)
+    return np.asarray(array)
+
+
 @adapter_for('pyarrow.Array')
 class PyArrowArrayAdapter(AbstractAdapter):
     def shape2d(self):
@@ -2122,7 +2140,7 @@ class PyArrowArrayAdapter(AbstractAdapter):
         return [['value']]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        return self.data[v_start:v_stop].to_numpy(zero_copy_only=False).reshape(-1, 1)
+        return _arrow_to_numpy(self.data[v_start:v_stop]).reshape(-1, 1)
 
 
 # Contrary to other Path adapters, this one is both a File *and* Path adapter
@@ -2255,7 +2273,7 @@ class FeatherFileAdapter(AbstractColumnarAdapter):
 
         # not going via to_pandas() because it "eats" index columns
         columns = chunk.columns
-        np_columns = [c.to_numpy(zero_copy_only=False) for c in columns]
+        np_columns = [_arrow_to_numpy(c) for c in columns]
         try:
             return np.stack(np_columns, axis=1)
         except np.exceptions.DTypePromotionError:
@@ -2363,7 +2381,7 @@ class PyArrowParquetFileAdapter(AbstractColumnarAdapter):
 
     def _chunk_to_numpy(self, chunk):
         # chunk is a list of pyarrow.ChunkedArray
-        np_columns = [c.to_numpy() for c in chunk]
+        np_columns = [_arrow_to_numpy(c) for c in chunk]
         try:
             return np.stack(np_columns, axis=1)
         except np.exceptions.DTypePromotionError:
@@ -2386,16 +2404,36 @@ class PyArrowTableAdapter(AbstractColumnarAdapter):
     def get_values(self, h_start, v_start, h_stop, v_stop):
         chunk = self.data[v_start:v_stop].select(range(h_start, h_stop))
         # not going via to_pandas() because it "eats" index columns
-        np_columns = [c.to_numpy() for c in chunk.columns]
+        np_columns = [_arrow_to_numpy(c) for c in chunk.columns]
         try:
             return np.stack(np_columns, axis=1)
         except np.exceptions.DTypePromotionError:
             return np.stack(np_columns, axis=1, dtype=object)
 
 
+def _has_missing_integers(series):
+    """Whether a polars or narwhals Series contains integers and missing values"""
+    return series.dtype.is_integer() and series.null_count() > 0
+
+
+def _polars_to_numpy(series):
+    """
+    Convert a polars or narwhals Series to a numpy array.
+
+    Contrary to to_numpy, integers with missing values stay integers (with
+    None for missing values) instead of being converted to floats (with nan).
+    """
+    if _has_missing_integers(series):
+        return np.array(series.to_list(), dtype=object)
+    return series.to_numpy()
+
+
 def _polars_frame_to_2d_seq(chunk):
     # We do not go via Pandas, which is a tad easier because it requires both
     # Pandas and pyarrow installed
+    columns = [chunk.get_column(name) for name in chunk.columns]
+    if any(_has_missing_integers(column) for column in columns):
+        return np.stack([_polars_to_numpy(column) for column in columns], axis=1, dtype=object)
     dtypes = chunk.dtypes
     dt0 = dtypes[0]
     homogeneous_dtypes = all(dt == dt0 for dt in dtypes[1:])
@@ -2497,14 +2535,15 @@ class PolarsDataFrameAdapter(AbstractColumnarAdapter):
 class NarwhalsDataFrameAdapter(PolarsDataFrameAdapter):
     def get_values(self, h_start, v_start, h_stop, v_stop):
         chunk = self.sorted_data[v_start:v_stop, h_start:h_stop]
-        dtypes = list(chunk.schema.values())
-        if all(dtype == dtypes[0] for dtype in dtypes[1:]):
+        columns = [chunk.get_column(name) for name in chunk.columns]
+        dtypes = [column.dtype for column in columns]
+        if (all(dtype == dtypes[0] for dtype in dtypes[1:]) and
+                not any(_has_missing_integers(column) for column in columns)):
             return chunk.to_numpy()
         # narwhals does not support converting to a structured array, so we
         # convert each column separately (to avoid casting all values to a
         # single type)
-        columns = [chunk.get_column(name).to_numpy() for name in chunk.columns]
-        return np.stack(columns, axis=1, dtype=object)
+        return np.stack([_polars_to_numpy(column) for column in columns], axis=1, dtype=object)
 
     # overridden just to use nw.col() instead of pl.col()
     def _filter_data(self, data, cur_filter):
@@ -2540,7 +2579,7 @@ class PolarsSeriesAdapter(AbstractAdapter):
         return [[self.data.name]]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        return self.sorted_data[v_start:v_stop].to_numpy()[:, np.newaxis]
+        return _polars_to_numpy(self.sorted_data[v_start:v_stop])[:, np.newaxis]
 
     def can_sort_hlabel(self, row_idx, col_idx):
         return True
@@ -2761,7 +2800,15 @@ class NarwhalsLazyFrameAdapter(PolarsLazyFrameAdapter):
         # has a better behavior for datetime columns (e.g. pl_df3).
         # Otherwise, Polars converts datetimes to floats instead using a numpy
         # object array
-        return df.to_pandas().values
+        values = df.to_pandas().values
+        # but Pandas converts integers with missing values to floats
+        columns = [df.get_column(name) for name in df.columns]
+        if any(_has_missing_integers(column) for column in columns):
+            values = values.astype(object)
+            for col_idx, column in enumerate(columns):
+                if _has_missing_integers(column):
+                    values[:, col_idx] = _polars_to_numpy(column)
+        return values
 
     def _sort_data(self, data):
         col_names = []
