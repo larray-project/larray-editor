@@ -17,9 +17,8 @@ class CellValueChange:
 
     Parameters
     ----------
-    # FIXME: key is a tuple of indices
-    key: list/tuple of str
-        Key associated with the value
+    key: tuple of int
+        Positional indices of the value
     old_value: scalar
         Previous value
     new_value: scalar

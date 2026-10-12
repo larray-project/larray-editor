@@ -168,16 +168,14 @@ def assert_at_least_2d_or_empty(seq):
 
 
 class AbstractArrayModel(QAbstractTableModel):
-    """Labels Table Model.
+    """Base class of the table models.
 
     Parameters
     ----------
     parent : QWidget, optional
         Parent Widget.
-    readonly : bool, optional
-        If True, data cannot be changed. False by default.
-    font : QFont, optional
-        Font. Default is `Calibri` with size 11.
+    adapter : AbstractAdapter, optional
+        Adapter providing the data to display.
     """
     default_buffer_rows = 40
     default_buffer_cols = 40
@@ -620,10 +618,8 @@ class AxesArrayModel(AbstractArrayModel):
     ----------
     parent : QWidget, optional
         Parent Widget.
-    readonly : bool, optional
-        If True, data cannot be changed. False by default.
-    font : QFont, optional
-        Font. Default is `Calibri` with size 11.
+    adapter : AbstractAdapter, optional
+        Adapter providing the data to display.
     """
     def __init__(self, parent=None, adapter=None):
         AbstractArrayModel.__init__(self, parent, adapter)
@@ -666,10 +662,8 @@ class LabelsArrayModel(AbstractArrayModel):
     ----------
     parent : QWidget, optional
         Parent Widget.
-    readonly : bool, optional
-        If True, data cannot be changed. False by default.
-    font : QFont, optional
-        Font. Default is `Calibri` with size 11.
+    adapter : AbstractAdapter, optional
+        Adapter providing the data to display.
     """
     def __init__(self, parent=None, adapter=None):
         AbstractArrayModel.__init__(self, parent, adapter)
@@ -835,14 +829,10 @@ class DataArrayModel(AbstractArrayModel):
     ----------
     parent : QWidget, optional
         Parent Widget.
-    FIXME: update this
+    adapter : AbstractAdapter, optional
+        Adapter providing the data to display.
     readonly : bool, optional
         If True, data cannot be changed. False by default.
-    format : str, optional
-        Indicates how data is represented in cells.
-        By default, they are represented as floats with 3 decimal points.
-    font : QFont, optional
-        Font. Default is `Calibri` with size 11.
     """
 
     newChanges = Signal(dict)
