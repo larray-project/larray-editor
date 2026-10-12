@@ -832,7 +832,7 @@ def time2str(seconds, precision="auto"):
     Returns
     -------
     str
-# FIXME: round values instead of truncating them
+
     Examples
     --------
     >>> time2str(3727.2785, precision="ns")
@@ -842,8 +842,12 @@ def time2str(seconds, precision="auto"):
     '1 hour 2 minutes 7 seconds'
     >>> time2str(3605.2785)
     '1 hour 5 seconds'
+    >>> time2str(3727.9)
+    '1 hour 2 minutes 8 seconds'
     >>> time2str(3727.2785, precision="hour")
     '1 hour'
+    >>> time2str(400 * 24 * 3600)
+    '400 days'
     >>> time2str(3723.1234567890123456789, precision="ns")
     '1 hour 2 minutes 3 seconds 123 ms 456 µs 789 ns'
     >>> time2str(3723.1234567890123456789)
@@ -857,7 +861,7 @@ def time2str(seconds, precision="auto"):
         ('second', 60),
         ('minute', 60),
         ('hour', 24),
-        ('day', 365),
+        ('day', None),
     ]
     precision_map = {
         'day': 6,
@@ -869,18 +873,36 @@ def time2str(seconds, precision="auto"):
         'ns': 0,
     }
 
+    # duration of each unit in nanoseconds (the largest unit has no next unit)
+    cur_unit_ns = 1
+    units_ns = [cur_unit_ns]
+    for unit, divisor_for_next in divisors[:-1]:
+        cur_unit_ns *= divisor_for_next
+        units_ns.append(cur_unit_ns)
+
+    ns = round(seconds * 10 ** 9)
+    # precision (index in divisors) of the largest unit the duration contains at least once
+    # (e.g. 3 (second) for 25.2 seconds)
+    max_prec = max((prec for prec, unit_ns in enumerate(units_ns) if unit_ns <= ns), default=0)
+    int_precision = max(max_prec - 2, 0) if precision == 'auto' else precision_map[precision]
+    # duration of the smallest unit displayed
+    precision_ns = units_ns[int_precision]
+    # round to that unit instead of truncating to it
+    ns = round(ns / precision_ns) * precision_ns
+
     values = []
     str_parts = []
-    ns = int(seconds * 10 ** 9)
     value = ns
     for cur_precision, (unit, divisor_for_next) in enumerate(divisors):
+        if divisor_for_next is None:
+            # the largest unit holds whatever remains (e.g. 400 days)
+            values.append(value)
+            break
         next_value, cur_value = divmod(value, divisor_for_next)
         values.append(cur_value)
         if next_value == 0:
             break
         value = next_value
-    max_prec = len(values) - 1
-    int_precision = max_prec - 2 if precision == 'auto' else precision_map[precision]
     for cur_precision, (cur_value, (unit, divisor_for_next)) in enumerate(zip(values, divisors)):
         if cur_value > 0 and cur_precision >= int_precision:
             str_parts.append(f"{cur_value:d} {unit}{'s' if cur_value > 1 and cur_precision > 2 else ''}")
