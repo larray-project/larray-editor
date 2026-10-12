@@ -923,9 +923,6 @@ class DataArrayModel(AbstractArrayModel):
         except ValueError as e:
             QMessageBox.critical(self.dialog, "Error", f"Value error: {str(e)}")
             return None
-        except OverflowError as e:
-            QMessageBox.critical(self.dialog, "Error", f"Overflow error: {e.message}")
-            return None
         return res
 
     # TODO: I wonder if set_values should not actually change the data (but QUndoCommand would make this weird).
