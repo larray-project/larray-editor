@@ -2449,7 +2449,7 @@ class ArrayEditorWidget(QWidget):
         #        * either Widget.paste or ArrayDelegate.setModelData (via model.setData)
         #        * calls model.set_values on the model
         #            that does not change any data but computes a
-        #            {global_filtered_2D_coords: (old_value, new_value)}
+        #            {global_filtered_2D_coords: new_value}
         #            dict of changes
         #        * emits a newChanges signal and then a dataChanged (builtin)
         #          signal (which only works/makes sense because a signal .emit

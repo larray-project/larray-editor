@@ -136,6 +136,61 @@ def test_paste_past_the_last_row_and_column():
                                                 [3, 4, 10]]
 
 
+def test_undo_redo_sequence():
+    editor = create_editor(la.Session(arr=la.ndtest((2, 3))), python_console=False)
+    editor.select_list_item('arr')
+    model = editor.array_widget.model_data
+    undo_stack = editor.edit_undo_stack
+
+    def values():
+        return editor.data['arr'].data.tolist()
+
+    model.setData(model.index(0, 0), '100')
+    model.setData(model.index(0, 1), '101')
+    model.setData(model.index(0, 2), '102')
+    # pasting a value which is already there in a cell which changed
+    paste(editor, (0, 0), (0, 1), '101')
+    assert values() == [[101, 101, 102],
+                        [3, 4, 5]]
+
+    # going back a few steps
+    for _ in range(3):
+        undo_stack.undo()
+    assert values() == [[100, 1, 2],
+                        [3, 4, 5]]
+
+    # redoing one
+    undo_stack.redo()
+    assert values() == [[100, 101, 2],
+                        [3, 4, 5]]
+
+    # a new edit discards the commands which could still be redone
+    model.setData(model.index(1, 0), '103')
+    assert not undo_stack.canRedo()
+    assert values() == [[100, 101, 2],
+                        [103, 4, 5]]
+
+    # undoing everything gives back the original values
+    while undo_stack.canUndo():
+        undo_stack.undo()
+    assert values() == [[0, 1, 2],
+                        [3, 4, 5]]
+
+    # redoing everything
+    while undo_stack.canRedo():
+        undo_stack.redo()
+    assert values() == [[100, 101, 2],
+                        [103, 4, 5]]
+
+
+def test_edit_without_change_is_not_undoable():
+    editor = create_editor(la.Session(arr=la.ndtest((2, 3))), python_console=False)
+    editor.select_list_item('arr')
+    model = editor.array_widget.model_data
+    model.setData(model.index(0, 1), '1')
+    assert not editor.edit_undo_stack.canUndo()
+
+
 def test_paste_in_many_cells_asks_confirmation():
     editor = create_editor(la.Session(arr=la.ndtest((2, 3))), python_console=False)
     editor.select_list_item('arr')

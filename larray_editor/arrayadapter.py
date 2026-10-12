@@ -631,8 +631,8 @@ class AbstractAdapter:
         #        and get it in the implementation of map_filtered_to_global
         global_changes = [
             CellValueChange(to_global(self.filtered_data.shape, self.current_filter, key),
-                            old_value, new_value)
-            for key, (old_value, new_value) in data_model_changes.items()
+                            new_value)
+            for key, new_value in data_model_changes.items()
         ]
         return global_changes
 

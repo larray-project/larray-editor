@@ -993,24 +993,17 @@ class DataArrayModel(AbstractArrayModel):
         local_bottom = min(bottom - self.v_offset, self.nrows)
         local_right = min(right - self.h_offset, self.ncols)
 
-        # compute changes dict
-        changes = {}
-        # requires numpy 1.10
+        # compute changes dict (the old values are recorded by the undo/redo command)
         new_values = np.broadcast_to(values, (selection_height, selection_width))
-        old_values = self.adapter.get_values(left, top, right, bottom)
-        for j in range(selection_height):
-            for i in range(selection_width):
-                old_value = old_values[j, i]
-                new_value = new_values[j, i]
-                if new_value != old_value:
-                    changes[top + j, left + i] = (old_value, new_value)
+        changes = {(top + j, left + i): new_values[j, i]
+                   for j in range(selection_height)
+                   for i in range(selection_width)}
 
-        if len(changes) > 0:
-            # changes take into account the viewport/offsets but not the filter
-            # the array widget will use the adapter to translate those changes
-            # to global changes then push them to the undo/redo stack, which
-            # will execute them and that will actually modify the array
-            self.newChanges.emit(changes)
+        # changes take into account the viewport/offsets but not the filter
+        # the array widget will use the adapter to translate those changes
+        # to global changes then push them to the undo/redo stack, which
+        # will execute them and that will actually modify the array
+        self.newChanges.emit(changes)
 
         top_left = self.index(local_top, local_left)
         # -1 because Qt index end bounds are inclusive

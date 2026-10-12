@@ -19,15 +19,18 @@ class CellValueChange:
     ----------
     key: tuple of int
         Positional indices of the value
-    old_value: scalar
-        Previous value
     new_value: scalar
         New value
+
+    Attributes
+    ----------
+    old_value: scalar
+        Previous value. Recorded by the command when it first applies the change.
     """
-    def __init__(self, key, old_value, new_value):
+    def __init__(self, key, new_value):
         self.key = key
-        self.old_value = old_value
         self.new_value = new_value
+        self.old_value = None
 
 
 # XXX: we need to handle the case of several changes at once because the method paste()
@@ -52,11 +55,7 @@ class EditObjectCommand(QUndoCommand):
         self.target = target
         assert isinstance(changes, list)
         self.changes = changes
-
-        text_command = self.get_description(target, changes)
-        self.setText(text_command)
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"Edit command pushed: {text_command}")
+        self.old_values_recorded = False
 
     def undo(self):
         for change in self.changes:
@@ -64,14 +63,35 @@ class EditObjectCommand(QUndoCommand):
         self.refresh_data()
 
     def redo(self):
+        if not self.old_values_recorded:
+            self.record_old_values()
         for change in self.changes:
             self.apply_change(change.key, change.new_value)
         self.refresh_data()
+
+    def record_old_values(self):
+        # The undo stack is linear, so the values are the same each time a command is redone
+        # and they only need to be recorded the first time. Recording them here (instead of
+        # when creating the changes) avoids fetching the old values of the whole selection.
+        for change in self.changes:
+            change.old_value = self.get_value(change.key)
+        self.changes = [change for change in self.changes
+                        if change.new_value != change.old_value]
+        self.old_values_recorded = True
+        # an obsolete command is discarded by QUndoStack.push
+        self.setObsolete(not self.changes)
+        text_command = self.get_description(self.target, self.changes)
+        self.setText(text_command)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Edit command pushed: {text_command}")
 
     def refresh_data(self):
         self.editor.array_widget.refresh_data()
 
     def get_description(self, target, changes):
+        raise NotImplementedError()
+
+    def get_value(self, key):
         raise NotImplementedError()
 
     def apply_change(self, key, new_value):
@@ -97,6 +117,9 @@ class EditSessionArrayCommand(EditObjectCommand):
         else:
             return f"Pasting {len(changes)} Cells in {target}"
 
+    def get_value(self, key):
+        return self.editor.data[self.target].i[key]
+
     def apply_change(self, key, new_value):
         # FIXME: we should pass via the adapter to have something generic
         self.editor.data[self.target].i[key] = new_value
@@ -120,6 +143,9 @@ class EditCurrentArrayCommand(EditObjectCommand):
             return f"Editing Cell {changes[0].key}"
         else:
             return f"Pasting {len(changes)} Cells"
+
+    def get_value(self, key):
+        return self.target.i[key]
 
     def apply_change(self, key, new_value):
         # FIXME: we should pass via the adapter to have something generic
