@@ -1,4 +1,5 @@
 import os
+from unittest import mock
 
 import larray as la
 import pytest
@@ -112,6 +113,15 @@ def test_paste_empty_clipboard():
     editor = create_editor(la.Session(arr=la.ndtest((2, 3))), python_console=False)
     editor.select_list_item('arr')
     paste(editor, (0, 0), (0, 0), '')
+    assert editor.data['arr'].equals(la.ndtest((2, 3)))
+
+
+def test_paste_lines_of_different_lengths():
+    editor = create_editor(la.Session(arr=la.ndtest((2, 3))), python_console=False)
+    editor.select_list_item('arr')
+    with mock.patch('larray_editor.arraywidget.QMessageBox') as message_box:
+        paste(editor, (0, 0), (0, 0), '1\t2\n3')
+    message_box.critical.assert_called_once()
     assert editor.data['arr'].equals(la.ndtest((2, 3)))
 
 

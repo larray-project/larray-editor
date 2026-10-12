@@ -54,6 +54,9 @@ Fixes
 * fixed modifying values when the Python console is disabled or unavailable (the editor
   crashed).
 
+* pasting text whose lines do not all contain the same number of values now displays a
+  clear error message.
+
 * pasting with an empty clipboard no longer displays an error.
 
 * fixed modifying values of arrays with the object dtype (e.g. arrays mixing numbers and

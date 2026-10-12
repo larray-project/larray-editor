@@ -80,7 +80,7 @@ from larray_editor.utils import (keybinding, create_action, clear_layout, get_de
 from larray_editor.arrayadapter import (get_adapter, get_adapter_creator,
                                         AbstractAdapter, MAX_FILTER_OPTIONS)
 from larray_editor.arraymodel import (HLabelsArrayModel, VLabelsArrayModel, LabelsArrayModel,
-                                      AxesArrayModel, DataArrayModel)
+                                      AxesArrayModel, DataArrayModel, shape_2d)
 from larray_editor.combo import FilterComboBox, CombinedSortFilterMenu
 
 MORE_OPTIONS_NOT_SHOWN = "<more options not shown>"
@@ -2420,6 +2420,10 @@ class ArrayEditorWidget(QWidget):
         list_data = self.data_adapter.from_clipboard_data_to_model_data(list_data)
         # e.g. empty clipboard
         if not list_data:
+            return
+        if shape_2d(list_data) is None:
+            QMessageBox.critical(self, "Error", "Cannot paste data whose lines do not all have "
+                                                "the same number of values")
             return
         new_data = np.array(list_data)
         if new_data.shape[0] > 1:
