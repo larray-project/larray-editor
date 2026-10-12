@@ -505,8 +505,8 @@ class AbstractAdapter:
             chunk_values = [[]]
 
         # Without specifying dtype=object, asarray converts sequences
-        # containing both strings and numbers to all strings which then
-        # fail in get_color_value, but we do not want to convert
+        # containing both strings and numbers to all strings, whose numbers
+        # are then not colored as numbers, but we do not want to convert
         # existing numpy arrays to object dtype. This is a bit silly and
         # inefficient for numeric-only sequences, but I do not see
         # a better way.
@@ -1435,35 +1435,6 @@ def ensure_numeric_array(array: la.Array) -> la.Array:
         )
 
 
-# only used in LArray adapter. it should use the same code path as the rest
-# though
-def get_color_value(array, global_vmin, global_vmax, axis=None):
-    assert isinstance(array, np.ndarray)
-    try:
-        finite_value = get_finite_numeric_values(array)
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=RuntimeWarning)
-            vmin = np.nanmin(finite_value, axis=axis)
-            if global_vmin is not None:
-                # vmin or global_vmin can both be nan (if the whole section data is/was nan)
-                global_vmin = np.nanmin([global_vmin, vmin], axis=axis)
-            else:
-                global_vmin = vmin
-            vmax = np.nanmax(finite_value, axis=axis)
-            if global_vmax is not None:
-                # vmax or global_vmax can both be nan (if the whole section data is/was nan)
-                global_vmax = np.nanmax([global_vmax, vmax], axis=axis)
-            else:
-                global_vmax = vmax
-        color_value = scale_to_01range(finite_value, global_vmin, global_vmax)
-    except (ValueError, TypeError):
-        global_vmin = None
-        global_vmax = None
-        color_value = None
-    return color_value, global_vmin, global_vmax
-
-
 class NumpyHomogeneousArrayAdapter(AbstractAdapter):
     def shape2d(self):
         return nd_shape_to_2d(self.data.shape, num_h_axes=1)
@@ -1691,8 +1662,11 @@ class LArrayArrayAdapter(AbstractAdapter):
         # when bg_value is a user-provided value (and we do not need a computed one)
         if 'bg_value' not in chunk_data:
             # "default" bg_value computed on the subset asked by the model
-            bg_value, self.vmin, self.vmax = get_color_value(chunk_values, self.vmin, self.vmax)
-            chunk_data['bg_value'] = bg_value
+            finite_values = get_finite_numeric_values(chunk_values)
+            vmin, vmax = self.update_finite_min_max_values(finite_values,
+                                                           h_start, v_start,
+                                                           h_stop, v_stop)
+            chunk_data['bg_value'] = scale_to_01range(finite_values, vmin, vmax)
         return chunk_data
 
     def get_values(self, h_start, v_start, h_stop, v_stop):

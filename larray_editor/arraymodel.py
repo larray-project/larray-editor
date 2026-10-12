@@ -10,7 +10,7 @@ import numpy as np
 from larray_editor.utils import (get_default_font,
                                  is_number_value, is_float_dtype, is_number_dtype,
                                  LinearGradient, logger, broadcast_get,
-                                 format_exception, log_caller)
+                                 format_exception, log_caller, SEQUENCE_TYPES)
 
 # TODO before using the widget in other projects:
 # * cleanup adapter filters API:
@@ -127,45 +127,63 @@ v_align_map = {
 #      | |------------------| |
 #      |----------------------|
 
-def homogenous_shape(seq) -> tuple:
+def shape_2d(seq):
     """
-    Returns the shape (size of each dimension) of nested sequences.
-    Checks that nested sequences are homogeneous; if not,
-    treats children as scalars.
+    Return the (rows, columns) shape of a 2D sequence.
+
+    Returns None if seq is not a 2D sequence with rows of the same length. The number of
+    columns of a sequence without any row is None.
+
+    >>> shape_2d([[1, 2, 3], [4, 5, 6]])
+    (2, 3)
+    >>> shape_2d([])
+    (0, None)
+    >>> print(shape_2d([[1, 2], [3]]))
+    None
+    >>> print(shape_2d([1, 2]))
+    None
     """
-    # we cannot rely on .shape for object arrays because they could
-    # contain sequences themselves
-    if isinstance(seq, np.ndarray) and not seq.dtype.kind == 'O':
-        return seq.shape
-    elif isinstance(seq, (list, tuple, np.ndarray)):
-        parent_length = len(seq)
-        if parent_length == 0:
-            return (0,)
-        elif parent_length == 1:
-            return (parent_length,) + homogenous_shape(seq[0])
-        res = [parent_length]
-        child_shapes = [homogenous_shape(child)
-                        for child in seq]
-        # zip length will be determined by the shortest shape, which is
-        # exactly what we need
-        for depth_lengths in zip(*child_shapes[1:]):
-            first_child_length = depth_lengths[0]
-            if all(length == first_child_length
-                   for length in depth_lengths[1:]):
-                res.append(first_child_length)
-        return tuple(res)
-    else:
-        return ()
+    if isinstance(seq, np.ndarray) and seq.ndim != 1:
+        return seq.shape[:2] if seq.ndim >= 2 else None
+    if not isinstance(seq, SEQUENCE_TYPES):
+        return None
+    if len(seq) == 0:
+        return 0, None
+    row_lengths = {len(row) if isinstance(row, SEQUENCE_TYPES) else None for row in seq}
+    if len(row_lengths) > 1 or None in row_lengths:
+        return None
+    return len(seq), row_lengths.pop()
 
 
-def homogenous_ndim(seq) -> int:
-    return len(homogenous_shape(seq))
+def check_raw_data(raw_data, adapter):
+    """
+    Return the parts of raw_data (fetched from adapter) which have a valid shape.
 
-
-def assert_at_least_2d_or_empty(seq):
-    seq_shape = homogenous_shape(seq)
-    assert len(seq_shape) >= 2 or 0 in seq_shape, (
-        f"sequence:\n{seq}\nshould be >=2D or empty but has shape {seq_shape}")
+    Values must be a 2D sequence and other parts must broadcast to their shape (each
+    dimension must have the same length or a length of 1). Invalid parts are logged
+    as errors and dropped (values are replaced by an empty sequence).
+    """
+    adapter_name = type(adapter).__name__
+    values_shape = shape_2d(raw_data.get('values'))
+    if values_shape is None:
+        logger.error(f"{adapter_name} returned values which are not a 2D sequence (with "
+                     f"rows of the same length): ignoring them")
+        return {'values': np.array([[]])}
+    checked_data = {}
+    for key, part in raw_data.items():
+        if key != 'values':
+            part_shape = shape_2d(part)
+            broadcastable = part_shape is not None and all(
+                part_length in (1, values_length) or values_length is None
+                for part_length, values_length in zip(part_shape, values_shape)
+            )
+            if not broadcastable:
+                logger.error(f"{adapter_name} returned '{key}' with shape {part_shape}, "
+                             f"which does not broadcast to the shape of its values "
+                             f"{values_shape}: ignoring it")
+                continue
+        checked_data[key] = part
+    return checked_data
 
 
 class AbstractArrayModel(QAbstractTableModel):
@@ -439,11 +457,7 @@ class AbstractArrayModel(QAbstractTableModel):
         # default adapter implementation should affect only numeric cells and use %s for non numeric
         raw_data = self.raw_data
         values = raw_data.get('values', [['']])
-        assert_at_least_2d_or_empty(values)
-
         data_format = raw_data.get('data_format', [['%s']])
-        assert_at_least_2d_or_empty(data_format)
-
         format_and_values = seq_zip_broadcast(data_format, values, ndim=2)
         formatted_values = map_nested_sequence(self._format_value,
                                                format_and_values,
@@ -453,8 +467,6 @@ class AbstractArrayModel(QAbstractTableModel):
         # an expression), while 'editable' is about the data (whether the adapter
         # can modify it), so values are only editable if both allow it
         editable = [[False]] if self.readonly else raw_data.get('editable', [[False]])
-
-        assert_at_least_2d_or_empty(editable)
 
         def editable_to_flags(elem_editable):
             editable_flag = Qt.ItemIsEditable if elem_editable else Qt.NoItemFlags
@@ -484,10 +496,8 @@ class AbstractArrayModel(QAbstractTableModel):
         ]
 
         if 'bg_value' in raw_data and self.bg_gradient is not None:
-            bg_value = raw_data['bg_value']
             # TODO: implement a way to specify bg_gradient per row or per column
-            bg_color = self.bg_gradient[bg_value] if bg_value is not None else None
-            self.processed_data[Qt.BackgroundColorRole] = bg_color
+            self.processed_data[Qt.BackgroundColorRole] = self.bg_gradient[raw_data['bg_value']]
         if 'decoration' in raw_data:
             standardIcon = self.dialog.style().standardIcon
             def make_icon(decoration):
@@ -537,15 +547,12 @@ class AbstractArrayModel(QAbstractTableModel):
             raw_data = np.array([[]])
         if not isinstance(raw_data, dict):
             raw_data = {'values': raw_data}
-        self.raw_data = raw_data
-
         # XXX: currently this can be a view on the original data
-        values = self.raw_data['values']
-        assert_at_least_2d_or_empty(values)
-        self.nrows = len(values)
-        # FIXME: this is problematic for list of sequences
-        first_row = values[0] if len(values) else []
-        self.ncols = len(first_row) if isinstance(first_row, (tuple, list, np.ndarray)) else 1
+        self.raw_data = check_raw_data(raw_data, self.adapter)
+
+        nrows, ncols = shape_2d(self.raw_data['values'])
+        self.nrows = nrows
+        self.ncols = ncols if ncols is not None else 0
         # print(f" > received {self.nrows} rows / {self.ncols} cols")
         self._check_size(shape_rows, shape_cols)
 

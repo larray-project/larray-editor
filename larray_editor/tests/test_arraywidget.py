@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 import os
 
 import larray as la
@@ -8,6 +9,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QApplication
 
 from larray_editor.arraywidget import ArrayEditorWidget
+from larray_editor.utils import logger
 
 
 # TODO: temporary, remove this once these tests are known to work on CI, which runs without
@@ -51,6 +53,18 @@ def test_pandas_series_datetime():
     displayed_text = model.data(model.index(0, 0), Qt.DisplayRole)
     # like a DataFrame column (and Pandas), not like a numpy datetime64
     assert displayed_text == '2024-01-01 00:00:00'
+
+
+def test_empty_array_logs_no_error():
+    logged_errors = []
+    handler = logging.Handler(level=logging.ERROR)
+    handler.emit = logged_errors.append
+    logger.addHandler(handler)
+    try:
+        create_array_widget(la.Array([]))
+    finally:
+        logger.removeHandler(handler)
+    assert logged_errors == []
 
 
 def test_complex_values():
