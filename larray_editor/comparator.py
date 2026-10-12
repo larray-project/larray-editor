@@ -16,6 +16,24 @@ from larray_editor.editor import AbstractEditorWindow
 CAN_CONVERT_TO_LARRAY = (la.Array, np.ndarray, pd.DataFrame)
 
 
+def align_compared_arrays(arrays, join, fill_value):
+    """Align arrays to compare them"""
+    # larray cannot align arrays with anonymous axes (yet), but arrays which all have the same
+    # axes do not need to be aligned. Other arrays are always aligned because aligning also
+    # converts them to a common dtype (e.g. booleans to floats), which changes how they are
+    # compared. Comparing arrays with anonymous axes which differ still fails. So do arrays with
+    # several anonymous axes of the same length: comparing them after stacking them fails (see
+    # _update_from_combined_array), so we keep the clearer align error.
+    # TODO: remove this workaround once larray can align anonymous axes
+    first_axes = arrays[0].axes
+    same_axes = all(array.axes == first_axes for array in arrays[1:])
+    anonymous_lengths = [len(axis) for axis in first_axes if axis.name is None]
+    distinct_anonymous_lengths = len(set(anonymous_lengths)) == len(anonymous_lengths)
+    if same_axes and anonymous_lengths and distinct_anonymous_lengths:
+        return arrays
+    return align_arrays(arrays, join=join, fill_value=fill_value)
+
+
 class ComparatorWidget(QWidget):
     """Comparator Widget"""
     def __init__(self, parent=None, bg_gradient='red-white-blue',
@@ -154,9 +172,9 @@ class ComparatorWidget(QWidget):
             # this also converts string arrays to object arrays because
             # align_arrays computes the common dtype of the arrays *and* the
             # fill_value, which is nan by default
-            aligned_arrays = align_arrays(self.arrays,
-                                          join=align_method,
-                                          fill_value=self.fill_value)
+            aligned_arrays = align_compared_arrays(self.arrays,
+                                                   join=align_method,
+                                                   fill_value=self.fill_value)
             self._combined_array = la.stack(aligned_arrays, stack_axis)
             self._array0 = self._combined_array[stack_axis.i[0]]
         except Exception as e:
@@ -171,6 +189,10 @@ class ComparatorWidget(QWidget):
             return
 
         atol, rtol = self._get_atol_rtol()
+        # TODO: comparing the stacked arrays with the first one requires broadcasting the first
+        #       one, which fails when it has several anonymous axes of the same length (larray
+        #       cannot tell which is which, see larray-project/larray#464). Adding the stack
+        #       axis to the first array before comparing would avoid any broadcasting.
         try:
             # eq does not take atol and rtol into account
             eq = self._combined_array.eq(self._array0,
@@ -437,8 +459,8 @@ class SessionComparatorWindow(AbstractEditorWindow):
         for i, name in enumerate(self.array_names):
             arrays = self.get_arrays(name)
             try:
-                aligned_arrays = align_arrays(arrays, join=align_method,
-                                              fill_value=fill_value)
+                aligned_arrays = align_compared_arrays(arrays, join=align_method,
+                                                       fill_value=fill_value)
                 first_array = aligned_arrays[0]
                 all_equal = all(a.equals(first_array,
                                          rtol=rtol, atol=atol,

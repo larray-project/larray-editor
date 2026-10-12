@@ -48,6 +48,9 @@ Fixes
 * values displayed in scientific notation now show as many significant digits as needed
   (and fit). For example, 150000000 was displayed as 2e+08 instead of 1.5e+08.
 
+* fixed comparing arrays with equal anonymous axes (axes without name). An error was
+  displayed since version 0.35. Comparing arrays whose anonymous axes differ still fails.
+
 * read-only editor windows, such as those opened by :py:obj:`view()`, are read-only again
   (values could be modified since version 0.35).
 

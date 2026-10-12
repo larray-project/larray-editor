@@ -153,7 +153,9 @@ la_scalar_group = sex['M']
 la_float_4d_many_digits = la.random.normal(axes=(age, geo, sex, lipro))
 la_float_4d_many_digits['P01', 'A11', 0] = la.nan
 la_int_1d = la.ndtest(age)
-# FIXME: the new align code makes this fail
+# FIXME: comparing arrays with anonymous axes (like this one) fails, unless they all have the
+#        same axes and no two anonymous axes have the same length, because larray cannot align
+#        them (see test_comparator.py)
 # la_int2d = la.ndtest((30, sex))
 la_int_2d = la.ndtest((age, sex))
 la_float_round_values = la_int_2d.mean(sex)
