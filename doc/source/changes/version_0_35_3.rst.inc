@@ -54,6 +54,9 @@ Fixes
 * fixed modifying values when the Python console is disabled or unavailable (the editor
   crashed).
 
+* fixed modifying values of arrays with the object dtype (e.g. arrays mixing numbers and
+  strings).
+
 * modifying values marks the session as modified again (with a * in the window title),
   as before version 0.35.
 

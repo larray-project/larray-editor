@@ -107,6 +107,22 @@ def test_edit_string_value():
     assert editor.data['arr'].i[0] == 'c'
 
 
+def test_edit_object_value():
+    editor = create_editor(la.Session(arr=la.Array(['a', 1], 'x=x0,x1', dtype=object)),
+                           python_console=False)
+    editor.select_list_item('arr')
+    model = editor.array_widget.model_data
+    # a number
+    model.setData(model.index(0, 0), '100')
+    edited_value = editor.data['arr'].i[0]
+    assert edited_value == 100
+    # not 100+0j (which compares equal to 100)
+    assert isinstance(edited_value, int)
+    # anything else is kept as a string
+    model.setData(model.index(0, 1), 'hello')
+    assert editor.data['arr'].i[1] == 'hello'
+
+
 @needs_qtconsole
 def test_undo_updates_color_scale():
     editor = create_editor(la.Session(arr=la.ndtest((2, 3))))

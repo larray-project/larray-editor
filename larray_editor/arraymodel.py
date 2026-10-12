@@ -1,3 +1,4 @@
+import ast
 import itertools
 
 from qtpy.QtCore import Qt, QModelIndex, QAbstractTableModel, Signal
@@ -883,6 +884,13 @@ class DataArrayModel(AbstractArrayModel):
             return float(value)
         elif is_number_dtype(dtype):
             return int(value)
+        elif dtype.kind == 'O':
+            # object arrays can contain anything: interpret the value as a Python
+            # literal (e.g. a number) if possible, otherwise keep it as a string
+            try:
+                return ast.literal_eval(value)
+            except (ValueError, SyntaxError):
+                return value
         else:
             return complex(value)
 
