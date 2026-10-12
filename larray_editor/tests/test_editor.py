@@ -136,6 +136,25 @@ def test_paste_past_the_last_row_and_column():
                                                 [3, 4, 10]]
 
 
+def test_sorted_array_readonly():
+    editor = create_editor(la.Session(arr=la.ndtest((3, 3))), python_console=False)
+    editor.select_list_item('arr')
+    model = editor.array_widget.model_data
+    with mock.patch('larray_editor.arraymodel.QMessageBox'):
+        # sorting rows by the values of a column
+        editor.array_widget.sort_hlabel(0, 0, False)
+        assert not model.flags(model.index(0, 0)) & Qt.ItemIsEditable
+        assert not model.setData(model.index(0, 0), '100')
+        paste(editor, (0, 0), (0, 0), '100')
+        assert editor.data['arr'].equals(la.ndtest((3, 3)))
+
+        # sorting the labels of an axis
+        editor.select_list_item('arr')
+        editor.array_widget.sort_axis_labels(0, False)
+        assert not model.setData(model.index(0, 0), '100')
+        assert editor.data['arr'].equals(la.ndtest((3, 3)))
+
+
 def test_edit_string_value():
     editor = create_editor(la.Session(arr=la.Array(['a', 'b'], 'x=x0,x1')))
     editor.select_list_item('arr')

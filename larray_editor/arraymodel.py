@@ -968,6 +968,14 @@ class DataArrayModel(AbstractArrayModel):
         """
         if self.readonly:
             return None
+        # The adapter can refuse modifications (e.g. of sorted arrays). Adapters are currently
+        # editable (or not) as a whole, so checking the first cell is enough and avoids fetching
+        # the attributes of the whole selection.
+        # TODO: check each cell when an adapter supports per-cell (or per-column) editability
+        first_cell_data = self.adapter.get_data_values_and_attributes(left, top, left + 1, top + 1)
+        if not broadcast_get(first_cell_data.get('editable', [[False]]), 0, 0):
+            QMessageBox.warning(self.dialog, "Warning", "The selected values cannot be modified")
+            return None
         values = self.convert_values(values)
         if values is None:
             return

@@ -1649,8 +1649,12 @@ class LArrayArrayAdapter(AbstractAdapter):
         # data
         # ====
         chunk_values = self.get_values(h_start, v_start, h_stop, v_stop)
+        # map_filtered_to_global does not take the sort into account, so values of
+        # sorted arrays cannot be modified (the wrong cells would be modified)
+        # TODO: map edits through the sort too (generically, for all editable adapters)
+        editable = not self._current_sort
         chunk_data = {
-            'editable': [[True]],
+            'editable': [[editable]],
             'data_format': [[self._number_format]],
             'values': chunk_values
         }
