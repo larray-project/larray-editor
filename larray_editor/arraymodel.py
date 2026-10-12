@@ -986,13 +986,6 @@ class DataArrayModel(AbstractArrayModel):
         assert values_height == 1 or values_height == selection_height
         assert values_width == 1 or values_width == selection_width
 
-        # convert to local coordinates, limited to the buffer because the
-        # selection can extend beyond it (e.g. a whole column of a large array)
-        local_top = max(top - self.v_offset, 0)
-        local_left = max(left - self.h_offset, 0)
-        local_bottom = min(bottom - self.v_offset, self.nrows)
-        local_right = min(right - self.h_offset, self.ncols)
-
         # compute changes dict (the old values are recorded by the undo/redo command)
         new_values = np.broadcast_to(values, (selection_height, selection_width))
         changes = {(top + j, left + i): new_values[j, i]
@@ -1005,15 +998,15 @@ class DataArrayModel(AbstractArrayModel):
         # will execute them and that will actually modify the array
         self.newChanges.emit(changes)
 
+        # convert to local coordinates, limited to the buffer because the
+        # selection can extend beyond it (e.g. a whole column of a large array)
+        local_top = max(top - self.v_offset, 0)
+        local_left = max(left - self.h_offset, 0)
+        local_bottom = min(bottom - self.v_offset, self.nrows)
+        local_right = min(right - self.h_offset, self.ncols)
         top_left = self.index(local_top, local_left)
         # -1 because Qt index end bounds are inclusive
         bottom_right = self.index(local_bottom - 1, local_right - 1)
-
-        # emitting dataChanged only makes sense because a signal .emit call only returns when all its
-        # slots have executed, so the newChanges signal emitted above has already triggered the whole
-        # chain of code which effectively changes the data
-        if local_top < local_bottom and local_left < local_right:
-            self.dataChanged.emit(top_left, bottom_right)
         return top_left, bottom_right
 
     def setData(self, index, value, role=Qt.EditRole):
