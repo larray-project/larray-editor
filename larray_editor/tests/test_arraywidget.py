@@ -53,6 +53,12 @@ def test_pandas_series_datetime():
     assert displayed_text == '2024-01-01 00:00:00'
 
 
+def test_complex_values():
+    model = create_array_widget(la.Array([1.5 + 2j, 0.5 - 1j], 'x=x0,x1')).model_data
+    displayed_texts = [model.data(model.index(0, col), Qt.DisplayRole) for col in range(2)]
+    assert displayed_texts == ['1.5+2.0j', '0.5-1.0j']
+
+
 def test_row_labels_column_fits_labels_without_column():
     df_without_column = pd.DataFrame(index=['a_long_row_label', 'another_long_row_label'])
     view = create_array_widget(df_without_column).view_vlabels

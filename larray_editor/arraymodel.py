@@ -411,6 +411,11 @@ class AbstractArrayModel(QAbstractTableModel):
 
     def _format_value(self, args):
         fmt, value = args
+        if isinstance(value, (complex, np.complexfloating)):
+            # formatting a complex number with a real number format would discard its
+            # imaginary part, so we format each part separately
+            imag_sign = '-' if np.signbit(value.imag) else '+'
+            return f'{fmt % value.real}{imag_sign}{fmt % abs(value.imag)}j'
         # using str(value) instead of '%s' % value makes it work for
         # tuple value
         # try:

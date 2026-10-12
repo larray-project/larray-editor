@@ -145,3 +145,5 @@ Fixes
 
 * fixed a performance warning displayed when filtering Polars LazyFrames (e.g. Parquet
   files).
+
+* complex numbers are now displayed with their imaginary part.
