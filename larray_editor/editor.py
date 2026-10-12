@@ -544,12 +544,8 @@ class MappingEditorWindow(AbstractEditorWindow):
         self.data = la.Session()
         self.array_widget = ArrayEditorWidget(self, readonly=readonly)
         self.array_widget.dataChanged.connect(self.push_changes)
-        # FIXME: this is currently broken as it fires for each scroll
-        #        we either need to fix model_data.dataChanged (but that might
-        #        be needed for display) or find another way to add a star to
-        #        the window title *only* when the user actually changed
-        #        something
-        # self.array_widget.model_data.dataChanged.connect(self.update_title)
+        # the title shows whether there are unsaved modifications, which depends on canUndo
+        self.edit_undo_stack.canUndoChanged.connect(self.update_title)
 
         if sql_console:
             sql_widget = SQLWidget(self)

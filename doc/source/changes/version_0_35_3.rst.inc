@@ -54,6 +54,9 @@ Fixes
 * fixed modifying values when the Python console is disabled or unavailable (the editor
   crashed).
 
+* modifying values marks the session as modified again (with a * in the window title),
+  as before version 0.35.
+
 * fixed pasting values in large selections (e.g. a whole column of an array with many
   rows). An error was displayed.
 

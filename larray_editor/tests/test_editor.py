@@ -78,6 +78,16 @@ def test_edit_without_console():
     assert editor.data['arr'].i[0, 0] == 100
 
 
+def test_title_shows_unsaved_modifications():
+    editor = create_editor(la.Session(arr=la.ndtest((2, 3))), python_console=False)
+    editor.select_list_item('arr')
+    model = editor.array_widget.model_data
+    model.setData(model.index(0, 0), '100')
+    assert editor.windowTitle().startswith('*')
+    editor.edit_undo_stack.undo()
+    assert not editor.windowTitle().startswith('*')
+
+
 def test_paste_value_in_column_larger_than_buffer():
     editor = create_editor(la.Session(arr=la.ndtest((2000, 3))), python_console=False)
     editor.select_list_item('arr')
