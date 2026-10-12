@@ -2168,7 +2168,8 @@ class ArrayEditorWidget(QWidget):
                 # logger.debug(f"    {cur_colwidth=} {font_metrics.dot_width=} => {avail_width_for_frac_part=}")
                 max_frac_digits = avail_width_for_frac_part // font_metrics.digit_width
                 # logger.debug(f"    {font_metrics.digit_width=} => {max_frac_digits=}")
-                frac_digits = data_frac_digits(finite_sample, max_frac_digits=max_frac_digits)
+                frac_digits = data_frac_digits(finite_sample, max_frac_digits=max_frac_digits,
+                                               scientific=scientific)
                 # logger.info(f"     -> detected {frac_digits=}")
 
             format_letter = 'e' if scientific else 'f'

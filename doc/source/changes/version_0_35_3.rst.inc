@@ -45,6 +45,9 @@ Fixes
 * sorted arrays are read-only for now: modifying one of their values modified another
   value instead.
 
+* values displayed in scientific notation now show as many significant digits as needed
+  (and fit). For example, 150000000 was displayed as 2e+08 instead of 1.5e+08.
+
 * read-only editor windows, such as those opened by :py:obj:`view()`, are read-only again
   (values could be modified since version 0.35).
 

@@ -694,7 +694,7 @@ def _allow_interrupt_qt(qapp_or_eventloop):
 PY312 = sys.version_info >= (3, 12)
 
 
-def data_frac_digits(data: np.ndarray, max_frac_digits: int = 99):
+def data_frac_digits(data: np.ndarray, max_frac_digits: int = 99, scientific: bool = False):
     """
     Determine the minimum number of fractional digits needed to represent the
     data array accurately.
@@ -705,6 +705,10 @@ def data_frac_digits(data: np.ndarray, max_frac_digits: int = 99):
         Input array of numeric values.
     max_frac_digits : int
         Maximum number of fractional digits to consider. Must be >= 0.
+    scientific : bool, optional
+        Whether values are represented in scientific notation, where the
+        fractional digits are those of their mantissa (e.g. 1.5 for 1.5e+08).
+        Defaults to False.
 
     Returns
     -------
@@ -727,9 +731,25 @@ def data_frac_digits(data: np.ndarray, max_frac_digits: int = 99):
     0
     >>> data_frac_digits(np.array([1.0000001]))
     7
+    >>> data_frac_digits(np.array([150_000_000, 230_000_000]), scientific=True)
+    1
+    >>> data_frac_digits(np.array([1.5e-07, 2.3e-07]), scientific=True)
+    1
+    >>> data_frac_digits(np.array([123456789]), scientific=True)
+    8
+    >>> data_frac_digits(np.array([0, 100]), scientific=True)
+    0
     """
     assert isinstance(data, np.ndarray)
     assert isinstance(max_frac_digits, int) and max_frac_digits >= 0
+    if scientific:
+        # mantissas (zero has no exponent and needs no fractional digit)
+        data = data[data != 0]
+        mantissas = data / 10.0 ** np.floor(np.log10(np.abs(data)))
+        # the division can add floating point noise in the last digits (e.g.
+        # 2.3e-07 / 1e-07 is 2.3000000000000003): mantissas are between 1 and
+        # 10, so rounding them to 14 decimals keeps 15 significant digits
+        data = np.round(mantissas, 14)
     if not data.size:
         return 0
     if np.issubdtype(data.dtype, np.integer):
