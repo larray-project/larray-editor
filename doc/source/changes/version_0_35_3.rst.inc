@@ -102,6 +102,10 @@ Fixes
 
 * fixed displaying DataFrames (and other tables) without any column.
 
+* fixed text and CSV files larger than 64 KB: from some line on, lines could be displayed
+  in the wrong row (repeated or shifted by one row) and the files seemed to contain more
+  lines than they do.
+
 * fixed displaying empty CSV files, which made the editor hang.
 
 * files opened to display them (text, CSV, zip, DuckDB, ... files) are now closed when another

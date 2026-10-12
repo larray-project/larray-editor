@@ -3644,7 +3644,11 @@ class TextFileAdapter(AbstractAdapter):
         if must_index:
             logger.debug(f"trying to index up to {approx_v_stop}")
             start_time = time.perf_counter()
-            chunk_start = self._lines_end_index[-1] if self._lines_end_index else 0
+            if self._lines_end_index:
+                # Resume indexing after the last indexed line end (if any)
+                chunk_start = self._lines_end_index[-1] + len(self._lines_end_char)
+            else:
+                chunk_start = 0
             f.seek(chunk_start)
             # TODO: check for off by one error with v_stop
             while (time.perf_counter() - start_time < max_time) and (len(self._lines_end_index) < approx_v_stop) and \
@@ -3657,11 +3661,11 @@ class TextFileAdapter(AbstractAdapter):
                     self._analyze_first_chunk(chunk)
                 self._analyze_chunk(chunk, chunk_start)
                 length_read = len(chunk)
-                # FIXME: this test is buggy.
-                #        * if there was exactly chunk_size left to read, the file might never
-                #          be marked as fully indexed
-                #        * I think there are other (rare) reasons why a read can return
-                #          less bytes than asked for
+                # Reading a (buffered) binary file only returns less bytes than
+                # asked for at the end of the file. If the file ends exactly at the
+                # end of a chunk, it is not marked as fully indexed yet, but the next
+                # read (in this loop, or in the next call if the loop stops before)
+                # returns less bytes than asked for (usually 0), which marks it.
                 if length_read < chunk_size:
                     self._fully_indexed = True
                     # add implicit line end at the end of the file if there isn't an explicit one
