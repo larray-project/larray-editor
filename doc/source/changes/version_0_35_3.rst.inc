@@ -54,6 +54,9 @@ Fixes
 * fixed modifying values when the Python console is disabled or unavailable (the editor
   crashed).
 
+* pasting data which extends past the last row or column of the array now pastes the
+  part which fits and displays a warning (an error was displayed and nothing was pasted).
+
 * pasting text whose lines do not all contain the same number of values now displays a
   clear error message.
 

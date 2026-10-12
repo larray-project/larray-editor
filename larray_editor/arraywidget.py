@@ -2430,6 +2430,12 @@ class ArrayEditorWidget(QWidget):
             row_max = row_min + new_data.shape[0]
         if new_data.shape[1] > 1:
             col_max = col_min + new_data.shape[1]
+        total_rows, total_cols = self.data_adapter.shape2d()
+        clipped = row_max > total_rows or col_max > total_cols
+        if clipped:
+            row_max = min(row_max, total_rows)
+            col_max = min(col_max, total_cols)
+            new_data = new_data[:row_max - row_min, :col_max - col_min]
 
         # FIXME: the way to change data is extremely convoluted (and slightly wrong):
         #        * either Widget.paste or ArrayDelegate.setModelData (via model.setData)
@@ -2497,10 +2503,10 @@ class ArrayEditorWidget(QWidget):
         if result is None:
             return
 
-        # TODO: when pasting near bottom/right boundaries and size of
-        # new_data exceeds destination size, we should either have an error
-        # or clip new_data
         self.view_data.selectionModel().select(QItemSelection(*result), QItemSelectionModel.ClearAndSelect)
+        if clipped:
+            QMessageBox.warning(self, "Warning", "The pasted data did not fit in the array: only "
+                                                 "the part which fits was pasted")
 
     def plot(self):
         from larray_editor.utils import show_figure

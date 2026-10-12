@@ -125,6 +125,17 @@ def test_paste_lines_of_different_lengths():
     assert editor.data['arr'].equals(la.ndtest((2, 3)))
 
 
+def test_paste_past_the_last_row_and_column():
+    editor = create_editor(la.Session(arr=la.ndtest((2, 3))), python_console=False)
+    editor.select_list_item('arr')
+    with mock.patch('larray_editor.arraywidget.QMessageBox') as message_box:
+        paste(editor, (1, 2), (1, 2), '10\t11\n12\t13')
+    message_box.warning.assert_called_once()
+    # only the part which fits is pasted
+    assert editor.data['arr'].data.tolist() == [[0, 1, 2],
+                                                [3, 4, 10]]
+
+
 def test_edit_string_value():
     editor = create_editor(la.Session(arr=la.Array(['a', 'b'], 'x=x0,x1')))
     editor.select_list_item('arr')
