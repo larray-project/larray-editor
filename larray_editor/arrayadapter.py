@@ -1538,6 +1538,8 @@ class LArrayArrayAdapter(AbstractAdapter):
         self._number_format = "%.3f"
 
     def from_clipboard_data_to_model_data(self, list_data):
+        if not list_data:
+            return list_data
         try:
             # index of first cell which contains '\'
             pos_last = next(i for i, v in enumerate(list_data[0]) if '\\' in v)

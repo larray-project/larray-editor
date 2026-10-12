@@ -99,6 +99,22 @@ def test_paste_value_in_column_larger_than_buffer():
     assert (pasted_column == 42).all()
 
 
+def paste(editor, corner1, corner2, text):
+    """Paste text in the selection between two cells (global row, column positions)"""
+    view = editor.array_widget.view_data
+    view.first_selection_corner = corner1
+    view.second_selection_corner = corner2
+    QApplication.clipboard().setText(text)
+    editor.array_widget.paste()
+
+
+def test_paste_empty_clipboard():
+    editor = create_editor(la.Session(arr=la.ndtest((2, 3))), python_console=False)
+    editor.select_list_item('arr')
+    paste(editor, (0, 0), (0, 0), '')
+    assert editor.data['arr'].equals(la.ndtest((2, 3)))
+
+
 def test_edit_string_value():
     editor = create_editor(la.Session(arr=la.Array(['a', 'b'], 'x=x0,x1')))
     editor.select_list_item('arr')

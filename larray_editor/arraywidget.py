@@ -2418,6 +2418,9 @@ class ArrayEditorWidget(QWidget):
         text = str(clipboard.text())
         list_data = [line.split('\t') for line in text.splitlines()]
         list_data = self.data_adapter.from_clipboard_data_to_model_data(list_data)
+        # e.g. empty clipboard
+        if not list_data:
+            return
         new_data = np.array(list_data)
         if new_data.shape[0] > 1:
             row_max = row_min + new_data.shape[0]
