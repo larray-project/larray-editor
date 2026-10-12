@@ -3604,9 +3604,9 @@ class TextFileAdapter(AbstractAdapter):
         # We also need to limit line length (to something like 256Kb?). Beyond that it is
         # probably not a line-based file.
         if len(self._lines_end_index):
-            lines_to_index = max(approx_v_stop - len(self._lines_end_index), 0)
-            data_to_index = lines_to_index * self._avg_bytes_per_line
-            must_index = 0 < data_to_index < 512 * MB
+            nlines_to_index = max(approx_v_stop - len(self._lines_end_index), 0)
+            nbytes_to_index = nlines_to_index * self._avg_bytes_per_line
+            must_index = 0 < nbytes_to_index < 512 * MB
         else:
             # we have not indexed anything yet
             must_index = True
