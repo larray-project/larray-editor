@@ -78,6 +78,17 @@ def test_edit_without_console():
     assert editor.data['arr'].i[0, 0] == 100
 
 
+def test_paste_value_in_column_larger_than_buffer():
+    editor = create_editor(la.Session(arr=la.ndtest((2000, 3))), python_console=False)
+    editor.select_list_item('arr')
+    array_widget = editor.array_widget
+    array_widget.view_data.selectColumn(1)
+    QApplication.clipboard().setText('42')
+    array_widget.paste()
+    pasted_column = editor.data['arr'].i[:, 1]
+    assert (pasted_column == 42).all()
+
+
 def test_edit_string_value():
     editor = create_editor(la.Session(arr=la.Array(['a', 'b'], 'x=x0,x1')))
     editor.select_list_item('arr')

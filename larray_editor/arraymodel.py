@@ -961,22 +961,21 @@ class DataArrayModel(AbstractArrayModel):
         assert values_height == 1 or values_height == selection_height
         assert values_width == 1 or values_width == selection_width
 
-        # convert to local coordinates
-        local_top = top - self.v_offset
-        local_left = left - self.h_offset
-        local_bottom = bottom - self.v_offset
-        local_right = right - self.h_offset
-        assert (local_top >= 0 and local_bottom >= 0 and
-                local_left >= 0 and local_right >= 0)
+        # convert to local coordinates, limited to the buffer because the
+        # selection can extend beyond it (e.g. a whole column of a large array)
+        local_top = max(top - self.v_offset, 0)
+        local_left = max(left - self.h_offset, 0)
+        local_bottom = min(bottom - self.v_offset, self.nrows)
+        local_right = min(right - self.h_offset, self.ncols)
 
         # compute changes dict
         changes = {}
         # requires numpy 1.10
         new_values = np.broadcast_to(values, (selection_height, selection_width))
-        old_values = self.raw_data['values']
+        old_values = self.adapter.get_values(left, top, right, bottom)
         for j in range(selection_height):
             for i in range(selection_width):
-                old_value = old_values[local_top + j, local_left + i]
+                old_value = old_values[j, i]
                 new_value = new_values[j, i]
                 if new_value != old_value:
                     changes[top + j, left + i] = (old_value, new_value)
@@ -995,7 +994,8 @@ class DataArrayModel(AbstractArrayModel):
         # emitting dataChanged only makes sense because a signal .emit call only returns when all its
         # slots have executed, so the newChanges signal emitted above has already triggered the whole
         # chain of code which effectively changes the data
-        self.dataChanged.emit(top_left, bottom_right)
+        if local_top < local_bottom and local_left < local_right:
+            self.dataChanged.emit(top_left, bottom_right)
         return top_left, bottom_right
 
     def setData(self, index, value, role=Qt.EditRole):

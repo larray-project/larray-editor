@@ -2414,9 +2414,6 @@ class ArrayEditorWidget(QWidget):
             QMessageBox.critical(self, "Error", msg)
 
     def paste(self):
-        # FIXME: this now returns coordinates in global space while the rest of
-        #        this function assumes local/buffer space coordinates. But this
-        #        whole "set_values" code should be revisited entirely anyway
         row_min, row_max, col_min, col_max = self.view_data.selection_bounds()
         clipboard = QApplication.clipboard()
         text = str(clipboard.text())

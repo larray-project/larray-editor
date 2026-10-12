@@ -54,6 +54,9 @@ Fixes
 * fixed modifying values when the Python console is disabled or unavailable (the editor
   crashed).
 
+* fixed pasting values in large selections (e.g. a whole column of an array with many
+  rows). An error was displayed.
+
 * background colors are now updated when values are modified, including by undo/redo
   (closes :editor_issue:`159`).
 
