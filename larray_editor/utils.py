@@ -571,31 +571,15 @@ def cached_property(must_invalidate_cache_method):
     return getter_decorator
 
 
+SEQUENCE_TYPES = (tuple, list, np.ndarray, Product)
+
+
 def broadcast_get(seq, row, col):
     # allow "broadcasting" (length one sequences are valid) in either direction
-    if isinstance(seq, (tuple, list, np.ndarray, Product)):
-        # FIXME: does not handle len(seq) == 0 nicely but I am unsure this should be fixed here
-        if len(seq) == 0:
-            print("pouet")
-            return None
-        elif len(seq) == 1:
-            row_data = seq[0]
-        else:
-            row_data = seq[row]
-
-        if isinstance(row_data, (tuple, list, np.ndarray, Product)):
-            # FIXME: does not handle len(row_data) == 0 nicely but I am unsure this should be fixed here
-            if len(row_data) == 0:
-                print("yada")
-                return None
-            elif len(row_data) == 1:
-                return row_data[0]
-            else:
-                return row_data[col]
-            # try:
-            #     return row_data[0] if len(row_data) == 1 else row_data[col]
-            # except IndexError:
-            #     raise IndexError(f"list index {col} if out of range for list of length {len(row_data)}")
+    if isinstance(seq, SEQUENCE_TYPES):
+        row_data = seq[0] if len(seq) == 1 else seq[row]
+        if isinstance(row_data, SEQUENCE_TYPES):
+            return row_data[0] if len(row_data) == 1 else row_data[col]
         else:
             return row_data
     else:
