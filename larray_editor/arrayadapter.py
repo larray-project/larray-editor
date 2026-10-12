@@ -836,10 +836,6 @@ class AbstractAdapter:
                     for row_labels, row_data in zip(vlabels, raw_data)]
         return topheaders + datarows
 
-    # FIXME (unsure this is still the case): this function does not support None axes_names, vlabels and hlabels
-    #        which _selection_data() produces in some cases (notably when working
-    #        on a scalar array). Unsure if we should fix _selection_data or this
-    #        method though.
     def get_combined_values(self, row_min, row_max, col_min, col_max):
         """Return ...
 

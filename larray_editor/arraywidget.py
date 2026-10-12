@@ -799,6 +799,10 @@ class LabelsView(AbstractView):
         AbstractView.__init__(self, parent, model, hpos, vpos)
 
         # FIXME: only have this if the adapter supports any extra action on axes
+        # Only column labels support actions (sort, filter). Filtering larray arrays by
+        # clicking on their row labels was dropped: the index of a clicked label is an
+        # index in the filtered array, which can have fewer axes than the unfiltered one
+        # change_filter expects.
         if self.vpos == TOP:
             self.clicked.connect(self.on_clicked)
 
@@ -813,11 +817,6 @@ class LabelsView(AbstractView):
 
         assert self.vpos == TOP
 
-        # FIXME: global_col_idx works fine for the unfiltered/initial array but on
-        #        an already filtered array it breaks because global_col_idx is the
-        #        idx of the *filtered* array which can contain less axes while
-        #        change_filter (via create_filter_menu) want the index of the
-        #        *unfiltered* array
         adapter = model.adapter
         filtrable = adapter.can_filter_hlabel(1, global_col_idx)
         sortable = adapter.can_sort_hlabel(row_idx, global_col_idx)
