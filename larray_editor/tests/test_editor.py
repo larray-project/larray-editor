@@ -136,6 +136,27 @@ def test_paste_past_the_last_row_and_column():
                                                 [3, 4, 10]]
 
 
+def test_paste_in_many_cells_asks_confirmation():
+    editor = create_editor(la.Session(arr=la.ndtest((2, 3))), python_console=False)
+    editor.select_list_item('arr')
+    with mock.patch('larray_editor.arraywidget.MAX_PASTE_CELLS_WITHOUT_CONFIRMATION', 5), \
+            mock.patch('larray_editor.arraywidget.QMessageBox') as message_box:
+        # refused
+        message_box.question.return_value = message_box.No
+        paste(editor, (0, 0), (1, 2), '42')
+        assert editor.data['arr'].equals(la.ndtest((2, 3)))
+
+        # accepted
+        message_box.question.return_value = message_box.Yes
+        paste(editor, (0, 0), (1, 2), '42')
+        assert (editor.data['arr'] == 42).all()
+
+        # below the threshold, no question asked
+        message_box.question.reset_mock()
+        paste(editor, (0, 0), (1, 1), '43')
+        message_box.question.assert_not_called()
+
+
 def test_sorted_array_readonly():
     editor = create_editor(la.Session(arr=la.ndtest((3, 3))), python_console=False)
     editor.select_list_item('arr')

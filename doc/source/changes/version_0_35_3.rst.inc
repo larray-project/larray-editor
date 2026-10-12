@@ -32,6 +32,9 @@ Miscellaneous improvements
 * when zooming on such plots, X axis tick labels which were hidden for lack of space can now
   be shown on the zoomed plot.
 
+* pasting values in more than 100,000 cells (e.g. a single value in a whole column of a
+  large array) now asks for confirmation first, because it can take a while.
+
 
 Fixes
 ^^^^^

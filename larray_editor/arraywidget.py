@@ -110,6 +110,8 @@ MIN_COLUMN_WIDTH = 30
 MAX_COLUMN_WIDTH = 800
 DEFAULT_COLUMN_WIDTH = 64
 DEFAULT_ROW_HEIGHT = 20
+# pasting in more cells than this asks for confirmation (it gets slow)
+MAX_PASTE_CELLS_WITHOUT_CONFIRMATION = 100_000
 
 
 class FilterBar(QWidget):
@@ -2436,6 +2438,12 @@ class ArrayEditorWidget(QWidget):
             row_max = min(row_max, total_rows)
             col_max = min(col_max, total_cols)
             new_data = new_data[:row_max - row_min, :col_max - col_min]
+        num_cells = (row_max - row_min) * (col_max - col_min)
+        if num_cells > MAX_PASTE_CELLS_WITHOUT_CONFIRMATION:
+            question = f"This will paste values in {num_cells:,} cells. Continue?"
+            answer = QMessageBox.question(self, "Confirmation", question)
+            if answer != QMessageBox.Yes:
+                return
 
         # FIXME: the way to change data is extremely convoluted (and slightly wrong):
         #        * either Widget.paste or ArrayDelegate.setModelData (via model.setData)
