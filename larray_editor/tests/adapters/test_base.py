@@ -6,7 +6,7 @@ import pandas as pd
 
 from larray_editor.arrayadapter import (AbstractAdapter, get_adapter, get_adapter_creator,
                                         register_adapter, update_registered_adapter_types,
-                                        REGISTERED_ADAPTERS, REGISTERED_ADAPTERS_USING_STRINGS)
+                                        ADAPTERS_BY_TYPE, PENDING_ADAPTERS_BY_TYPE_NAME)
 from larray_editor.tests.adapters.common import adapter_values
 
 
@@ -39,8 +39,8 @@ def test_adapter_registered_using_string():
         assert get_adapter_creator(table) is FakeTableAdapter
     finally:
         del sys.modules['fake_lib']
-        REGISTERED_ADAPTERS_USING_STRINGS.pop('fake_lib', None)
-        REGISTERED_ADAPTERS.pop(FakeTable, None)
+        PENDING_ADAPTERS_BY_TYPE_NAME.pop('fake_lib', None)
+        ADAPTERS_BY_TYPE.pop(FakeTable, None)
         update_registered_adapter_types()
 
 

@@ -566,7 +566,7 @@ class MappingEditorWindow(AbstractEditorWindow):
                 self.ipython_kernel = kernel
 
                 text_formatter = kernel.shell.display_formatter.formatters['text/plain']
-                for type_ in arrayadapter.REGISTERED_ADAPTERS:
+                for type_ in arrayadapter.ADAPTERS_BY_TYPE:
                     text_formatter.for_type(type_, void_formatter)
 
                 kernel.shell.push({

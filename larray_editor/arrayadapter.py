@@ -67,12 +67,12 @@ def indirect_sort(seq, ascending):
 # {type: adapter_creator}
 #   where adapter_creator is either an AbstractAdapter subclass or a function taking the object
 #   to display and returning an AbstractAdapter subclass (or an error message)
-REGISTERED_ADAPTERS = {}
+ADAPTERS_BY_TYPE = {}
 # Adapters registered using the name of a type, so that its module (often an optional dependency)
 # is not imported just to register it: {top_module_name: {rest_of_type_name: adapter_creator}}.
-# Entries are moved to REGISTERED_ADAPTERS once their type is loaded.
-REGISTERED_ADAPTERS_USING_STRINGS = {}
-# Keys of REGISTERED_ADAPTERS, subclasses first, to find the adapter of "virtual" subclasses
+# Entries are moved to ADAPTERS_BY_TYPE once their type is loaded.
+PENDING_ADAPTERS_BY_TYPE_NAME = {}
+# Keys of ADAPTERS_BY_TYPE, subclasses first, to find the adapter of "virtual" subclasses
 # (e.g. of collections.abc.Sequence). None until the first lookup.
 REGISTERED_ADAPTER_TYPES = None
 KB = 2 ** 10
@@ -91,11 +91,11 @@ def register_adapter_using_string(target_type: str, adapter_creator):
     """
     assert '.' in target_type
     top_module_name, type_name = target_type.split('.', maxsplit=1)
-    module_adapters = REGISTERED_ADAPTERS_USING_STRINGS.setdefault(top_module_name, {})
+    module_adapters = PENDING_ADAPTERS_BY_TYPE_NAME.setdefault(top_module_name, {})
     if type_name in module_adapters:
         logger.warning(f"Replacing adapter for {target_type}")
     module_adapters[type_name] = adapter_creator
-    # container = REGISTERED_ADAPTERS_USING_STRINGS
+    # container = PENDING_ADAPTERS_BY_TYPE_NAME
     # parts = target_type.split('.')
     # for i, p in enumerate(parts):
     #     if i == len(parts) - 1:
@@ -127,10 +127,10 @@ def register_adapter(target_type, adapter_creator):
         register_adapter_using_string(target_type, adapter_creator)
         return
 
-    if target_type in REGISTERED_ADAPTERS:
+    if target_type in ADAPTERS_BY_TYPE:
         logger.warning(f"Warning: replacing adapter for {target_type}")
 
-    REGISTERED_ADAPTERS[target_type] = adapter_creator
+    ADAPTERS_BY_TYPE[target_type] = adapter_creator
 
     # normally, the list is created only once when a first adapter is
     # asked for, but if an adapter is registered after that point we need
@@ -195,17 +195,17 @@ def path_adapter_for(suffixes, required_module=None):
 def get_adapter_creator_for_type(data_type): # -> AbstractAdapter | func | None:
     # fast path for the most common case: an exact type match. The __mro__ loop
     # below would find it too
-    if data_type in REGISTERED_ADAPTERS:
-        return REGISTERED_ADAPTERS[data_type]
+    if data_type in ADAPTERS_BY_TYPE:
+        return ADAPTERS_BY_TYPE[data_type]
 
     # handle string types. We cannot only consider the module of data_type
     # because some types are defined in a module with another name (e.g.
     # duckdb.DuckDBPyConnection is defined in _duckdb)
-    for top_module_name in list(REGISTERED_ADAPTERS_USING_STRINGS):
+    for top_module_name in list(PENDING_ADAPTERS_BY_TYPE_NAME):
         if top_module_name not in sys.modules:
             continue
         top_module = sys.modules[top_module_name]
-        module_adapters = REGISTERED_ADAPTERS_USING_STRINGS[top_module_name]
+        module_adapters = PENDING_ADAPTERS_BY_TYPE_NAME[top_module_name]
         # register all adapters for that module using concrete types (instead
         # of string types)
         for str_adapter_type, adapter in list(module_adapters.items()):
@@ -222,22 +222,22 @@ def get_adapter_creator_for_type(data_type): # -> AbstractAdapter | func | None:
 
             # cache real adapter type if we have (more) objects of that kind to
             # display later
-            REGISTERED_ADAPTERS[adapter_type] = adapter
+            ADAPTERS_BY_TYPE[adapter_type] = adapter
 
             update_registered_adapter_types()
 
             # remove string form from adapters mapping
             del module_adapters[str_adapter_type]
             if not module_adapters:
-                del REGISTERED_ADAPTERS_USING_STRINGS[top_module_name]
+                del PENDING_ADAPTERS_BY_TYPE_NAME[top_module_name]
 
     # check the classes data_type inherits from (for subclasses of supported types), most
     # specific first. This must be done before checking "virtual" subclasses (below) because
     # many types (e.g. numpy arrays or Polars DataFrames) are also virtual subclasses of
     # collections.abc.Collection, and must use the adapter of their actual parent class instead.
     for cls in data_type.__mro__:
-        if cls in REGISTERED_ADAPTERS:
-            return REGISTERED_ADAPTERS[cls]
+        if cls in ADAPTERS_BY_TYPE:
+            return ADAPTERS_BY_TYPE[cls]
 
     # then check "virtual" subclasses (of abstract classes like
     # collections.abc.Collection, which do not appear in __mro__)
@@ -246,7 +246,7 @@ def get_adapter_creator_for_type(data_type): # -> AbstractAdapter | func | None:
 
     for adapter_type in REGISTERED_ADAPTER_TYPES:
         if issubclass(data_type, adapter_type):
-            return REGISTERED_ADAPTERS[adapter_type]
+            return ADAPTERS_BY_TYPE[adapter_type]
     return None
 
 
@@ -268,7 +268,7 @@ def get_adapter_creator(data): # -> AbstractAdapter | str:
 def update_registered_adapter_types():
     global REGISTERED_ADAPTER_TYPES
 
-    REGISTERED_ADAPTER_TYPES = list(REGISTERED_ADAPTERS.keys())
+    REGISTERED_ADAPTER_TYPES = list(ADAPTERS_BY_TYPE.keys())
     # sort classes with longer MRO first, so that subclasses come before
     # their parent class
     def class_mro_length(cls):
