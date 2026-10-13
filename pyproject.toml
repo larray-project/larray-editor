@@ -105,6 +105,9 @@ filterwarnings = [
     # turn warnings into errors (unless they are explicitly handled in tests or ignored here)
     "error",
     "ignore:Jupyter is migrating its paths to use standard platformdirs.*:DeprecationWarning:jupyter_client.connect.*:",
+    # ipykernel >= 7 warns about the synchronous do_history/do_complete/... methods of its own
+    # IPythonKernel (used by our console)
+    "ignore:For consistency across implementations:PendingDeprecationWarning:ipykernel.kernelbase",
 ]
 
 
