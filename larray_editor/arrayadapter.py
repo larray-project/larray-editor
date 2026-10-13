@@ -64,8 +64,16 @@ def indirect_sort(seq, ascending):
     return sorted(range(len(seq)), key=seq.__getitem__, reverse=not ascending)
 
 
+# {type: adapter_creator}
+#   where adapter_creator is either an AbstractAdapter subclass or a function taking the object
+#   to display and returning an AbstractAdapter subclass (or an error message)
 REGISTERED_ADAPTERS = {}
+# Adapters registered using the name of a type, so that its module (often an optional dependency)
+# is not imported just to register it: {top_module_name: {rest_of_type_name: adapter_creator}}.
+# Entries are moved to REGISTERED_ADAPTERS once their type is loaded.
 REGISTERED_ADAPTERS_USING_STRINGS = {}
+# Keys of REGISTERED_ADAPTERS, subclasses first, to find the adapter of "virtual" subclasses
+# (e.g. of collections.abc.Sequence). None until the first lookup.
 REGISTERED_ADAPTER_TYPES = None
 KB = 2 ** 10
 MB = 2 ** 20
