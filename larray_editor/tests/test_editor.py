@@ -79,6 +79,13 @@ def test_edit_without_console():
     assert editor.data['arr'].i[0, 0] == 100
 
 
+def test_editor_without_any_console():
+    editor = create_editor(la.Session(arr=la.ndtest((2, 3))), python_console=False,
+                           sql_console=False)
+    editor.select_list_item('arr')
+    assert displayed_value(editor, 1, 0) == '3'
+
+
 def test_title_shows_unsaved_modifications():
     editor = create_editor(la.Session(arr=la.ndtest((2, 3))), python_console=False)
     editor.select_list_item('arr')

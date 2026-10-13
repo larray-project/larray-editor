@@ -621,6 +621,8 @@ class MappingEditorWindow(AbstractEditorWindow):
 
             right_panel_widget.setSizes([90, 10])
             self.widgets_to_save_to_settings['right_panel_widget'] = right_panel_widget
+        else:
+            right_panel_widget = self.array_widget
 
         main_splitter = QSplitter(Qt.Horizontal)
         debug = isinstance(data, StackSummary)
