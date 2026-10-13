@@ -97,10 +97,14 @@ def register_adapter_using_string(target_type: str, adapter_creator):
     #     else:
     #         container = container.setdefault(p, {})
 
-# TODO: sadly we cannot use functools.singledispatch because it does not support string types,
-#       but the MRO stuff is a lot better than my own code so I could inspire myself with that.
-#       Ideally, I could add support for string types in singledispatch and propose the addition
-#       to Python
+# TODO: use functools.singledispatch to find the adapter of a type: string types can be
+#       registered in it once resolved to actual types (as get_adapter_creator_for_type does).
+#       It would replace REGISTERED_ADAPTER_TYPES and both loops in get_adapter_creator_for_type
+#       with the same results, caches lookups and orders ABCs properly (but raises an error when
+#       a type is a virtual subclass of two unrelated registered ABCs). Since string types
+#       should then only be resolved (by sweeping all pending ones) on a cache miss, we would
+#       need our own per-type cache in front of it (a WeakKeyDictionary, cleared when an adapter
+#       is registered and when abc.get_cache_token() changes).
 def register_adapter(target_type, adapter_creator):
     """Register an adapter to display a type
 
