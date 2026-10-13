@@ -200,16 +200,13 @@ def get_adapter_creator_for_type(data_type): # -> AbstractAdapter | func | None:
         # register all adapters for that module using concrete types (instead
         # of string types)
         for str_adapter_type, adapter in list(module_adapters.items()):
+            # the type can be in a submodule, which might not be loaded yet
+            *submodule_names, type_name = str_adapter_type.split('.')
             module = top_module
-            # submodule
-            type_name = str_adapter_type
-            while '.' in type_name and module is not None:
-                submodule_name, type_name = type_name.split('.', maxsplit=1)
+            for submodule_name in submodule_names:
                 module = getattr(module, submodule_name, None)
-                # submodule not found (probably not loaded yet)
                 if module is None:
-                    continue
-
+                    break
             adapter_type = getattr(module, type_name, None)
             if adapter_type is None:
                 continue
