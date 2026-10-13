@@ -12,7 +12,9 @@ from typing import Union
 # Python3.8 switched from a Selector to a Proactor based event loop for asyncio but they do not offer the same
 # features, which breaks Tornado and all projects depending on it, including Jupyter consoles
 # ref: https://github.com/larray-project/larray-editor/issues/208
-if sys.platform.startswith("win") and sys.version_info >= (3, 8):
+# Python 3.14 deprecated event loop policies, and the Tornado versions usable with it handle the
+# Proactor event loop themselves
+if sys.platform.startswith("win") and (3, 8) <= sys.version_info < (3, 14):
     import asyncio
 
     try:
