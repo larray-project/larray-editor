@@ -8,6 +8,7 @@ import pytest
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QApplication
 
+from larray_editor import arraywidget
 from larray_editor.arraywidget import ArrayEditorWidget
 from larray_editor.utils import logger
 
@@ -78,3 +79,19 @@ def test_row_labels_column_fits_labels_without_column():
     view = create_array_widget(df_without_column).view_vlabels
     labels_width = view.sizeHintForColumn(0)
     assert view.columnWidth(0) >= labels_width
+
+
+def test_row_labels_view_width_when_auto_width_is_default_width():
+    arr_2d = la.ndtest((2, 2))
+    auto_width = create_array_widget(arr_2d).view_vlabels.columnWidth(0)
+    # the bug only happened when the auto width of the new array was the default width
+    orig_default_width = arraywidget.DEFAULT_COLUMN_WIDTH
+    arraywidget.DEFAULT_COLUMN_WIDTH = auto_width
+    try:
+        widget = create_array_widget(la.ndtest('a=a0'))
+        widget.set_data(arr_2d)
+    finally:
+        arraywidget.DEFAULT_COLUMN_WIDTH = orig_default_width
+    view = widget.view_vlabels
+    columns_width = view.verticalHeader().width() + view.columnWidth(0)
+    assert view.width() == columns_width

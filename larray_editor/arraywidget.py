@@ -465,6 +465,8 @@ class AbstractView(QTableView):
 
         # make the grid a bit more compact
         horizontal_header = self.horizontalHeader()
+        # the sectionResized slots would update the view size once per column and
+        # record these default widths as user-defined widths
         horizontal_header.blockSignals(True)
         horizontal_header.setDefaultSectionSize(DEFAULT_COLUMN_WIDTH)
 
@@ -474,6 +476,8 @@ class AbstractView(QTableView):
             for col in range(self.model().columnCount()):
                 self.setColumnWidth(col, DEFAULT_COLUMN_WIDTH)
         horizontal_header.blockSignals(False)
+        # sectionResized signals were blocked above, so update the view size explicitly
+        self.updateGeometry()
 
         self.verticalHeader().setDefaultSectionSize(DEFAULT_ROW_HEIGHT)
         if self.vpos == TOP:

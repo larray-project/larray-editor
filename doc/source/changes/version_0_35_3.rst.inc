@@ -141,6 +141,9 @@ Fixes
   object is displayed. They were kept open, which prevented renaming or deleting them on
   Windows while the editor was open.
 
+* fixed row labels and axis names sometimes being partially hidden after switching from
+  one array to another (their area kept the width it had for the previous array).
+
 * fixed the selection when dragging the mouse on row or column labels and going back
   (closes :editor_issue:`107`).
 
