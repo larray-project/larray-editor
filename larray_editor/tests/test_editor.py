@@ -310,3 +310,9 @@ def test_sql_history_keeps_last_queries():
             sql_widget.append_to_history(query)
     assert sql_widget.history == ['q2', 'q3', 'q4']
     assert sql_widget.history_index == 3
+
+
+def test_delete_in_empty_list():
+    editor = create_editor(la.Session(), python_console=False)
+    editor.delete_current_item()
+    assert len(editor.data) == 0

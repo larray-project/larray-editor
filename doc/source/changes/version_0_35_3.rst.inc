@@ -168,3 +168,5 @@ Fixes
 * the history of the SQL console is now limited to the last 1000 queries, as intended. When
   the history was longer than that, the most recent queries were skipped when navigating it
   with the up/down arrow keys.
+
+* fixed pressing the Delete key when the list of variables is empty.

@@ -940,6 +940,9 @@ class MappingEditorWindow(AbstractEditorWindow):
 
     def delete_current_item(self):
         current_item = self._listwidget.currentItem()
+        # e.g. empty list
+        if current_item is None:
+            return
         name = str(current_item.text())
         del self.data[name]
         if self.ipython_kernel is not None:
