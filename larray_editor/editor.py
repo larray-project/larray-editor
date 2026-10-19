@@ -1214,7 +1214,7 @@ class MappingEditorWindow(AbstractEditorWindow):
 
     # See http://ipython.readthedocs.io/en/stable/interactive/magics.html#magic-load
     # for ideas (# IPython/core/magics/code.py -> CodeMagics -> load)
-    def _load_script(self, filepath):
+    def _load_script(self, filepath: str):
         assert qtconsole_available
         try:
             with open(filepath, 'r') as f:
@@ -1225,7 +1225,7 @@ class MappingEditorWindow(AbstractEditorWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Cannot load script file {os.path.basename(filepath)}:\n{e}")
 
-    def load_script(self, filepath=None):
+    def load_script(self):
         # %load add automatically the extension .py if not present in passed filename
         dialog = QDialog(self)
         layout = QGridLayout()
@@ -1238,8 +1238,6 @@ class MappingEditorWindow(AbstractEditorWindow):
         browse_combobox.addItems(self.recent_loaded_scripts.files)
         browse_combobox.lineEdit().setPlaceholderText("filepath to the python source")
         browse_button = QPushButton("Browse")
-        if isinstance(filepath, str):
-            browse_combobox.setText(filepath)
         browse_filedialog = QFileDialog(self, filter="Python Script (*.py)")
         browse_filedialog.setFileMode(QFileDialog.ExistingFile)
         browse_button.clicked.connect(browse_filedialog.open)
