@@ -2,6 +2,7 @@ import html
 import os
 import sys
 import traceback
+from collections.abc import Mapping
 from inspect import getframeinfo
 from pathlib import Path
 
@@ -188,7 +189,7 @@ def create_edit_dialog(parent, obj=None, title='', minvalue=None, maxvalue=None,
         if local_vars is not global_vars:
             obj.update({k: local_vars[k] for k in sorted(local_vars.keys())})
 
-    if not isinstance(obj, (la.Session, la.Array)) and hasattr(obj, 'keys'):
+    if isinstance(obj, Mapping):
         obj = la.Session(obj)
 
     if not title and obj is not REOPEN_LAST_FILE:

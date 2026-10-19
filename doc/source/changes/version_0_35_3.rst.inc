@@ -190,3 +190,7 @@ Fixes
 
 * fixed the encoding of some UTF-8 text and CSV files larger than 64 KB being misdetected, which
   garbled their accented characters.
+
+* fixed :py:obj:`edit()` and :py:obj:`view()` displaying Pandas DataFrames and Series passed
+  directly (e.g. ``view(df)``) as a list of variables (one per column or value) instead of
+  displaying them.

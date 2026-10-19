@@ -2,12 +2,15 @@ import os
 from unittest import mock
 
 import larray as la
+import pandas as pd
 import pytest
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QTextCursor
 from qtpy.QtWidgets import QApplication
 
-from larray_editor.editor import REOPEN_LAST_FILE, MappingEditorWindow, qtconsole_available
+from larray_editor.api import create_edit_dialog
+from larray_editor.editor import (REOPEN_LAST_FILE, ArrayEditorWindow, MappingEditorWindow,
+                                  qtconsole_available)
 from larray_editor.tests.adapters.common import needs_polars
 from larray_editor.utils import RecentlyUsedList
 
@@ -316,3 +319,12 @@ def test_delete_in_empty_list():
     editor = create_editor(la.Session(), python_console=False)
     editor.delete_current_item()
     assert len(editor.data) == 0
+
+
+def test_edit_dataframe():
+    global qt_app
+    qt_app = QApplication.instance() or QApplication([])
+    df = pd.DataFrame({'a': [1, 2]})
+    window = create_edit_dialog(None, df, display_caller_info=False)
+    # not a session of its columns
+    assert isinstance(window, ArrayEditorWindow) and window.data is df
