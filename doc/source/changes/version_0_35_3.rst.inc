@@ -194,3 +194,6 @@ Fixes
 * fixed :py:obj:`edit()` and :py:obj:`view()` displaying Pandas DataFrames and Series passed
   directly (e.g. ``view(df)``) as a list of variables (one per column or value) instead of
   displaying them.
+
+* fixed the ``root_path`` argument of :py:obj:`run_editor_on_exception()` when it is a relative path
+  or uses forward slashes on Windows.

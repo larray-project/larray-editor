@@ -368,6 +368,8 @@ def _get_debug_except_hook(root_path=None, usercode_traceback=True, usercode_fra
 
     if root_path is None:
         root_path = os.path.dirname(main_file)
+    # like the file names of frames (see _trace_code_file)
+    root_path = os.path.abspath(root_path)
 
     def excepthook(type_, value, tback):
         # first try to go as far as the main module because in some cases (e.g. when we run the file via a debugger),
