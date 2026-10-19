@@ -170,3 +170,5 @@ Fixes
   with the up/down arrow keys.
 
 * fixed pressing the Delete key when the list of variables is empty.
+
+* fixed displaying IODE scalars files with the .scl extension.

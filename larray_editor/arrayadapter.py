@@ -3021,7 +3021,7 @@ class IodeVariablesPathAdapter(IodeVariablesAdapter):
         return iode.variables
 
 
-@path_adapter_for(('.as', 'scl'), 'iode')
+@path_adapter_for(('.as', '.scl'), 'iode')
 class IodeScalarsPathAdapter(IodeScalarsAdapter):
     @classmethod
     def open(cls, fpath):

@@ -6,7 +6,8 @@ import pandas as pd
 
 from larray_editor.arrayadapter import (AbstractAdapter, get_adapter, get_adapter_creator,
                                         register_adapter, update_registered_adapter_types,
-                                        ADAPTERS_BY_TYPE, PENDING_ADAPTERS_BY_TYPE_NAME)
+                                        ADAPTERS_BY_TYPE, PENDING_ADAPTERS_BY_TYPE_NAME,
+                                        PATH_SUFFIX_ADAPTERS, IodeScalarsPathAdapter)
 from larray_editor.tests.adapters.common import adapter_values
 
 
@@ -82,3 +83,8 @@ def test_vlabels_without_row():
     vlabels = adapter.get_vlabels(0, 0)['values']
     # there must not be a row (without any label)
     assert vlabels == []
+
+
+def test_iode_scalars_suffix():
+    adapter_creator, required_module = PATH_SUFFIX_ADAPTERS['.scl']
+    assert adapter_creator is IodeScalarsPathAdapter
