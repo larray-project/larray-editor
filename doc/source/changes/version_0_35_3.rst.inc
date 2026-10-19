@@ -184,3 +184,6 @@ Fixes
 * filtering or sorting no longer keeps an invisible selection: nothing was displayed as
   selected afterwards, but copying and pasting still used the previously selected cells.
   Since version 0.35.
+
+* fixed text and CSV files larger than 4 MB with Windows line endings: in some cases, from some
+  line on, two lines were displayed as one and all the following lines one row too high.

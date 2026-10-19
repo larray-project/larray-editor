@@ -3642,6 +3642,9 @@ class TextFileAdapter(AbstractAdapter):
             else:
                 chunk_start = 0
             f.seek(chunk_start)
+            # end of the previous chunk which could be the start of a line end
+            # (e.g. \r of \r\n) straddling two chunks
+            prev_chunk_tail = b''
             # TODO: check for off by one error with v_stop
             while (time.perf_counter() - start_time < max_time) and (len(self._lines_end_index) < approx_v_stop) and \
                     not self._fully_indexed:
@@ -3651,7 +3654,8 @@ class TextFileAdapter(AbstractAdapter):
                 chunk = f.read(chunk_size)
                 if chunk_start == 0:
                     self._analyze_first_chunk(chunk)
-                self._analyze_chunk(chunk, chunk_start)
+                self._analyze_chunk(prev_chunk_tail + chunk, chunk_start - len(prev_chunk_tail))
+                prev_chunk_tail = chunk[len(chunk) - len(self._lines_end_char) + 1:]
                 length_read = len(chunk)
                 # Reading a (buffered) binary file only returns less bytes than
                 # asked for at the end of the file. If the file ends exactly at the
