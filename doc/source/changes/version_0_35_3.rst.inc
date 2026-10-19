@@ -200,3 +200,7 @@ Fixes
 
 * changing a filter of a sorted Pandas, Polars or narwhals object now resets the sort, as
   intended. The data stayed sorted while the sort menu said it was not.
+
+* pressing Enter in the list of values of a filter (to select only the current value) is now
+  much faster for long lists: the data was filtered again once per value in the list (e.g.
+  about 30 seconds for a column of 1 million rows with 1000 different values).

@@ -140,8 +140,12 @@ class CombinedSortFilterMenu(QtWidgets.QMenu):
 
     def on_activate(self, row):
         target_item = self._model[row]
+        # block signals to emit checked_items_changed only once (not once per item)
+        self._model.blockSignals(True)
         for item in self._model[1:]:
             item.checked = item is target_item
+        self._model.blockSignals(False)
+        self._update_select_all_and_emit()
 
     def on_model_item_changed(self, item):
         model = self._model

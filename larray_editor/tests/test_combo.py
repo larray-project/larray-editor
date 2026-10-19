@@ -36,3 +36,15 @@ def test_key_release_in_sort_only_menu():
     with mock.patch.object(menu, 'hide') as hide:
         menu.eventFilter(menu, tab_release)
     hide.assert_called_once()
+
+
+def test_activate_filter_item():
+    menu = create_menu(filtrable=True)
+    menu.addItems(['a', 'b', 'c'])
+    emitted = []
+    menu.checked_items_changed.connect(emitted.append)
+
+    # activating (e.g. pressing Enter on) an item checks only that item, and the filter is
+    # updated once
+    menu.on_activate(2)
+    assert emitted == [[1]]
