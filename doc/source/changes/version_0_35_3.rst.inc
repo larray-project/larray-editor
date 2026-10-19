@@ -217,3 +217,6 @@ Fixes
 * fixed selecting all values (or none) in the filter of columns with more than 1000 different
   values (in Pandas, Polars, narwhals and DuckDB objects): only the rows matching the first
   1000 values were displayed.
+
+* dates and durations of Pandas DataFrames and Series stored in HDF (.h5) files are now
+  displayed as such instead of as (large) integers.

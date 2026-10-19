@@ -3166,6 +3166,18 @@ class AbstractPyTablesPandasAdapter(AbstractColumnarAdapter):
         super().__init__(data=data, attributes=attributes)
         self._encoding = getattr(data._v_attrs, 'encoding', None)
 
+    @staticmethod
+    def _as_dates_or_durations(values, kind):
+        """
+        Return values as dates or durations if their kind (as stored by Pandas) is one of those.
+
+        Pandas stores dates and durations as int64. kind is None for nodes which do not record it.
+        """
+        if kind is None or not kind.startswith(('datetime64', 'timedelta64')):
+            return values
+        # older Pandas versions store the kind without unit (nanoseconds)
+        return values.view(kind if '[' in kind else f'{kind}[ns]')
+
     def _get_index_names(self, prefix: str) -> list[str]:
         """
         Return the names of an index.
@@ -3200,7 +3212,7 @@ class AbstractPyTablesPandasAdapter(AbstractColumnarAdapter):
                 assert len(obj_data) == 1
                 stored_labels = obj_data[0][start:stop]
             else:
-                stored_labels = index_node[start:stop]
+                stored_labels = self._as_dates_or_durations(index_node[start:stop], kind)
             if kind == 'string' and self._encoding is not None:
                 index_labels = np.char.decode(stored_labels, encoding=self._encoding)
             else:
@@ -3217,7 +3229,7 @@ class AbstractPyTablesPandasAdapter(AbstractColumnarAdapter):
                 max_label_x = chunk_label_x.max()
                 level_node = group._f_get_child(f'{prefix}_level{i}')
                 kind = level_node._v_attrs.kind
-                index_level_x = level_node[:max_label_x + 1]
+                index_level_x = self._as_dates_or_durations(level_node[:max_label_x + 1], kind)
                 # missing labels (e.g. NaN) are stored as -1
                 missing = chunk_label_x < 0
                 stored_labels_x = index_level_x[chunk_label_x[~missing]]
@@ -3280,6 +3292,9 @@ class PyTablesPandasFrameAdapter(AbstractPyTablesPandasAdapter):
         # Pandas >= 3, which use one 1D block per column.
         self._blocks = [node.read()[0] if isinstance(node, tables.VLArray) else node
                         for node in self._block_values_nodes]
+        # only dates and durations blocks have a value_type
+        self._block_value_types = [getattr(node._v_attrs, 'value_type', None)
+                                   for node in self._block_values_nodes]
 
         if nblocks > 1:
             col_names = self._read_items(data.axis0).tolist()
@@ -3334,7 +3349,8 @@ class PyTablesPandasFrameAdapter(AbstractPyTablesPandasAdapter):
             block = self._blocks[0]
             if block.ndim == 1:
                 return block[v_start:v_stop].reshape(-1, 1)[:, h_start:h_stop]
-            return block[v_start:v_stop, h_start:h_stop]
+            chunk = block[v_start:v_stop, h_start:h_stop]
+            return self._as_dates_or_durations(chunk, self._block_value_types[0])
         else:
             # TODO: for performance, we should probably read all columns from
             #       the same block at once
@@ -3346,7 +3362,8 @@ class PyTablesPandasFrameAdapter(AbstractPyTablesPandasAdapter):
                     chunk = block[v_start:v_stop]
                 else:
                     chunk = block[v_start:v_stop, idx_in_block]
-                np_columns.append(chunk)
+                value_type = self._block_value_types[block_idx]
+                np_columns.append(self._as_dates_or_durations(chunk, value_type))
 
             return np.stack(np_columns, axis=1, dtype=object)
 
@@ -3357,6 +3374,8 @@ class PyTablesPandasSeriesAdapter(AbstractPyTablesPandasAdapter):
 
         super().__init__(data=data, attributes=attributes)
         values_node = data._f_get_child('values')
+        # only dates and durations have a value_type
+        self._value_type = getattr(values_node._v_attrs, 'value_type', None)
         if isinstance(values_node, tables.VLArray):
             # stored as a single blob (which we cannot slice on disk) so we
             # load it once
@@ -3377,7 +3396,8 @@ class PyTablesPandasSeriesAdapter(AbstractPyTablesPandasAdapter):
         return [['']]
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
-        return self._values[v_start:v_stop].reshape(-1, 1)
+        values = self._as_dates_or_durations(self._values[v_start:v_stop], self._value_type)
+        return values.reshape(-1, 1)
 
 
 # larray stores Axis and Group objects as series

@@ -1,9 +1,12 @@
+import datetime as dt
+
 import larray as la
 import numpy as np
 import pandas as pd
 import pytest
 from larray.tests.common import needs_pytables
 
+from larray_editor.arrayadapter import get_adapter
 from larray_editor.tests.adapters.common import adapter_values, hdf_adapter_values
 
 
@@ -63,6 +66,37 @@ def test_pytables_pandas_multiindex_with_missing_label(tmp_path):
     missing_label, *other_row_values = rows[1]
     assert pd.isna(missing_label) and other_row_values == [1, 1]
     assert rows[2] == ['b', 2, 2]
+
+
+@needs_pytables
+def test_pytables_pandas_dates(tmp_path):
+    # Pandas stores them as int64. In seconds (unlike nanoseconds), tolist (in hdf_adapter_values)
+    # returns datetime objects instead of ints
+    jan1 = dt.datetime(2020, 1, 1)
+    dates = pd.DatetimeIndex([jan1], name='d').as_unit('s')
+    df = pd.DataFrame({'dt': dates, 'f': [1.5]}, index=dates)
+    assert hdf_adapter_values(df, tmp_path) == [['d', 'dt', 'f'],
+                                                [jan1, jan1, 1.5]]
+
+    series = pd.Series(dates, index=pd.MultiIndex.from_arrays([['x'], dates]))
+    assert hdf_adapter_values(series, tmp_path) == [[None, 'd', ''],
+                                                    ['x', jan1, jan1]]
+
+
+@needs_pytables
+def test_pytables_pandas_durations(tmp_path):
+    import tables
+
+    fpath = tmp_path / 'test.h5'
+    # in nanoseconds, the only unit Pandas < 3 reads back correctly (and which tolist cannot
+    # convert to timedelta objects)
+    durations = pd.to_timedelta(['1h']).as_unit('ns')
+    pd.DataFrame({'td': durations}, index=durations).to_hdf(fpath, key='df')
+    with tables.open_file(fpath) as f:
+        adapter = get_adapter(f.root.df)
+        vlabels = adapter.get_vlabels_values(0, 1)
+        values = adapter.get_values(0, 0, 1, 1)
+    assert vlabels.dtype == values.dtype == 'timedelta64[ns]'
 
 
 @needs_pytables
