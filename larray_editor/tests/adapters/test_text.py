@@ -31,3 +31,14 @@ def test_text_file_crlf_line_end_straddling_chunks(tmp_path):
     num_indexed_lines = adapter.shape2d()[0]
     adapter.close()
     assert num_indexed_lines == num_lines
+
+
+def test_utf8_text_file_with_character_straddling_first_chunk(tmp_path):
+    # the first 64 KB chunk (used to detect the encoding) ends in the middle of the é of the
+    # 9363th line (each line is 7 bytes long)
+    fpath = tmp_path / 'utf8.txt'
+    fpath.write_bytes('zélie\n'.encode('utf8') * 10_000)
+    adapter = get_adapter(fpath)
+    first_line = adapter.get_values(0, 0, 1, 1)
+    adapter.close()
+    assert first_line == [['zélie']]

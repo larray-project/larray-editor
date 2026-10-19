@@ -187,3 +187,6 @@ Fixes
 
 * fixed text and CSV files larger than 4 MB with Windows line endings: in some cases, from some
   line on, two lines were displayed as one and all the following lines one row too high.
+
+* fixed the encoding of some UTF-8 text and CSV files larger than 64 KB being misdetected, which
+  garbled their accented characters.

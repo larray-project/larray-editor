@@ -3653,7 +3653,11 @@ class TextFileAdapter(AbstractAdapter):
                 #       (once for indexing then again for getting the data)
                 chunk = f.read(chunk_size)
                 if chunk_start == 0:
-                    self._analyze_first_chunk(chunk)
+                    first_lines = chunk
+                    # a full chunk can end in the middle of a line (and of a character)
+                    if len(chunk) == chunk_size:
+                        first_lines = chunk[:chunk.rfind(b'\n') + 1] or chunk
+                    self._analyze_first_chunk(first_lines)
                 self._analyze_chunk(prev_chunk_tail + chunk, chunk_start - len(prev_chunk_tail))
                 prev_chunk_tail = chunk[len(chunk) - len(self._lines_end_char) + 1:]
                 length_read = len(chunk)
