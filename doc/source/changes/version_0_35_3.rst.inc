@@ -213,3 +213,7 @@ Fixes
 
 * fixed filtering Pandas DataFrame columns of strings, booleans or categories containing
   missing values.
+
+* fixed selecting all values (or none) in the filter of columns with more than 1000 different
+  values (in Pandas, Polars, narwhals and DuckDB objects): only the rows matching the first
+  1000 values were displayed.

@@ -594,7 +594,11 @@ class AbstractAdapter:
     #       AND possibly h/vlabels and
     #       must update the current command
     def get_filter_options(self, filter_idx) -> Optional[list]:
-        """return [combo_values]"""
+        """return [combo_values]
+
+        This is called on each filter update (see _single_column_filter), so implementations
+        should cache the options when computing them is expensive.
+        """
         return None
 
     def update_filter(self, filter_idx, indices):
@@ -608,6 +612,17 @@ class AbstractAdapter:
             Indices of selected labels.
         """
         raise NotImplementedError()
+
+    def _single_column_filter(self, filter_idx, indices):
+        """
+        Return the filter (a {filter_idx: indices} dict) selecting the given options of filter_idx.
+
+        Selecting all the options, or none, means no filter ({}): the options can be truncated
+        (see MAX_FILTER_OPTIONS), so filtering on all of them would hide the rows with other values.
+        """
+        if not indices or len(indices) == len(self.get_filter_options(filter_idx)):
+            return {}
+        return {filter_idx: indices}
 
     def get_current_filter_indices(self, filter_idx):
         """Returns indices currently selected for a given filter.
@@ -2039,9 +2054,7 @@ class PandasDataFrameAdapter(AbstractColumnarAdapter):
             return unq_values
 
     def update_filter(self, filter_idx, indices):
-        if not indices:
-            indices = list(range(len(self.get_filter_options(filter_idx))))
-        self.current_filter = cur_filter = {filter_idx: indices}
+        self.current_filter = cur_filter = self._single_column_filter(filter_idx, indices)
         self.filtered_data = self._filter_data(self.data, cur_filter)
         self.sorted_data = self._sort_data(self.filtered_data)
         if self.attributes is not None:
@@ -2500,9 +2513,7 @@ class PolarsDataFrameAdapter(AbstractColumnarAdapter):
         """
         # only allow filtering a single columns for now (by not keeping previous
         # filters)
-        if not indices:
-            indices = list(range(len(self.get_filter_options(filter_idx))))
-        self.current_filter = cur_filter = {filter_idx: indices}
+        self.current_filter = cur_filter = self._single_column_filter(filter_idx, indices)
         self.filtered_data = self._filter_data(self.data, cur_filter)
         self.sorted_data = self._sort_data(self.filtered_data)
         if self.attributes is not None:
@@ -2615,9 +2626,7 @@ class PolarsSeriesAdapter(AbstractAdapter):
         """
         # only allow filtering a single columns for now (by not keeping previous
         # filters)
-        if not indices:
-            indices = list(range(len(self.get_filter_options(filter_idx))))
-        self.current_filter = cur_filter = {filter_idx: indices}
+        self.current_filter = cur_filter = self._single_column_filter(filter_idx, indices)
         self.filtered_data = self._filter_data(self.data, cur_filter)
         self.sorted_data = self._sort_data(self.filtered_data)
         if self.attributes is not None:
@@ -2720,9 +2729,7 @@ class PolarsLazyFrameAdapter(AbstractColumnarAdapter):
         # only allow filtering a single columns for now (by not keeping previous
         # filters)
         import polars as pl
-        if not indices:
-            indices = list(range(len(self.get_filter_options(filter_idx))))
-        self.current_filter = cur_filter = {filter_idx: indices}
+        self.current_filter = cur_filter = self._single_column_filter(filter_idx, indices)
         self.filtered_data = self._filter_data(self.data, cur_filter)
         self.sorted_data = self._sort_data(self.filtered_data)
         len_query = self.filtered_data.select(pl.len())
@@ -2842,9 +2849,7 @@ class NarwhalsLazyFrameAdapter(PolarsLazyFrameAdapter):
     # overridden just to use nw.len() instead of pl.len()
     def update_filter(self, filter_idx, indices):
         nw = sys.modules['narwhals']
-        if not indices:
-            indices = list(range(len(self.get_filter_options(filter_idx))))
-        self.current_filter = cur_filter = {filter_idx: indices}
+        self.current_filter = cur_filter = self._single_column_filter(filter_idx, indices)
         self.filtered_data = self._filter_data(self.data, cur_filter)
         self.sorted_data = self._sort_data(self.filtered_data)
         len_query = self.filtered_data.select(nw.len())
@@ -4448,9 +4453,7 @@ class DuckDBRelationAdapter(AbstractColumnarAdapter):
         """
         # only allow filtering a single columns for now (by not keeping previous
         # filters)
-        if not indices:
-            indices = list(range(len(self.get_filter_options(filter_idx))))
-        self.current_filter = {filter_idx: indices}
+        self.current_filter = self._single_column_filter(filter_idx, indices)
         self._numrows = len(self._add_filters(self.data))
 
 

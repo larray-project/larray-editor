@@ -1,5 +1,6 @@
 import datetime as dt
 import warnings
+from unittest import mock
 
 from larray_editor.arrayadapter import get_adapter
 from larray_editor.tests.adapters.common import adapter_values, needs_polars
@@ -66,3 +67,21 @@ def test_polars_missing_integers():
     assert adapter_values(series) == [['', 'i'],
                                       [0, 1],
                                       [1, None]]
+
+
+@needs_polars
+def test_polars_filter_select_all_truncated_options():
+    import polars
+
+    df = polars.DataFrame({'a': [1, 2, 3, 4, 5]})
+    for obj in [df, df.lazy(), df['a']]:
+        adapter = get_adapter(obj)
+        with mock.patch('larray_editor.arrayadapter.MAX_FILTER_OPTIONS', 3):
+            assert len(adapter.get_filter_options(0)) == 3
+            adapter.update_filter(0, [0])
+            # selecting all the (truncated) options
+            adapter.update_filter(0, [0, 1, 2])
+            assert adapter.shape2d()[0] == 5
+            # selecting none of them
+            adapter.update_filter(0, [])
+            assert adapter.shape2d()[0] == 5

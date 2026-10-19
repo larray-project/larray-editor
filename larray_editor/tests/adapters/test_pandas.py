@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pandas as pd
 
 from larray_editor.arrayadapter import get_adapter
@@ -33,3 +35,16 @@ def test_pandas_missing_integers():
     assert adapter_values(df['i']) == [[None, ''],
                                        [0, 1],
                                        [1, None]]
+
+
+def test_pandas_filter_select_all_truncated_options():
+    adapter = get_adapter(pd.DataFrame({'a': [1, 2, 3, 4, 5]}))
+    with mock.patch('larray_editor.arrayadapter.MAX_FILTER_OPTIONS', 3):
+        assert len(adapter.get_filter_options(0)) == 3
+        adapter.update_filter(0, [0])
+        # selecting all the (truncated) options
+        adapter.update_filter(0, [0, 1, 2])
+        assert adapter.shape2d() == (5, 1)
+        # selecting none of them
+        adapter.update_filter(0, [])
+        assert adapter.shape2d() == (5, 1)
