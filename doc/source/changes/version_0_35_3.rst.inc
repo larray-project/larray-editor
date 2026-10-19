@@ -210,3 +210,6 @@ Fixes
 
 * when closing the editor and choosing to save the modifications, a failed save now cancels
   closing the editor. It was closed anyway and the modifications were lost.
+
+* fixed filtering Pandas DataFrame columns of strings, booleans or categories containing
+  missing values.

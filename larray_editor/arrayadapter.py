@@ -2033,12 +2033,7 @@ class PandasDataFrameAdapter(AbstractColumnarAdapter):
 
             col_values = df.iloc[:, filter_idx]
             assert isinstance(col_values, pd.Series)
-            unique_values = col_values.unique()
-            if not isinstance(unique_values, np.ndarray):
-                # for some kinds of columns (eg. datetime), unique() returns a
-                # pandas ExtensionArray instead of a numpy array
-                unique_values = unique_values.to_numpy()
-            unique_values.sort()
+            unique_values = col_values.drop_duplicates().sort_values().to_numpy()
             unq_values = unique_values[:MAX_FILTER_OPTIONS]
             self._unq_values_per_column[filter_idx] = unq_values
             return unq_values
@@ -2055,13 +2050,20 @@ class PandasDataFrameAdapter(AbstractColumnarAdapter):
                                         for k, v in self.attributes.items()}
 
     def _filter_data(self, data, cur_filter):
+        pd = sys.modules['pandas']
         df = data
         columns = df.columns
         for col_idx, filtered_indices in cur_filter.items():
             col_name = columns[col_idx]
             col_unq_values = self._unq_values_per_column[col_idx]
             filtered_values = col_unq_values[filtered_indices]
-            df = df[df[col_name].isin(filtered_values)]
+            col_values = df[col_name]
+            mask = col_values.isin(filtered_values)
+            # isin does not match different kinds of missing values (e.g. None
+            # in the column with nan in the filter options)
+            if pd.isna(filtered_values).any():
+                mask |= col_values.isna()
+            df = df[mask]
         return df
 
 
