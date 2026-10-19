@@ -663,7 +663,7 @@ class MappingEditorWindow(AbstractEditorWindow):
         # check if reopen last opened file
         if data is REOPEN_LAST_FILE:
             if len(self.recent_data_files.files) > 0:
-                data = self.recent_data_file.files[0]
+                data = self.recent_data_files.files[0]
             else:
                 data = la.Session()
 

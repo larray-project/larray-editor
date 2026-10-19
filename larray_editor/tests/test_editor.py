@@ -6,7 +6,8 @@ import pytest
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QApplication
 
-from larray_editor.editor import MappingEditorWindow, qtconsole_available
+from larray_editor.editor import REOPEN_LAST_FILE, MappingEditorWindow, qtconsole_available
+from larray_editor.utils import RecentlyUsedList
 
 
 # TODO: temporary, remove this once these tests are known to work on CI, which runs without
@@ -77,6 +78,18 @@ def test_edit_without_console():
     model = editor.array_widget.model_data
     model.setData(model.index(0, 0), '100')
     assert editor.data['arr'].i[0, 0] == 100
+
+
+def test_reopen_last_file(tmp_path):
+    fpath = tmp_path / 'arr.csv'
+    la.ndtest((2, 3)).to_csv(fpath)
+    # the files property is mocked to avoid modifying the user's actual recent files
+    # and qtconsole_available to avoid starting an IPython kernel
+    with mock.patch.object(RecentlyUsedList, 'files', new_callable=mock.PropertyMock,
+                           return_value=[str(fpath)]), \
+            mock.patch('larray_editor.editor.qtconsole_available', False):
+        editor = create_editor(REOPEN_LAST_FILE)
+    assert editor.data['arr'].equals(la.ndtest((2, 3)))
 
 
 def test_editor_without_any_console():

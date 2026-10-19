@@ -156,3 +156,5 @@ Fixes
   files).
 
 * complex numbers are now displayed with their imaginary part.
+
+* fixed :py:obj:`edit()` with ``REOPEN_LAST_FILE`` when there were recently opened files.
