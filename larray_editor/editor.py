@@ -555,6 +555,8 @@ class MappingEditorWindow(AbstractEditorWindow):
         else:
             sql_widget = None
         self.sql_widget = sql_widget
+        # stays None without Python console
+        self.eval_box = None
         if python_console:
             if qtconsole_available:
                 # silence a warning on Python 3.11 (see issue #263)
@@ -762,9 +764,11 @@ class MappingEditorWindow(AbstractEditorWindow):
         if self.ipython_kernel is not None:
             self.ipython_kernel.shell.reset()
             self.ipython_cell_executed()
-        else:
+        elif self.eval_box is not None:
             self.eval_box.setText('None')
             self.line_edit_update()
+        else:
+            self.view_expr(None, 'None')
 
     def _setup_file_menu(self, menu_bar):
         file_menu = menu_bar.addMenu('&File')
@@ -1111,7 +1115,7 @@ class MappingEditorWindow(AbstractEditorWindow):
                 # self.kernel.shell.set_next_input(expr, replace=True)
                 # self.kernel_client.input(expr)
                 pass
-            else:
+            elif self.eval_box is not None:
                 self.eval_box.setText(expr)
 
     def update_title(self):

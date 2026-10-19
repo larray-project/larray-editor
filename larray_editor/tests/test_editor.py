@@ -97,6 +97,32 @@ def test_reopen_last_file(tmp_path):
     assert editor.data['arr'].equals(la.ndtest((2, 3)))
 
 
+def test_editor_without_python_console_reset(tmp_path):
+    fpath = tmp_path / 'arr2.csv'
+    la.ndtest(2).to_csv(fpath)
+    # record unhandled exceptions, including those raised in Qt slots (e.g. when selecting a
+    # variable), which PyQt passes to sys.excepthook (with the default hook, PyQt aborts the
+    # whole test process instead)
+    unhandled_exceptions = []
+    excepthook = mock.patch('sys.excepthook',
+                            lambda type_, value, tb: unhandled_exceptions.append(value))
+    # without qtconsole, the editor would use a line edit if python_console was True
+    with excepthook, mock.patch('larray_editor.editor.qtconsole_available', False):
+        editor = create_editor(la.Session(arr=la.ndtest((2, 3))), python_console=False)
+        editor.select_list_item('arr')
+        assert unhandled_exceptions == []
+        editor.new()
+        assert len(editor.data) == 0
+        # opening a file also resets the editor (the recent files are mocked to avoid modifying
+        # the user's actual recent files)
+        with mock.patch.object(RecentlyUsedList, 'files', new_callable=mock.PropertyMock,
+                               return_value=[]), \
+                mock.patch('larray_editor.editor.QMessageBox') as message_box:
+            editor._open_file(str(fpath))
+    message_box.critical.assert_not_called()
+    assert list(editor.data.keys()) == ['arr2']
+
+
 def test_editor_without_any_console():
     editor = create_editor(la.Session(arr=la.ndtest((2, 3))), python_console=False,
                            sql_console=False)
