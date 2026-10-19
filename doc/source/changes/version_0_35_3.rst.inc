@@ -197,3 +197,6 @@ Fixes
 
 * fixed the ``root_path`` argument of :py:obj:`run_editor_on_exception()` when it is a relative path
   or uses forward slashes on Windows.
+
+* changing a filter of a sorted Pandas, Polars or narwhals object now resets the sort, as
+  intended. The data stayed sorted while the sort menu said it was not.

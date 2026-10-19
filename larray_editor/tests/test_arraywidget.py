@@ -120,3 +120,17 @@ def test_filter_clears_selection():
     widget.filter_bar.change_filter(0, [0])
     # without selection, the bounds cover the whole (filtered) array
     assert view.selection_bounds() == (0, 4, 0, 5)
+
+
+def test_filter_resets_sort():
+    df = pd.DataFrame({'a': [1, 2, 3], 'b': ['x', 'y', 'x']})
+    widget = create_array_widget(df)
+    # descending
+    widget.sort_hlabel(0, 0, False)
+    # keep only rows where b is x (the filter menu fetches the options first)
+    widget.data_adapter.get_filter_options(1)
+    widget.filter_bar.change_filter(1, [0])
+    model = widget.model_data
+    displayed_a = [model.data(model.index(row, 0), Qt.DisplayRole) for row in range(2)]
+    assert widget.data_adapter.get_current_sort() == []
+    assert displayed_a == ['1', '3']

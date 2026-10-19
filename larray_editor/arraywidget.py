@@ -184,8 +184,9 @@ class FilterBar(QWidget):
         old_v_pos = vscrollbar.value()
         old_h_pos = hscrollbar.value()
         old_nrows, old_ncols = data_adapter.shape2d()
-        data_adapter.update_filter(filter_idx, indices)
+        # changing the filter resets the sort
         data_adapter._current_sort = []
+        data_adapter.update_filter(filter_idx, indices)
         # TODO: this does too much work (it sets the adapters even
         #       if those do not change and sets v_offset/h_offset to 0 when we
         #       do not *always* want to do so) and maybe too little
