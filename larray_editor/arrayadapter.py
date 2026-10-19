@@ -171,6 +171,10 @@ def register_path_adapter(suffixes, adapter_creator, required_module=None):
     if isinstance(suffixes, str):
         suffixes = [suffixes]
     for suffix in suffixes:
+        # they are compared with the lowercase suffix of paths (e.g. '.csv')
+        if not suffix.startswith('.') or suffix != suffix.lower():
+            raise ValueError(f"invalid suffix '{suffix}': suffixes must start with a dot and be "
+                             "lowercase")
         if suffix in PATH_SUFFIX_ADAPTERS:
             logger.warning(f"Replacing path adapter for {suffix}")
         PATH_SUFFIX_ADAPTERS[suffix] = (adapter_creator, required_module)

@@ -3,11 +3,12 @@ import types
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from larray_editor.arrayadapter import (AbstractAdapter, get_adapter, get_adapter_creator,
                                         register_adapter, update_registered_adapter_types,
                                         ADAPTERS_BY_TYPE, PENDING_ADAPTERS_BY_TYPE_NAME,
-                                        PATH_SUFFIX_ADAPTERS, IodeScalarsPathAdapter,
+                                        PATH_SUFFIX_ADAPTERS, IodeScalarsPathAdapter, register_path_adapter,
                                         WorkbookAdapter)
 from larray_editor.tests.adapters.common import adapter_values
 
@@ -89,6 +90,15 @@ def test_vlabels_without_row():
 def test_iode_scalars_suffix():
     adapter_creator, required_module = PATH_SUFFIX_ADAPTERS['.scl']
     assert adapter_creator is IodeScalarsPathAdapter
+
+
+def test_register_path_adapter_invalid_suffix():
+    # without leading dot
+    with pytest.raises(ValueError, match="invalid suffix 'scl'"):
+        register_path_adapter('scl', IodeScalarsPathAdapter)
+    # uppercase
+    with pytest.raises(ValueError, match="invalid suffix '.SCL'"):
+        register_path_adapter('.SCL', IodeScalarsPathAdapter)
 
 
 def test_workbook_sheets_not_sortable():
