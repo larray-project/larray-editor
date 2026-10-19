@@ -204,3 +204,6 @@ Fixes
 * pressing Enter in the list of values of a filter (to select only the current value) is now
   much faster for long lists: the data was filtered again once per value in the list (e.g.
   about 30 seconds for a column of 1 million rows with 1000 different values).
+
+* fixed missing (NaN) labels in multi-level indexes of Pandas objects stored in HDF (.h5)
+  files: another label was displayed instead.

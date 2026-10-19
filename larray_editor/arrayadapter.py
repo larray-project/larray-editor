@@ -3209,15 +3209,24 @@ class AbstractPyTablesPandasAdapter(AbstractColumnarAdapter):
                 chunk_label_x = label_node[start:stop]
                 max_label_x = chunk_label_x.max()
                 level_node = group._f_get_child(f'{prefix}_level{i}')
-                index_level_x = level_node[:max_label_x + 1]
-                chunk_level_x = index_level_x[chunk_label_x]
                 kind = level_node._v_attrs.kind
+                index_level_x = level_node[:max_label_x + 1]
+                # missing labels (e.g. NaN) are stored as -1
+                missing = chunk_label_x < 0
+                stored_labels_x = index_level_x[chunk_label_x[~missing]]
                 if kind == 'string':
                     has_strings = True
-                    if self._encoding is not None:
-                        chunk_level_x = np.char.decode(chunk_level_x, encoding=self._encoding)
                 else:
                     has_non_strings = True
+                if kind == 'string' and self._encoding is not None:
+                    present_labels_x = np.char.decode(stored_labels_x, encoding=self._encoding)
+                else:
+                    present_labels_x = stored_labels_x
+                if missing.any():
+                    chunk_level_x = np.full(len(chunk_label_x), np.nan, dtype=object)
+                    chunk_level_x[~missing] = present_labels_x
+                else:
+                    chunk_level_x = present_labels_x
                 chunks.append(chunk_level_x)
             if has_strings and has_non_strings:
                 labels = np.stack(chunks, axis=0, dtype=object)

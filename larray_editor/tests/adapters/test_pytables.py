@@ -57,6 +57,15 @@ def test_pytables_pandas_series(tmp_path):
 
 
 @needs_pytables
+def test_pytables_pandas_multiindex_with_missing_label(tmp_path):
+    index = pd.MultiIndex.from_arrays([[np.nan, 'b'], [1, 2]], names=['i', 'j'])
+    rows = hdf_adapter_values(pd.DataFrame({'x': [1, 2]}, index=index), tmp_path)
+    missing_label, *other_row_values = rows[1]
+    assert pd.isna(missing_label) and other_row_values == [1, 1]
+    assert rows[2] == ['b', 2, 2]
+
+
+@needs_pytables
 def test_pytables_larray_axis_and_group(tmp_path):
     axis = la.Axis('a=a0..a2')
     assert hdf_adapter_values(axis, tmp_path) == [[None, ''],
