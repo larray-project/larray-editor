@@ -1847,6 +1847,10 @@ class WorkbookAdapter(SequenceAdapter):
     def get_hlabels_values(self, start, stop):
         return [['sheet name']]
 
+    def can_sort_hlabel(self, row_idx, col_idx):
+        # sheets cannot be compared
+        return False
+
     def get_values(self, h_start, v_start, h_stop, v_stop):
         return [[sheet_name]
                 for sheet_name in self._sheet_names[v_start:v_stop]]

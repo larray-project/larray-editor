@@ -172,3 +172,5 @@ Fixes
 * fixed pressing the Delete key when the list of variables is empty.
 
 * fixed displaying IODE scalars files with the .scl extension.
+
+* the list of sheets of Excel files no longer offers to sort them, which did not work.
