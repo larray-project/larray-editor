@@ -174,3 +174,6 @@ Fixes
 * fixed displaying IODE scalars files with the .scl extension.
 
 * the list of sheets of Excel files no longer offers to sort them, which did not work.
+
+* error messages containing text which looks like HTML tags (e.g. "<class 'int'>") are now
+  displayed fully in the error dialog (that text was missing).

@@ -1,3 +1,4 @@
+import html
 import os
 import sys
 import traceback
@@ -288,7 +289,8 @@ def qt_display_exception(exception, parent=None):
     # in some rare cases (I have only seen Polars do this) the str itself
     # (not the traceback) contains many lines
     # exception_str = '\n'.join(limit_lines(str(exception)))
-    exception_str = '<br>'.join(limit_lines(str(exception)))
+    exception_lines = limit_lines(str(exception))
+    exception_str = '<br>'.join(html.escape(line, quote=False) for line in exception_lines)
     msg = f"<b>Oops, something went wrong</b><p>{exception_str}</p>"
     detailed_text = ''.join(tb_lines)
 
