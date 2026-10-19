@@ -145,12 +145,18 @@ class CombinedSortFilterMenu(QtWidgets.QMenu):
 
     def on_model_item_changed(self, item):
         model = self._model
-        model.blockSignals(True)
         if item.index().row() == 0:
             # (un)check first => (un)check others
+            model.blockSignals(True)
             for other in model[1:]:
                 other.checked = item.checked
+            model.blockSignals(False)
+        self._update_select_all_and_emit()
 
+    def _update_select_all_and_emit(self):
+        """Update the "(select all)" item from the others and emit checked_items_changed"""
+        model = self._model
+        model.blockSignals(True)
         items_checked = [item for item in model[1:] if item.checked]
         num_checked = len(items_checked)
 
