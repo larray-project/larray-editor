@@ -1498,7 +1498,7 @@ class MappingEditorWindow(AbstractEditorWindow):
                        if self._display_in_varlist(k, v)}
         if not in_var_list:
             QMessageBox.warning(self, "Warning", "Nothing to save")
-            return
+            return False
 
         to_save = {k: v for k, v in in_var_list.items()
                    if isinstance(v, CAN_BE_SAVED)}
@@ -1507,7 +1507,7 @@ class MappingEditorWindow(AbstractEditorWindow):
                    "all the currently loaded variables "
                    "are of types which are not supported for saving.")
             QMessageBox.warning(self, "Warning: unsavable objects", msg)
-            return
+            return False
 
         unsaveable = in_var_list.keys() - to_save.keys()
         if unsaveable:
@@ -1523,8 +1523,10 @@ class MappingEditorWindow(AbstractEditorWindow):
             self.edit_undo_stack.clear()
             self.unsaved_modifications = False
             self.statusBar().showMessage(f"Arrays saved in file {filepath}", 4000)
+            return True
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Something went wrong during save in file {filepath}:\n{e}")
+            return False
 
     def save_data(self):
         """
@@ -1534,8 +1536,7 @@ class MappingEditorWindow(AbstractEditorWindow):
             whether or not the data was actually saved
         """
         if self.current_file is not None:
-            self._save_data(self.current_file)
-            return True
+            return self._save_data(self.current_file)
         else:
             return self.save_data_as()
 
@@ -1545,9 +1546,7 @@ class MappingEditorWindow(AbstractEditorWindow):
         dialog.setWindowModality(Qt.WindowModal)
         dialog.setAcceptMode(QFileDialog.AcceptSave)
         accepted = dialog.exec_() == QDialog.Accepted
-        if accepted:
-            self._save_data(dialog.selectedFiles()[0])
-        return accepted
+        return accepted and self._save_data(dialog.selectedFiles()[0])
 
     def load_example(self):
         if self._ask_to_save_if_unsaved_modifications():

@@ -207,3 +207,6 @@ Fixes
 
 * fixed missing (NaN) labels in multi-level indexes of Pandas objects stored in HDF (.h5)
   files: another label was displayed instead.
+
+* when closing the editor and choosing to save the modifications, a failed save now cancels
+  closing the editor. It was closed anyway and the modifications were lost.

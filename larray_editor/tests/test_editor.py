@@ -354,3 +354,18 @@ def test_edit_dataframe():
     window = create_edit_dialog(None, df, display_caller_info=False)
     # not a session of its columns
     assert isinstance(window, ArrayEditorWindow) and window.data is df
+
+
+def test_failed_save_cancels_closing():
+    editor = create_editor(la.Session(arr=la.ndtest((2, 3))), python_console=False)
+    editor.select_list_item('arr')
+    model = editor.array_widget.model_data
+    model.setData(model.index(0, 0), '100')
+    editor.current_file = 'test.h5'
+    failing_save = mock.patch.object(la.Session, 'save', side_effect=OSError('disk full'))
+    with failing_save, mock.patch('larray_editor.editor.QMessageBox') as message_box:
+        # the user chooses to save the modifications
+        message_box.warning.return_value = message_box.Save
+        can_continue = editor._ask_to_save_if_unsaved_modifications()
+    message_box.critical.assert_called_once()
+    assert not can_continue
