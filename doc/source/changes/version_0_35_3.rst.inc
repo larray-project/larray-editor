@@ -180,3 +180,7 @@ Fixes
 
 * fixed copying, pasting and plotting a selection extended with Shift+click: only the clicked
   cell was used (since version 0.35).
+
+* filtering or sorting no longer keeps an invisible selection: nothing was displayed as
+  selected afterwards, but copying and pasting still used the previously selected cells.
+  Since version 0.35.

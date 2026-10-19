@@ -109,3 +109,14 @@ def test_shift_click_extends_selection():
     click(3, 3, Qt.ShiftModifier)
     # row_min, row_max, col_min, col_max (exclusive max)
     assert view.selection_bounds() == (1, 4, 1, 4)
+
+
+def test_filter_clears_selection():
+    arr = la.ndtest((3, 4, 5))
+    widget = create_array_widget(arr)
+    view = widget.view_data
+    view.first_selection_corner = view.second_selection_corner = (10, 2)
+    # keep only a0
+    widget.filter_bar.change_filter(0, [0])
+    # without selection, the bounds cover the whole (filtered) array
+    assert view.selection_bounds() == (0, 4, 0, 5)

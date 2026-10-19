@@ -1899,6 +1899,9 @@ class ArrayEditorWidget(QWidget):
         self.model_hlabels.set_adapter(self.data_adapter)
         self.model_vlabels.set_adapter(self.data_adapter)
         self.model_data.set_adapter(self.data_adapter)
+        # resetting the models clears the (Qt) selection
+        self.view_data.first_selection_corner = None
+        self.view_data.second_selection_corner = None
 
     def refresh_data(self):
         """Fetch and display the data again (e.g. after it was modified)"""
