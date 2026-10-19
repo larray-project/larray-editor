@@ -215,7 +215,7 @@ class CombinedSortFilterMenu(QtWidgets.QMenu):
             key = event.key()
 
             # tab key closes the popup
-            if obj == self._list_view.window() and key == QtCore.Qt.Key_Tab:
+            if obj == self and key == QtCore.Qt.Key_Tab:
                 self.hide()
 
             # return key activates *one* item and closes the popup
