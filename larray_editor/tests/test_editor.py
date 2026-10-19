@@ -297,3 +297,16 @@ def test_sql_word_prefix_at_start_of_query():
     sql_widget.setPlainText('my_')
     sql_widget.moveCursor(QTextCursor.End)
     assert sql_widget.get_word_prefix() == 'my_'
+
+
+@needs_polars
+def test_sql_history_keeps_last_queries():
+    editor = create_editor(la.Session(), python_console=False, sql_console=True)
+    sql_widget = editor.sql_widget
+    # discard the history loaded from the user settings
+    sql_widget.history = []
+    with mock.patch('larray_editor.sql.MAX_SQL_QUERIES', 3):
+        for query in ['q1', 'q2', 'q3', 'q4']:
+            sql_widget.append_to_history(query)
+    assert sql_widget.history == ['q2', 'q3', 'q4']
+    assert sql_widget.history_index == 3

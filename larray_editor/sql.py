@@ -269,7 +269,7 @@ name).
             history.append(sql_text)
         if len(history) > MAX_SQL_QUERIES:
             # keep the last N entries
-            history = history[-MAX_SQL_QUERIES:]
+            del history[:-MAX_SQL_QUERIES]
         self.history_index = len(history)
 
     def _fetch_table(self, table_name):

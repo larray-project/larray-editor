@@ -164,3 +164,7 @@ Fixes
 
 * fixed autocompletion in the SQL console when the query is a single word ending with an
   underscore (e.g. ``my_``).
+
+* the history of the SQL console is now limited to the last 1000 queries, as intended. When
+  the history was longer than that, the most recent queries were skipped when navigating it
+  with the up/down arrow keys.
