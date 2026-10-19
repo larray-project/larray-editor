@@ -161,3 +161,6 @@ Fixes
 
 * fixed using the keyboard in the sort menu of the column labels of 2D arrays, lists or
   dictionaries (menus without filter).
+
+* fixed autocompletion in the SQL console when the query is a single word ending with an
+  underscore (e.g. ``my_``).

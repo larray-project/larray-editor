@@ -4,9 +4,11 @@ from unittest import mock
 import larray as la
 import pytest
 from qtpy.QtCore import Qt
+from qtpy.QtGui import QTextCursor
 from qtpy.QtWidgets import QApplication
 
 from larray_editor.editor import REOPEN_LAST_FILE, MappingEditorWindow, qtconsole_available
+from larray_editor.tests.adapters.common import needs_polars
 from larray_editor.utils import RecentlyUsedList
 
 
@@ -286,3 +288,12 @@ def test_undo_updates_color_scale():
     assert model.data(max_cell, Qt.BackgroundRole) != max_cell_color
     editor.edit_undo_stack.undo()
     assert model.data(max_cell, Qt.BackgroundRole) == max_cell_color
+
+
+@needs_polars
+def test_sql_word_prefix_at_start_of_query():
+    editor = create_editor(la.Session(), python_console=False, sql_console=True)
+    sql_widget = editor.sql_widget
+    sql_widget.setPlainText('my_')
+    sql_widget.moveCursor(QTextCursor.End)
+    assert sql_widget.get_word_prefix() == 'my_'

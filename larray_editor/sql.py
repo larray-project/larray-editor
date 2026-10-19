@@ -239,7 +239,7 @@ name).
         assert 0 <= cursor_pos <= len(text), f"{cursor_pos=} {len(text)=}"
         word_start = cursor_pos
         while (word_start > 0 and
-               text[word_start - 1].isalnum() or text[word_start - 1] == '_'):
+               (text[word_start - 1].isalnum() or text[word_start - 1] == '_')):
             word_start -= 1
         return text[word_start:cursor_pos]
 
