@@ -4309,6 +4309,12 @@ SQLITE_LIST_TABLES_QUERY = ("SELECT name "
                             "WHERE type='table' AND name NOT LIKE 'sqlite_%'")
 
 
+def quote_sql_identifier(name):
+    """Quote a (table or column) name to use it in an SQL query"""
+    escaped_name = name.replace('"', '""')
+    return f'"{escaped_name}"'
+
+
 class SQLiteTable:
     def __init__(self, con, name):
         self.con = con
@@ -4323,7 +4329,7 @@ class SQLiteTableAdapter(AbstractColumnarAdapter):
     def __init__(self, data, attributes):
         assert isinstance(data, SQLiteTable)
         super().__init__(data=data, attributes=attributes)
-        table_name = self.data.name
+        table_name = quote_sql_identifier(self.data.name)
         cur = self.data.con.cursor()
         cur.execute(f"SELECT count(*) FROM {table_name}")
         self._numrows = cur.fetchone()[0]
@@ -4339,17 +4345,17 @@ class SQLiteTableAdapter(AbstractColumnarAdapter):
 
     def get_values(self, h_start, v_start, h_stop, v_stop):
         cur = self.data.con.cursor()
-        cols = self._columns[h_start:h_stop]
+        cols = [quote_sql_identifier(col) for col in self._columns[h_start:h_stop]]
         if self._current_sort:
             col_names = [
-                f"{self._columns[col_idx]}{'' if ascending else ' DESC'}"
+                f"{quote_sql_identifier(self._columns[col_idx])}{'' if ascending else ' DESC'}"
                 for axis, col_idx, ascending in self._current_sort
             ]
             order_by = f" ORDER BY {', '.join(col_names)}"
         else:
             order_by = ""
         query = f"""\
-SELECT {', '.join(cols)} FROM {self.data.name}{order_by}
+SELECT {', '.join(cols)} FROM {quote_sql_identifier(self.data.name)}{order_by}
 LIMIT {v_stop - v_start} OFFSET {v_start}"""
         cur.execute(query)
         rows = cur.fetchall()

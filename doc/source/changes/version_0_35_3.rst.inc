@@ -220,3 +220,6 @@ Fixes
 
 * dates and durations of Pandas DataFrames and Series stored in HDF (.h5) files are now
   displayed as such instead of as (large) integers.
+
+* fixed displaying and sorting SQLite tables whose name or column names contain spaces or are
+  SQL keywords.
