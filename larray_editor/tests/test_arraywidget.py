@@ -6,6 +6,7 @@ import larray as la
 import pandas as pd
 import pytest
 from qtpy.QtCore import Qt
+from qtpy.QtTest import QTest
 from qtpy.QtWidgets import QApplication
 
 from larray_editor import arraywidget
@@ -95,3 +96,16 @@ def test_row_labels_view_width_when_auto_width_is_default_width():
     view = widget.view_vlabels
     columns_width = view.verticalHeader().width() + view.columnWidth(0)
     assert view.width() == columns_width
+
+
+def test_shift_click_extends_selection():
+    view = create_array_widget(la.ndtest((5, 5))).view_data
+
+    def click(row, column, modifier=Qt.NoModifier):
+        cell_center = view.visualRect(view.model().index(row, column)).center()
+        QTest.mouseClick(view.viewport(), Qt.LeftButton, modifier, cell_center)
+
+    click(1, 1)
+    click(3, 3, Qt.ShiftModifier)
+    # row_min, row_max, col_min, col_max (exclusive max)
+    assert view.selection_bounds() == (1, 4, 1, 4)

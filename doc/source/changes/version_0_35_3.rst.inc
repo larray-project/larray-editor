@@ -177,3 +177,6 @@ Fixes
 
 * error messages containing text which looks like HTML tags (e.g. "<class 'int'>") are now
   displayed fully in the error dialog (that text was missing).
+
+* fixed copying, pasting and plotting a selection extended with Shift+click: only the clicked
+  cell was used (since version 0.35).

@@ -1153,7 +1153,10 @@ class DataView(AbstractView):
         super().mousePressEvent(event)
         if event.button() == Qt.LeftButton:
             cursor_global_pos = self.get_cursor_global_pos()
-            if cursor_global_pos is not None:
+            # Shift+click extends the selection from its first corner (like Qt)
+            extend_selection = (event.modifiers() & Qt.ShiftModifier and
+                                self.first_selection_corner is not None)
+            if cursor_global_pos is not None and not extend_selection:
                 self.first_selection_corner = cursor_global_pos
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
